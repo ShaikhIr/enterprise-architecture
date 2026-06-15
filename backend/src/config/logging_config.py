@@ -62,7 +62,7 @@ def configure_file_logging() -> None:
             '"logger": "%(name)s", "module": "%(module)s", '
             '"function": "%(funcName)s", "message": "%(message)s"}'
         ),
-        datefmt="%Y-%m-%dT%H:%M:%S.%f%z",
+        datefmt="%Y-%m-%dT%H:%M:%S",
     )
     handler.setFormatter(formatter)
     handler.setLevel(getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO))

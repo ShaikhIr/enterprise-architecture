@@ -1,6 +1,6 @@
 """
 User management API endpoints.
-Protected by authentication and RBAC.
+Protected by authentication and RBAC via FastAPI dependencies.
 """
 
 from uuid import UUID, uuid4
@@ -13,7 +13,6 @@ from src.api.v1.dependencies import (
 )
 from src.api.v1.schemas.user_request import CreateUserRequest, UpdateUserRequest
 from src.api.v1.schemas.user_response import UserListResponse, UserResponse
-from src.common.decorators.log_execution import log_execution
 from src.domain.entities.user import User
 from src.domain.repositories.user_repository import UserRepositoryInterface
 from src.infrastructure.security.password_encoder import hash_password
@@ -26,13 +25,11 @@ router = APIRouter(prefix="/users", tags=["Users"])
     "",
     response_model=UserListResponse,
     summary="List all users (ADMIN only)",
+    dependencies=[Depends(require_role("ADMIN"))],
 )
-@log_execution
-@require_role("ADMIN")
 async def list_users(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=100, ge=1, le=500),
-    current_user: User = Depends(get_current_active_user),
     user_repo: UserRepositoryInterface = Depends(get_user_repository),
 ) -> UserListResponse:
     """GET /api/v1/users - List users with pagination."""
@@ -50,9 +47,8 @@ async def list_users(
     response_model=UserResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Create a new user (ADMIN only)",
+    dependencies=[Depends(require_role("ADMIN"))],
 )
-@log_execution
-@require_role("ADMIN")
 async def create_user(
     request: CreateUserRequest,
     current_user: User = Depends(get_current_active_user),
@@ -83,7 +79,6 @@ async def create_user(
     response_model=UserResponse,
     summary="Get user by ID",
 )
-@log_execution
 async def get_user(
     user_id: UUID,
     current_user: User = Depends(get_current_active_user),
@@ -103,9 +98,8 @@ async def get_user(
     "/{user_id}",
     response_model=UserResponse,
     summary="Update user (ADMIN only)",
+    dependencies=[Depends(require_role("ADMIN"))],
 )
-@log_execution
-@require_role("ADMIN")
 async def update_user(
     user_id: UUID,
     request: UpdateUserRequest,
