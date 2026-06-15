@@ -13,6 +13,8 @@ import { Button } from 'primereact/button';
 import { Message } from 'primereact/message';
 import { useAppDispatch, useAppSelector } from '@app/store';
 import { loginThunk, clearError } from '../store/authSlice';
+import emcureLogo from '@assets/images/emcure-logo.svg';
+
 
 const loginSchema = z.object({
   username: z.string().min(3, 'Username must be at least 3 characters'),
@@ -57,10 +59,10 @@ export const LoginPage = () => {
             className="text-3xl font-bold mb-2"
             style={{ color: 'var(--color-primary)' }}
           >
-            EMCURE
+            <img src={emcureLogo} alt="Emcure — cure and beyond" style={{ height: '56px', width: 'auto' }} />
           </div>
           <span style={{ color: 'var(--color-text-secondary)' }}>
-            Sign in to your account
+            Enterprise App Template
           </span>
         </div>
 
