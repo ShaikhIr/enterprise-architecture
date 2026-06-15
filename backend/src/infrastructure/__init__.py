@@ -1,1 +1,1 @@
-# Infrastructure Layer - adapters, external services, persistence
+# Infrastructure Layer

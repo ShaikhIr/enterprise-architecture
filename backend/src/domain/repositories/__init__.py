@@ -1,1 +1,1 @@
-# Repository Interfaces (Ports) - dependency inversion
+# Repository Interfaces (Ports)

@@ -1,1 +1,1 @@
-# API v1 Schemas (Request/Response models)
+# API v1 Schemas
