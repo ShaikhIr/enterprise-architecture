@@ -1,11 +1,6 @@
-"""
-OAuth2/OIDC provider integration (Azure AD).
+"""Azure AD / Microsoft SSO integration adapter."""
 
-This module re-exports the Azure SSO client for convenience.
-The actual implementation lives in src/infrastructure/external/azure_sso/.
-"""
-
-from src.infrastructure.external.azure_sso import (
+from src.infrastructure.external.azure_sso.azure_client import (
     AzureAuthError,
     AzureSsoClient,
     AzureSsoError,

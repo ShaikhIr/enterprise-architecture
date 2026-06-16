@@ -5,6 +5,7 @@
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { LoginPage } from '@features/authentication/pages/LoginPage';
+import { MicrosoftCallbackPage } from '@features/authentication/pages/MicrosoftCallbackPage';
 import { UserListPage } from '@features/user-management/pages/UserListPage';
 import { MainLayout } from '@app/layouts/MainLayout';
 import { PrivateRoute } from './PrivateRoute';
@@ -15,6 +16,7 @@ export const AppRouter = () => {
       <Routes>
         {/* Public routes */}
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/auth/microsoft/callback" element={<MicrosoftCallbackPage />} />
 
         {/* Protected routes with layout */}
         <Route

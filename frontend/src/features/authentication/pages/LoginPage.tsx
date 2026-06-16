@@ -6,13 +6,16 @@
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { InputText } from 'primereact/inputtext';
 import { Password } from 'primereact/password';
 import { Button } from 'primereact/button';
+import { Divider } from 'primereact/divider';
 import { Message } from 'primereact/message';
 import { useAppDispatch, useAppSelector } from '@app/store';
 import { loginThunk, clearError } from '../store/authSlice';
+import { microsoftApi } from '../api/microsoftApi';
 import emcureLogo from '@assets/images/emcure-logo.svg';
 
 
@@ -27,6 +30,7 @@ export const LoginPage = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { isLoading, error } = useAppSelector((state) => state.auth);
+  const [msLoading, setMsLoading] = useState(false);
 
   const {
     register,
@@ -44,6 +48,18 @@ export const LoginPage = () => {
       const redirect = sessionStorage.getItem('redirectAfterLogin') || '/dashboard';
       sessionStorage.removeItem('redirectAfterLogin');
       navigate(redirect);
+    }
+  };
+
+  const handleMicrosoftLogin = async () => {
+    setMsLoading(true);
+    try {
+      const res = await microsoftApi.getLoginUrl();
+      window.location.href = res.auth_url;
+    } catch {
+      dispatch(clearError());
+      // Show error inline
+      setMsLoading(false);
     }
   };
 
@@ -137,6 +153,26 @@ export const LoginPage = () => {
             aria-label="Sign in"
           />
         </form>
+
+        {/* Divider */}
+        <Divider align="center" className="my-4">
+          <span style={{ color: 'var(--color-text-muted)', fontSize: '12px' }}>OR</span>
+        </Divider>
+
+        {/* Microsoft SSO Button */}
+        <Button
+          type="button"
+          label="Sign in with Microsoft"
+          icon="pi pi-microsoft"
+          className="w-full p-button-outlined"
+          loading={msLoading}
+          onClick={handleMicrosoftLogin}
+          aria-label="Sign in with Microsoft"
+          style={{
+            borderColor: 'var(--color-surface-border)',
+            color: 'var(--color-text-primary)',
+          }}
+        />
       </div>
     </div>
   );

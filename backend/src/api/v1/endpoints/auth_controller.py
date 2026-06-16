@@ -5,7 +5,7 @@ Handles login and token refresh operations.
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from src.api.v1.dependencies import get_auth_manager, get_current_active_user
+from src.api.v1.dependencies import get_auth_manager, get_current_active_user, get_user_repository
 from src.api.v1.schemas.auth_schema import (
     LoginRequest,
     RefreshRequest,
@@ -114,3 +114,156 @@ async def get_me(current_user: User = Depends(get_current_active_user)) -> dict:
         "role": current_user.role,
         "is_active": current_user.is_active,
     }
+
+
+# ─── Microsoft OAuth2 / Azure AD SSO ───
+
+
+@router.get(
+    "/microsoft/login",
+    summary="Get Microsoft SSO login URL",
+    description="Returns the Azure AD authorization URL for browser redirect.",
+)
+async def microsoft_login() -> dict:
+    """
+    GET /api/v1/auth/microsoft/login
+
+    Returns the Azure AD OAuth2 authorization URL.
+    Frontend should redirect the browser to the returned auth_url.
+    Returns 501 if Azure SSO is not configured.
+    """
+    from src.infrastructure.external.azure_sso import AzureSsoClient
+
+    client = AzureSsoClient()
+    if not client.is_configured:
+        raise HTTPException(
+            status_code=status.HTTP_501_NOT_IMPLEMENTED,
+            detail="Microsoft SSO is not configured on this server",
+        )
+
+    auth_url, redirect_uri = client.build_authorization_url()
+    return {"auth_url": auth_url, "redirect_uri": redirect_uri}
+
+
+@router.post(
+    "/microsoft/callback",
+    response_model=TokenResponse,
+    summary="Exchange Microsoft auth code for tokens",
+    description="Exchanges Azure AD authorization code for application JWT pair.",
+)
+@log_execution
+async def microsoft_callback(
+    body: dict,
+    user_repo=Depends(get_user_repository),
+) -> TokenResponse:
+    """
+    POST /api/v1/auth/microsoft/callback
+
+    Flow:
+    1. Exchange code for Microsoft access_token via AzureSsoClient
+    2. Fetch Graph profile (UPN, email, employeeId, name)
+    3. Look up local user by username (email)
+    4. If not found → auto-provision with is_active=True
+    5. Issue app JWT pair
+    6. Return token response
+
+    Errors:
+        400: Missing code or exchange failure
+        403: User account is inactive/blocked
+        501: Azure SSO not configured
+    """
+    from uuid import uuid4
+
+    from src.infrastructure.external.azure_sso import (
+        AzureAuthError,
+        AzureSsoClient,
+        AzureTokenMissingError,
+        AzureUnavailableError,
+    )
+    from src.infrastructure.security.jwt_provider import JWTProvider
+    from src.infrastructure.security.password_encoder import hash_password
+    import secrets
+
+    client = AzureSsoClient()
+    if not client.is_configured:
+        raise HTTPException(
+            status_code=status.HTTP_501_NOT_IMPLEMENTED,
+            detail="Microsoft SSO is not configured on this server",
+        )
+
+    code = (body.get("code") or "").strip()
+    if not code:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Authorization code is required",
+        )
+
+    # Exchange code for Microsoft tokens + Graph profile
+    try:
+        ms_user = await client.exchange_code_for_profile(code)
+    except AzureTokenMissingError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Failed to obtain access token from Microsoft",
+        )
+    except AzureAuthError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=exc.detail)
+    except AzureUnavailableError:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Could not reach Microsoft authentication service",
+        )
+
+    # Extract user info from Graph profile
+    upn = ms_user.get("userPrincipalName") or ms_user.get("mail") or ""
+    email = (ms_user.get("mail") or upn or "").lower().strip()
+
+    if not email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Microsoft account has no email — cannot map to a user",
+        )
+
+    # Find or create local user
+    user = await user_repo.get_by_username(email)
+
+    if user is None:
+        # Auto-provision: create local user from Microsoft profile
+        from src.domain.entities.user import User as UserEntity
+
+        user = UserEntity(
+            id=uuid4(),
+            username=email,
+            password_hash=hash_password(secrets.token_urlsafe(32)),
+            is_active=True,
+            is_blocked=False,
+            role="USER",
+            created_by="microsoft_sso",
+            modified_by="microsoft_sso",
+        )
+        user = await user_repo.create(user)
+
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User account is inactive",
+        )
+    if user.is_blocked:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User account is blocked",
+        )
+
+    # Issue application JWT pair
+    jwt_provider = JWTProvider()
+    access_token = jwt_provider.create_access_token(user.username, user.id)
+    refresh_token = jwt_provider.create_refresh_token(user.username, user.id)
+
+    from src.config.settings import settings as app_settings
+
+    return TokenResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        token_type="Bearer",
+        expires_in=app_settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+    )

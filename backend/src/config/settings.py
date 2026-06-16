@@ -64,6 +64,15 @@ class Settings(BaseSettings):
         default="enterprise-api", description="OpenTelemetry service name"
     )
 
+    # Azure AD / Microsoft SSO
+    AZURE_CLIENT_ID: str = Field(default="", description="Azure App Registration client ID")
+    AZURE_CLIENT_SECRET: str = Field(default="", description="Azure App Registration client secret")
+    AZURE_TENANT_ID: str = Field(default="", description="Azure AD tenant ID")
+    AZURE_REDIRECT_URI: str = Field(
+        default="http://localhost:3000/auth/microsoft/callback",
+        description="OAuth2 redirect URI (must match Azure App Registration)",
+    )
+
     # CORS
     CORS_ORIGINS: list[str] = Field(
         default=["http://localhost:3000"], description="Allowed CORS origins"
