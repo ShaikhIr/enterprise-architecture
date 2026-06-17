@@ -73,6 +73,12 @@ class Settings(BaseSettings):
         description="OAuth2 redirect URI (must match Azure App Registration)",
     )
 
+    # Employee AD (Darwin) Service
+    EMPLOYEE_AD_BASE_URL: str = Field(
+        default="https://ad-prod-darwinsvc-prod.apps.emart.oneemcure.local/adintegratorservices/rest/v1",
+        description="Base URL for the Darwin AD integrator service",
+    )
+
     # CORS
     CORS_ORIGINS: list[str] = Field(
         default=["http://localhost:3000"], description="Allowed CORS origins"

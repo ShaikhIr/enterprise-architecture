@@ -34,6 +34,7 @@ export const MainLayout = () => {
     { label: 'Inventory', icon: 'pi pi-box', path: '/inventory', section: 'Main' },
     { label: 'Users', icon: 'pi pi-users', path: '/users', section: 'Management', visible: user?.role === 'ADMIN' },
     { label: 'Settings', icon: 'pi pi-cog', path: '/settings', section: 'Management' },
+    { label: 'Employee AD', icon: 'pi pi-id-card', path: '/services/employee-ad', section: 'Services', visible: user?.role === 'ADMIN' },
   ];
 
   const visibleItems = navItems.filter((item) => item.visible !== false);

@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { LoginPage } from '@features/authentication/pages/LoginPage';
 import { MicrosoftCallbackPage } from '@features/authentication/pages/MicrosoftCallbackPage';
 import { UserListPage } from '@features/user-management/pages/UserListPage';
+import { EmployeeADServicePage } from '@features/service-menu/pages/EmployeeADServicePage';
 import { MainLayout } from '@app/layouts/MainLayout';
 import { PrivateRoute } from './PrivateRoute';
 
@@ -37,6 +38,14 @@ export const AppRouter = () => {
             element={
               <PrivateRoute requiredRole="ADMIN">
                 <UserListPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="services/employee-ad"
+            element={
+              <PrivateRoute requiredRole="ADMIN">
+                <EmployeeADServicePage />
               </PrivateRoute>
             }
           />

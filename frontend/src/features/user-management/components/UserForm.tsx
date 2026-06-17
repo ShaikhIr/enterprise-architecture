@@ -11,7 +11,6 @@ import { Password } from 'primereact/password';
 import { Dropdown } from 'primereact/dropdown';
 import { Button } from 'primereact/button';
 import { Dialog } from 'primereact/dialog';
-import type { User } from '../models/User';
 
 const createUserSchema = z.object({
   username: z.string().min(3, 'Username must be at least 3 characters').max(255),
