@@ -6,6 +6,7 @@
 import { apiClient } from '@shared/services/apiClient';
 import type {
   CreateUserRequest,
+  ImportEmployeesResponse,
   UpdateUserRequest,
   User,
   UserListResponse,
@@ -31,6 +32,14 @@ export const userApi = {
 
   updateUser: async (userId: string, request: UpdateUserRequest): Promise<User> => {
     const { data } = await apiClient.patch<User>(`/users/${userId}`, request);
+    return data;
+  },
+
+  importEmployees: async (employeeIds: string[]): Promise<ImportEmployeesResponse> => {
+    const { data } = await apiClient.post<ImportEmployeesResponse>(
+      '/users/import-employees',
+      { employee_ids: employeeIds }
+    );
     return data;
   },
 };

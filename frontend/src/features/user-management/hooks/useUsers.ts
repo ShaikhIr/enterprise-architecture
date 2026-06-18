@@ -48,3 +48,14 @@ export const useUpdateUser = () => {
     },
   });
 };
+
+export const useImportEmployees = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (employeeIds: string[]) => userApi.importEmployees(employeeIds),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: USERS_QUERY_KEY });
+    },
+  });
+};

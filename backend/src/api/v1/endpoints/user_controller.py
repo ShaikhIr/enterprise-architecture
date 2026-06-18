@@ -66,6 +66,7 @@ async def create_user(
         username=request.username,
         password_hash=hash_password(request.password),
         role=request.role,
+        is_validate_ad=request.is_validate_ad,
         created_by=current_user.username,
         modified_by=current_user.username,
     )
@@ -118,6 +119,8 @@ async def update_user(
         user.is_active = request.is_active
     if request.is_blocked is not None:
         user.is_blocked = request.is_blocked
+    if request.is_validate_ad is not None:
+        user.is_validate_ad = request.is_validate_ad
     if request.role is not None:
         user.role = request.role
 
@@ -133,6 +136,7 @@ def _to_response(user: User) -> UserResponse:
         username=user.username,
         is_active=user.is_active,
         is_blocked=user.is_blocked,
+        is_validate_ad=user.is_validate_ad,
         role=user.role,
         created_by=user.created_by,
         created_date=user.created_date,

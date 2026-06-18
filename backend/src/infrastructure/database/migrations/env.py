@@ -16,6 +16,7 @@ from src.infrastructure.database.models.base_model import Base
 
 # Import all models so Alembic detects them
 from src.infrastructure.database.models.user_model import UserModel  # noqa: F401
+from src.infrastructure.database.models.user_details_model import UserDetailsModel  # noqa: F401
 
 # Alembic Config object
 config = context.config

@@ -38,6 +38,7 @@ class UserRepositoryImpl(UserRepositoryInterface):
             password_hash=user.password_hash,
             is_active=user.is_active,
             is_blocked=user.is_blocked,
+            is_validate_ad=user.is_validate_ad,
             role=user.role,
             created_by=user.created_by,
             modified_by=user.modified_by,
@@ -57,6 +58,7 @@ class UserRepositoryImpl(UserRepositoryInterface):
         model.password_hash = user.password_hash
         model.is_active = user.is_active
         model.is_blocked = user.is_blocked
+        model.is_validate_ad = user.is_validate_ad
         model.role = user.role
         model.modified_by = user.modified_by
         model.modified_date = user.modified_date
@@ -92,6 +94,7 @@ class UserRepositoryImpl(UserRepositoryInterface):
             password_hash=model.password_hash,
             is_active=model.is_active,
             is_blocked=model.is_blocked,
+            is_validate_ad=model.is_validate_ad,
             role=model.role,
             created_by=model.created_by,
             created_date=model.created_date,

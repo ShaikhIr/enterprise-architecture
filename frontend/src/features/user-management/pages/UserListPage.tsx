@@ -1,6 +1,6 @@
 /**
  * User Management page.
- * Lists all users and provides create/edit functionality.
+ * Lists all users and provides create/edit/import functionality.
  */
 
 import { useState } from 'react';
@@ -9,15 +9,21 @@ import { Toast } from 'primereact/toast';
 import { useRef } from 'react';
 import { UserTable } from '../components/UserTable';
 import { UserForm } from '../components/UserForm';
-import { useUsers, useCreateUser } from '../hooks/useUsers';
-import type { User, CreateUserRequest } from '../models/User';
+import { EditUserDialog } from '../components/EditUserDialog';
+import { ImportEmployeeDialog } from '../components/ImportEmployeeDialog';
+import { useUsers, useCreateUser, useUpdateUser } from '../hooks/useUsers';
+import type { User, CreateUserRequest, UpdateUserRequest } from '../models/User';
 
 export const UserListPage = () => {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showImportDialog, setShowImportDialog] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
   const toast = useRef<Toast>(null);
 
   const { data, isLoading } = useUsers();
   const createUserMutation = useCreateUser();
+  const updateUserMutation = useUpdateUser();
 
   const handleCreateUser = async (formData: CreateUserRequest) => {
     try {
@@ -41,13 +47,30 @@ export const UserListPage = () => {
   };
 
   const handleEditUser = (user: User) => {
-    // Navigate to edit or open edit dialog
-    toast.current?.show({
-      severity: 'info',
-      summary: 'Edit',
-      detail: `Editing user: ${user.username}`,
-      life: 2000,
-    });
+    setEditingUser(user);
+    setShowEditDialog(true);
+  };
+
+  const handleUpdateUser = async (userId: string, formData: UpdateUserRequest) => {
+    try {
+      await updateUserMutation.mutateAsync({ userId, request: formData });
+      setShowEditDialog(false);
+      setEditingUser(null);
+      toast.current?.show({
+        severity: 'success',
+        summary: 'Success',
+        detail: 'User updated successfully',
+        life: 3000,
+      });
+    } catch (error: any) {
+      const detail = error.response?.data?.detail || 'Failed to update user';
+      toast.current?.show({
+        severity: 'error',
+        summary: 'Error',
+        detail,
+        life: 5000,
+      });
+    }
   };
 
   return (
@@ -60,12 +83,22 @@ export const UserListPage = () => {
           <h2 className="text-2xl font-semibold text-900 m-0">User Management</h2>
           <p className="text-600 mt-1 mb-0">Manage application users and roles</p>
         </div>
-        <Button
-          label="New User"
-          icon="pi pi-plus"
-          onClick={() => setShowCreateDialog(true)}
-          aria-label="Create new user"
-        />
+        <div className="flex gap-2">
+          <Button
+            label="Fetch Employee"
+            icon="pi pi-download"
+            severity="secondary"
+            outlined
+            onClick={() => setShowImportDialog(true)}
+            aria-label="Fetch employees from AD"
+          />
+          <Button
+            label="New User"
+            icon="pi pi-plus"
+            onClick={() => setShowCreateDialog(true)}
+            aria-label="Create new user"
+          />
+        </div>
       </div>
 
       {/* Data Table */}
@@ -83,6 +116,29 @@ export const UserListPage = () => {
         onHide={() => setShowCreateDialog(false)}
         onSubmit={handleCreateUser}
         loading={createUserMutation.isPending}
+      />
+
+      {/* Edit User Dialog */}
+      <EditUserDialog
+        visible={showEditDialog}
+        user={editingUser}
+        onHide={() => { setShowEditDialog(false); setEditingUser(null); }}
+        onSubmit={handleUpdateUser}
+        loading={updateUserMutation.isPending}
+      />
+
+      {/* Import Employee Dialog */}
+      <ImportEmployeeDialog
+        visible={showImportDialog}
+        onHide={() => setShowImportDialog(false)}
+        onSuccess={() => {
+          toast.current?.show({
+            severity: 'success',
+            summary: 'Import Complete',
+            detail: 'Employees imported successfully',
+            life: 3000,
+          });
+        }}
       />
     </div>
   );

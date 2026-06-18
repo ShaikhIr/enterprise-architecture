@@ -1,14 +1,20 @@
 """
 Authentication manager.
 Coordinates login flow: user lookup, password verification, status checks, token issuance.
+Supports dual authentication:
+  - is_validate_ad=True: Validate via Darwin AD service
+  - is_validate_ad=False: Validate via local bcrypt password
 """
 
+import logging
 from dataclasses import dataclass
 
 from src.config.settings import settings
 from src.domain.repositories.user_repository import UserRepositoryInterface
 from src.infrastructure.security.jwt_provider import JWTProvider
 from src.infrastructure.security.password_encoder import verify_password
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -72,10 +78,11 @@ class AuthManager:
 
         Flow:
         1. Find user by username
-        2. Verify password
-        3. Check is_active
-        4. Check is_blocked
-        5. Generate token pair
+        2. If is_validate_ad=True → validate via Darwin AD service
+        3. If is_validate_ad=False → verify local password hash
+        4. Check is_active
+        5. Check is_blocked
+        6. Generate token pair
 
         Raises:
             InvalidCredentialsError: Wrong username or password.
@@ -87,8 +94,12 @@ class AuthManager:
         if user is None:
             raise InvalidCredentialsError()
 
-        if not verify_password(password, user.password_hash):
-            raise InvalidCredentialsError()
+        # Branch: AD validation vs local password
+        if user.is_validate_ad:
+            await self._validate_with_darwin(username, password)
+        else:
+            if not verify_password(password, user.password_hash):
+                raise InvalidCredentialsError()
 
         if not user.is_active:
             raise UserInactiveError()
@@ -103,6 +114,27 @@ class AuthManager:
             access_token=access_token,
             refresh_token=refresh_token,
         )
+
+    async def _validate_with_darwin(self, employee_id: str, password: str) -> None:
+        """
+        Validate credentials against Darwin AD service.
+
+        Raises:
+            InvalidCredentialsError: If Darwin says invalid or service is unreachable.
+        """
+        from src.infrastructure.external.employee_ad.employee_ad_client import (
+            EmployeeADClient,
+            EmployeeADError,
+        )
+
+        client = EmployeeADClient()
+        try:
+            result = await client.validate_credentials(employee_id, password)
+            if not result.is_valid_user:
+                raise InvalidCredentialsError()
+        except EmployeeADError as exc:
+            logger.error("Darwin AD validation failed for %s: %s", employee_id, exc)
+            raise InvalidCredentialsError()
 
     async def refresh(self, refresh_token: str) -> AuthTokenResponse:
         """

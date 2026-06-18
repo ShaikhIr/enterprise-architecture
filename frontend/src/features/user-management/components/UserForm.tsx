@@ -9,6 +9,7 @@ import { z } from 'zod';
 import { InputText } from 'primereact/inputtext';
 import { Password } from 'primereact/password';
 import { Dropdown } from 'primereact/dropdown';
+import { InputSwitch } from 'primereact/inputswitch';
 import { Button } from 'primereact/button';
 import { Dialog } from 'primereact/dialog';
 
@@ -16,6 +17,7 @@ const createUserSchema = z.object({
   username: z.string().min(3, 'Username must be at least 3 characters').max(255),
   password: z.string().min(8, 'Password must be at least 8 characters').max(128),
   role: z.enum(['ADMIN', 'MANAGER', 'USER']),
+  is_validate_ad: z.boolean(),
 });
 
 type CreateUserFormData = z.infer<typeof createUserSchema>;
@@ -42,7 +44,7 @@ export const UserForm = ({ visible, onHide, onSubmit, loading }: UserFormProps) 
     formState: { errors },
   } = useForm<CreateUserFormData>({
     resolver: zodResolver(createUserSchema),
-    defaultValues: { role: 'USER' },
+    defaultValues: { role: 'USER', is_validate_ad: true },
   });
 
   const handleFormSubmit = (data: CreateUserFormData) => {
@@ -144,6 +146,27 @@ export const UserForm = ({ visible, onHide, onSubmit, loading }: UserFormProps) 
           {errors.role && (
             <small className="p-error">{errors.role.message}</small>
           )}
+        </div>
+
+        <div className="flex align-items-center gap-3">
+          <Controller
+            name="is_validate_ad"
+            control={control}
+            render={({ field }) => (
+              <InputSwitch
+                id="new-validate-ad"
+                checked={field.value}
+                onChange={(e) => field.onChange(e.value)}
+                aria-label="Validate with AD"
+              />
+            )}
+          />
+          <label htmlFor="new-validate-ad" className="font-medium cursor-pointer">
+            Validate with AD
+          </label>
+          <small className="text-600">
+            When enabled, login uses Darwin AD authentication
+          </small>
         </div>
       </form>
     </Dialog>

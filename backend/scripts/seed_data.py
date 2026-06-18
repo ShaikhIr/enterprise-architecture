@@ -36,6 +36,7 @@ async def seed_admin_user() -> None:
             password_hash=hash_password("Admin@123!"),
             is_active=True,
             is_blocked=False,
+            is_validate_ad=False,
             role="ADMIN",
             created_by="seed_script",
             modified_by="seed_script",

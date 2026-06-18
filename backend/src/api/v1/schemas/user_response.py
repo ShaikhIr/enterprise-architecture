@@ -16,6 +16,7 @@ class UserResponse(BaseModel):
     username: str
     is_active: bool
     is_blocked: bool
+    is_validate_ad: bool
     role: str
     created_by: str
     created_date: datetime
