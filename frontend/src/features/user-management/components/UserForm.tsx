@@ -1,6 +1,7 @@
 /**
  * User create/edit form component.
  * Uses React Hook Form + Zod + PrimeReact.
+ * Role options are loaded dynamically from the roles table.
  */
 
 import { useForm, Controller } from 'react-hook-form';
@@ -12,11 +13,12 @@ import { Dropdown } from 'primereact/dropdown';
 import { InputSwitch } from 'primereact/inputswitch';
 import { Button } from 'primereact/button';
 import { Dialog } from 'primereact/dialog';
+import { useRoles } from '../hooks/useRoles';
 
 const createUserSchema = z.object({
   username: z.string().min(3, 'Username must be at least 3 characters').max(255),
   password: z.string().min(8, 'Password must be at least 8 characters').max(128),
-  role: z.enum(['ADMIN', 'MANAGER', 'USER']),
+  role: z.string().min(1, 'Role is required'),
   is_validate_ad: z.boolean(),
 });
 
@@ -29,13 +31,9 @@ interface UserFormProps {
   loading?: boolean;
 }
 
-const roleOptions = [
-  { label: 'Admin', value: 'ADMIN' },
-  { label: 'Manager', value: 'MANAGER' },
-  { label: 'User', value: 'USER' },
-];
-
 export const UserForm = ({ visible, onHide, onSubmit, loading }: UserFormProps) => {
+  const { roleOptions, loading: rolesLoading } = useRoles();
+
   const {
     register,
     handleSubmit,
@@ -137,7 +135,8 @@ export const UserForm = ({ visible, onHide, onSubmit, loading }: UserFormProps) 
                 id="new-role"
                 {...field}
                 options={roleOptions}
-                placeholder="Select role"
+                placeholder={rolesLoading ? 'Loading roles...' : 'Select role'}
+                disabled={rolesLoading}
                 className={errors.role ? 'p-invalid' : ''}
                 aria-label="User role"
               />

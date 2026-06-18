@@ -1,6 +1,7 @@
 /**
  * Edit User Dialog.
  * Allows editing role, active/blocked status, and AD validation flag.
+ * Role options are loaded dynamically from the roles table.
  */
 
 import { useEffect } from 'react';
@@ -12,9 +13,10 @@ import { InputSwitch } from 'primereact/inputswitch';
 import { Button } from 'primereact/button';
 import { Dialog } from 'primereact/dialog';
 import type { User, UpdateUserRequest } from '../models/User';
+import { useRoles } from '../hooks/useRoles';
 
 const editUserSchema = z.object({
-  role: z.enum(['ADMIN', 'MANAGER', 'USER']),
+  role: z.string().min(1, 'Role is required'),
   is_active: z.boolean(),
   is_blocked: z.boolean(),
   is_validate_ad: z.boolean(),
@@ -30,13 +32,8 @@ interface EditUserDialogProps {
   loading?: boolean;
 }
 
-const roleOptions = [
-  { label: 'Admin', value: 'ADMIN' },
-  { label: 'Manager', value: 'MANAGER' },
-  { label: 'User', value: 'USER' },
-];
-
 export const EditUserDialog = ({ visible, user, onHide, onSubmit, loading }: EditUserDialogProps) => {
+  const { roleOptions, loading: rolesLoading } = useRoles();
   const {
     handleSubmit,
     control,
@@ -56,7 +53,7 @@ export const EditUserDialog = ({ visible, user, onHide, onSubmit, loading }: Edi
   useEffect(() => {
     if (user) {
       reset({
-        role: user.role as 'ADMIN' | 'MANAGER' | 'USER',
+        role: user.role,
         is_active: user.is_active,
         is_blocked: user.is_blocked,
         is_validate_ad: user.is_validate_ad,
@@ -115,7 +112,8 @@ export const EditUserDialog = ({ visible, user, onHide, onSubmit, loading }: Edi
                 id="edit-role"
                 {...field}
                 options={roleOptions}
-                placeholder="Select role"
+                placeholder={rolesLoading ? 'Loading roles...' : 'Select role'}
+                disabled={rolesLoading}
                 className={errors.role ? 'p-invalid' : ''}
                 aria-label="User role"
               />

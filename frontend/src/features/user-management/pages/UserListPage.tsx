@@ -36,7 +36,11 @@ export const UserListPage = () => {
         life: 3000,
       });
     } catch (error: any) {
-      const detail = error.response?.data?.detail || 'Failed to create user';
+      const rawDetail = error.response?.data?.detail;
+      // Handle Pydantic 422 validation errors (array of objects)
+      const detail = Array.isArray(rawDetail)
+        ? rawDetail.map((e: any) => e.msg || e.message).join('; ')
+        : (typeof rawDetail === 'string' ? rawDetail : 'Failed to create user');
       toast.current?.show({
         severity: 'error',
         summary: 'Error',
@@ -63,7 +67,10 @@ export const UserListPage = () => {
         life: 3000,
       });
     } catch (error: any) {
-      const detail = error.response?.data?.detail || 'Failed to update user';
+      const rawDetail = error.response?.data?.detail;
+      const detail = Array.isArray(rawDetail)
+        ? rawDetail.map((e: any) => e.msg || e.message).join('; ')
+        : (typeof rawDetail === 'string' ? rawDetail : 'Failed to update user');
       toast.current?.show({
         severity: 'error',
         summary: 'Error',

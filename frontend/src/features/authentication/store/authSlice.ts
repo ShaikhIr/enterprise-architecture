@@ -1,10 +1,12 @@
 /**
  * Authentication Redux slice.
  * Manages global auth state: user, tokens, loading, errors.
+ * Automatically loads RBAC permissions on successful authentication.
  */
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { authApi } from '../api/authApi';
+import { fetchMenuPermissions } from '@core/rbac';
 import type { AuthState, CurrentUser, LoginRequest } from '../models/auth.types';
 
 const initialState: AuthState = {
@@ -16,10 +18,12 @@ const initialState: AuthState = {
 
 export const loginThunk = createAsyncThunk(
   'auth/login',
-  async (credentials: LoginRequest, { rejectWithValue }) => {
+  async (credentials: LoginRequest, { dispatch, rejectWithValue }) => {
     try {
       await authApi.login(credentials);
       const user = await authApi.getCurrentUser();
+      // Load RBAC permissions immediately after authentication
+      dispatch(fetchMenuPermissions());
       return user;
     } catch (error: any) {
       const message =
@@ -31,9 +35,12 @@ export const loginThunk = createAsyncThunk(
 
 export const fetchCurrentUser = createAsyncThunk(
   'auth/fetchCurrentUser',
-  async (_, { rejectWithValue }) => {
+  async (_, { dispatch, rejectWithValue }) => {
     try {
-      return await authApi.getCurrentUser();
+      const user = await authApi.getCurrentUser();
+      // Load RBAC permissions on session restoration
+      dispatch(fetchMenuPermissions());
+      return user;
     } catch {
       return rejectWithValue('Session expired');
     }
@@ -49,6 +56,7 @@ const authSlice = createSlice({
       state.user = null;
       state.isAuthenticated = false;
       state.error = null;
+      // Note: RBAC state is cleared via clearRbac dispatch in component
     },
     clearError: (state) => {
       state.error = null;

@@ -41,10 +41,13 @@ export const UserTable = ({ users, loading, onEdit }: UserTableProps) => {
       <Button
         icon="pi pi-pencil"
         rounded
-        text
+        outlined
         severity="info"
+        size="small"
         onClick={() => onEdit(rowData)}
         aria-label={`Edit user ${rowData.username}`}
+        tooltip="Edit"
+        tooltipOptions={{ position: 'top' }}
       />
     );
   };

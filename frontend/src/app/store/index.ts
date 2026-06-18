@@ -6,10 +6,12 @@
 import { configureStore } from '@reduxjs/toolkit';
 import { useDispatch, useSelector, TypedUseSelectorHook } from 'react-redux';
 import authReducer from '@features/authentication/store/authSlice';
+import { rbacReducer } from '@core/rbac';
 
 export const store = configureStore({
   reducer: {
     auth: authReducer,
+    rbac: rbacReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

@@ -8,6 +8,8 @@ import { LoginPage } from '@features/authentication/pages/LoginPage';
 import { MicrosoftCallbackPage } from '@features/authentication/pages/MicrosoftCallbackPage';
 import { UserListPage } from '@features/user-management/pages/UserListPage';
 import { EmployeeADServicePage } from '@features/service-menu/pages/EmployeeADServicePage';
+import { RolesPage } from '@features/rbac-admin/pages/RolesPage';
+import { AuditLogsPage } from '@features/rbac-admin/pages/AuditLogsPage';
 import { MainLayout } from '@app/layouts/MainLayout';
 import { PrivateRoute } from './PrivateRoute';
 
@@ -38,6 +40,22 @@ export const AppRouter = () => {
             element={
               <PrivateRoute requiredRole="ADMIN">
                 <UserListPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="roles"
+            element={
+              <PrivateRoute requiredRole="ADMIN">
+                <RolesPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="audit-logs"
+            element={
+              <PrivateRoute requiredRole="ADMIN">
+                <AuditLogsPage />
               </PrivateRoute>
             }
           />

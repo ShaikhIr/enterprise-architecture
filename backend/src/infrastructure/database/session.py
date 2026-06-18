@@ -9,6 +9,10 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from src.config.settings import settings
 
+# Import all models to register them with Base.metadata
+# This ensures FK relationships can be resolved across tables.
+import src.infrastructure.database.models  # noqa: F401
+
 engine = create_async_engine(
     settings.DATABASE_URL,
     pool_size=settings.DB_POOL_SIZE,

@@ -33,6 +33,8 @@ export const MainLayout = () => {
     { label: 'Reports', icon: 'pi pi-chart-bar', path: '/reports', section: 'Main' },
     { label: 'Inventory', icon: 'pi pi-box', path: '/inventory', section: 'Main' },
     { label: 'Users', icon: 'pi pi-users', path: '/users', section: 'Management', visible: user?.role === 'ADMIN' },
+    { label: 'Roles & Permissions', icon: 'pi pi-shield', path: '/roles', section: 'Management', visible: user?.role === 'ADMIN' },
+    { label: 'Audit Logs', icon: 'pi pi-history', path: '/audit-logs', section: 'Management', visible: user?.role === 'ADMIN' },
     { label: 'Settings', icon: 'pi pi-cog', path: '/settings', section: 'Management' },
     { label: 'Employee AD', icon: 'pi pi-id-card', path: '/services/employee-ad', section: 'Services', visible: user?.role === 'ADMIN' },
   ];
@@ -157,7 +159,7 @@ export const MainLayout = () => {
             <Button
               icon="pi pi-bell"
               rounded
-              text
+              outlined
               severity="secondary"
               aria-label="Notifications"
               className="p-overlay-badge"
