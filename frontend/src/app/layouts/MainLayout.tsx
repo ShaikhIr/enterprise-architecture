@@ -11,6 +11,7 @@ import { Badge } from 'primereact/badge';
 import { useRef } from 'react';
 import { useAppDispatch, useAppSelector } from '@app/store';
 import { logout } from '@features/authentication/store/authSlice';
+import { useMenuPermissions } from '@core/rbac/usePermissions';
 
 interface NavItem {
   label: string;
@@ -18,6 +19,7 @@ interface NavItem {
   path: string;
   visible?: boolean;
   section?: string;
+  menuKey?: string;
 }
 
 export const MainLayout = () => {
@@ -26,20 +28,34 @@ export const MainLayout = () => {
   const location = useLocation();
   const { user } = useAppSelector((state) => state.auth);
   const userMenu = useRef<Menu>(null);
+  const { menuKeys, isLoaded: rbacLoaded } = useMenuPermissions();
 
   const navItems: NavItem[] = [
-    { label: 'Dashboard', icon: 'pi pi-th-large', path: '/dashboard', section: 'Main' },
+    { label: 'Dashboard', icon: 'pi pi-th-large', path: '/dashboard', section: 'Main', menuKey: 'dashboard' },
     { label: 'Orders', icon: 'pi pi-list', path: '/orders', section: 'Main' },
-    { label: 'Reports', icon: 'pi pi-chart-bar', path: '/reports', section: 'Main' },
+    { label: 'Reports', icon: 'pi pi-chart-bar', path: '/reports', section: 'Main', menuKey: 'reports' },
     { label: 'Inventory', icon: 'pi pi-box', path: '/inventory', section: 'Main' },
-    { label: 'Users', icon: 'pi pi-users', path: '/users', section: 'Management', visible: user?.role === 'ADMIN' },
-    { label: 'Roles & Permissions', icon: 'pi pi-shield', path: '/roles', section: 'Management', visible: user?.role === 'ADMIN' },
-    { label: 'Audit Logs', icon: 'pi pi-history', path: '/audit-logs', section: 'Management', visible: user?.role === 'ADMIN' },
-    { label: 'Settings', icon: 'pi pi-cog', path: '/settings', section: 'Management' },
-    { label: 'Employee AD', icon: 'pi pi-id-card', path: '/services/employee-ad', section: 'Services', visible: user?.role === 'ADMIN' },
+    { label: 'Users', icon: 'pi pi-users', path: '/users', section: 'Management', menuKey: 'users' },
+    { label: 'Roles & Permissions', icon: 'pi pi-shield', path: '/roles', section: 'Management', menuKey: 'roles' },
+    { label: 'Audit Logs', icon: 'pi pi-history', path: '/audit-logs', section: 'Management', menuKey: 'audit_logs' },
+    { label: 'Settings', icon: 'pi pi-cog', path: '/settings', section: 'Management', menuKey: 'settings' },
+    { label: 'Employee AD', icon: 'pi pi-id-card', path: '/services/employee-ad', section: 'Services', menuKey: 'services' },
   ];
 
-  const visibleItems = navItems.filter((item) => item.visible !== false);
+  // Filter items based on RBAC menu permissions
+  // ADMIN role gets full access as a fallback (in case role_assignments not seeded)
+  const isAdmin = user?.role === 'ADMIN';
+
+  const visibleItems = navItems.filter((item) => {
+    // If no menuKey specified, always show
+    if (!item.menuKey) return item.visible !== false;
+    // Admin always sees everything
+    if (isAdmin) return true;
+    // If RBAC not loaded yet, hide gated items to avoid flash
+    if (!rbacLoaded) return false;
+    // Show if user has the menu permission
+    return menuKeys.includes(item.menuKey);
+  });
 
   const userMenuItems = [
     {
@@ -139,7 +155,7 @@ export const MainLayout = () => {
       </aside>
 
       {/* ─── Main Content Area ─── */}
-      <div className="flex-1 flex flex-column">
+      <div className="flex-1 flex flex-column" style={{ minWidth: 0, maxWidth: 'calc(100vw - 260px)' }}>
         {/* Top Bar */}
         <header
           className="em-topbar flex align-items-center justify-content-between px-4"

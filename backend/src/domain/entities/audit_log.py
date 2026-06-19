@@ -12,6 +12,11 @@ from uuid import UUID, uuid4
 class AuditAction(StrEnum):
     """Enumeration of auditable actions."""
 
+    # Generic CRUD (used by automatic audit listener)
+    INSERT = "INSERT"
+    UPDATE = "UPDATE"
+    DELETE = "DELETE"
+
     # Role operations
     ROLE_CREATED = "ROLE_CREATED"
     ROLE_UPDATED = "ROLE_UPDATED"

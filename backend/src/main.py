@@ -9,6 +9,7 @@ from collections.abc import AsyncGenerator
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from src.api.middleware.audit_context_middleware import AuditContextMiddleware
 from src.api.middleware.correlation_id import CorrelationIdMiddleware
 from src.api.middleware.exception_handler import ExceptionHandlerMiddleware
 from src.api.middleware.request_logging import RequestLoggingMiddleware
@@ -50,15 +51,19 @@ def custom_openapi():
         description=app.description,
         routes=app.routes,
     )
-    openapi_schema["components"]["securitySchemes"] = {
-        "BearerAuth": {
-            "type": "http",
-            "scheme": "bearer",
-            "bearerFormat": "JWT",
-            "description": "Enter your JWT access token",
-        }
+    # Ensure the HTTPBearer scheme is defined (matches FastAPI's HTTPBearer dependency)
+    if "components" not in openapi_schema:
+        openapi_schema["components"] = {}
+    if "securitySchemes" not in openapi_schema["components"]:
+        openapi_schema["components"]["securitySchemes"] = {}
+    openapi_schema["components"]["securitySchemes"]["HTTPBearer"] = {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Enter your JWT access token",
     }
-    openapi_schema["security"] = [{"BearerAuth": []}]
+    # Apply globally so all endpoints show the lock
+    openapi_schema["security"] = [{"HTTPBearer": []}]
     app.openapi_schema = openapi_schema
     return app.openapi_schema
 
@@ -68,6 +73,7 @@ app.openapi = custom_openapi
 # ─── Middleware (order matters: outermost first) ───
 app.add_middleware(ExceptionHandlerMiddleware)
 app.add_middleware(RequestLoggingMiddleware)
+app.add_middleware(AuditContextMiddleware)
 app.add_middleware(CorrelationIdMiddleware)
 app.add_middleware(
     CORSMiddleware,

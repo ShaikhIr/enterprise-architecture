@@ -18,9 +18,11 @@ from sqlalchemy import select
 from src.infrastructure.database.session import async_session_factory
 from src.infrastructure.database.models.role_model import (
     PermissionModel,
+    RoleAssignmentModel,
     RoleModel,
     RolePermissionModel,
 )
+from src.infrastructure.database.models.user_model import UserModel
 
 # ─── Default Permission Definitions ───
 
@@ -151,6 +153,52 @@ async def seed() -> None:
 
         await session.commit()
         print("\n✓ RBAC seed complete.")
+
+    # 3. Assign ADMIN role to all users with role='ADMIN' in the users table
+    async with async_session_factory() as session:
+        print("\nAssigning roles to existing users...")
+
+        for role_code in ROLE_PERMISSIONS.keys():
+            # Find the role
+            role_result = await session.execute(
+                select(RoleModel).where(RoleModel.code == role_code)
+            )
+            role = role_result.scalar_one_or_none()
+            if not role:
+                continue
+
+            # Find all users with this legacy role
+            users_result = await session.execute(
+                select(UserModel).where(UserModel.role == role_code)
+            )
+            users = users_result.scalars().all()
+
+            for user in users:
+                # Check if assignment already exists
+                existing_assignment = await session.execute(
+                    select(RoleAssignmentModel).where(
+                        RoleAssignmentModel.user_id == str(user.id),
+                        RoleAssignmentModel.role_id == str(role.id),
+                    )
+                )
+                if existing_assignment.scalar_one_or_none():
+                    print(f"  [skip] User '{user.username}' already assigned to role '{role_code}'")
+                    continue
+
+                assignment = RoleAssignmentModel(
+                    id=uuid4(),
+                    user_id=str(user.id),
+                    role_id=str(role.id),
+                    tenant_id=None,
+                    is_active=True,
+                    created_by="seed_script",
+                    modified_by="seed_script",
+                )
+                session.add(assignment)
+                print(f"  [new]  User '{user.username}' → Role '{role_code}'")
+
+        await session.commit()
+        print("\n✓ Role assignments complete.")
 
 
 if __name__ == "__main__":

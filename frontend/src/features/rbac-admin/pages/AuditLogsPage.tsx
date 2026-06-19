@@ -229,15 +229,15 @@ export const AuditLogsPage = () => {
           onPage={onPage}
           rowsPerPageOptions={[10, 20, 50]}
           emptyMessage="No audit logs found"
-          tableStyle={{ minWidth: '50rem', tableLayout: 'fixed' }}
+          tableStyle={{ width: '100%', tableLayout: 'auto' }}
         >
-          <Column header="Time" body={dateTemplate} style={{ width: '12%' }} />
-          <Column field="actor_username" header="Actor" sortable style={{ width: '10%' }} />
-          <Column header="Action" body={actionTemplate} style={{ width: '14%' }} />
-          <Column field="resource_type" header="Resource" style={{ width: '12%' }} />
-          <Column field="resource_id" header="Resource ID" style={{ width: '12%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} />
-          <Column header="Details" body={changeTemplate} style={{ width: '30%', overflow: 'hidden' }} />
-          <Column field="ip_address" header="IP" style={{ width: '10%' }} />
+          <Column header="Time" body={dateTemplate} style={{ whiteSpace: 'nowrap', width: '1%' }} />
+          <Column field="actor_username" header="Actor" sortable style={{ whiteSpace: 'nowrap', width: '1%' }} />
+          <Column header="Action" body={actionTemplate} style={{ whiteSpace: 'nowrap', width: '1%' }} />
+          <Column field="resource_type" header="Resource" style={{ whiteSpace: 'nowrap', width: '1%' }} />
+          <Column field="resource_id" header="Resource ID" style={{ whiteSpace: 'nowrap', width: '1%' }} />
+          <Column header="Details" body={changeTemplate} style={{ width: '300px', minWidth: '300px', maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} />
+          <Column field="ip_address" header="IP" style={{ whiteSpace: 'nowrap', width: '1%' }} />
         </DataTable>
       </div>
 

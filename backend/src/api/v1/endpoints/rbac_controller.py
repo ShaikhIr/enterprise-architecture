@@ -511,6 +511,65 @@ async def get_my_menu_permissions(
 
 
 @router.get(
+    "/my-permissions/all",
+    summary="Get ALL permissions for the current user (debug)",
+)
+async def get_my_all_permissions(
+    current_user: User = Depends(get_current_active_user),
+    session: AsyncSession = Depends(get_db_session),
+) -> dict:
+    """GET /api/v1/rbac/my-permissions/all - Returns all permissions (all scopes) for debugging."""
+    manager = PermissionManager(session)
+
+    # Get role assignments for this user
+    from src.infrastructure.database.models.role_model import RoleAssignmentModel as RA
+    assign_result = await session.execute(
+        select(RA).where(RA.user_id == str(current_user.id))
+    )
+    assignments = assign_result.scalars().all()
+
+    # Get role details
+    role_ids = [a.role_id for a in assignments]
+    roles_info = []
+    if role_ids:
+        role_result = await session.execute(
+            select(RoleModel).options(selectinload(RoleModel.permissions)).where(RoleModel.id.in_(role_ids))
+        )
+        roles = role_result.scalars().all()
+        for r in roles:
+            roles_info.append({
+                "id": str(r.id),
+                "code": r.code,
+                "name": r.name,
+                "is_active": r.is_active,
+                "permission_count": len(r.permissions),
+                "permissions": [{"code": p.code, "scope": p.scope, "resource": p.resource, "action": p.action} for p in r.permissions],
+            })
+
+    permissions = await manager.get_user_permissions(current_user.id)
+    return {
+        "user_id": str(current_user.id),
+        "username": current_user.username,
+        "legacy_role": current_user.role,
+        "role_assignments": [
+            {"role_id": str(a.role_id), "is_active": a.is_active, "tenant_id": str(a.tenant_id) if a.tenant_id else None}
+            for a in assignments
+        ],
+        "assigned_roles": roles_info,
+        "total_effective_permissions": len(permissions),
+        "effective_permissions": [
+            {
+                "code": p.code,
+                "scope": p.scope,
+                "resource": p.resource,
+                "action": p.action,
+            }
+            for p in permissions
+        ],
+    }
+
+
+@router.get(
     "/my-permissions/fields/{resource}",
     response_model=FieldPermissionsResponse,
     summary="Get current user's field-level permissions for a resource",

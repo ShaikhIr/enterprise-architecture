@@ -19,7 +19,7 @@ from src.infrastructure.security.auth_manager import AuthManager
 from src.infrastructure.security.jwt_provider import JWTProvider
 
 # Bearer token extraction scheme (enables Swagger "Authorize" button)
-bearer_scheme = HTTPBearer(auto_error=False)
+bearer_scheme = HTTPBearer(auto_error=True)
 
 
 def get_jwt_provider() -> JWTProvider:
@@ -43,7 +43,7 @@ def get_auth_manager(
 
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
     jwt_provider: JWTProvider = Depends(get_jwt_provider),
     user_repo: UserRepositoryInterface = Depends(get_user_repository),
 ) -> User:
@@ -54,13 +54,6 @@ async def get_current_user(
         HTTPException 401: If token is missing, invalid, or expired.
         HTTPException 401: If user does not exist.
     """
-    if credentials is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication credentials required",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
     try:
         payload = jwt_provider.verify_token(credentials.credentials, expected_type="access")
     except Exception as e:

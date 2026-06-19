@@ -38,7 +38,7 @@ export const AppRouter = () => {
           <Route
             path="users"
             element={
-              <PrivateRoute requiredRole="ADMIN">
+              <PrivateRoute menuKey="users">
                 <UserListPage />
               </PrivateRoute>
             }
@@ -46,7 +46,7 @@ export const AppRouter = () => {
           <Route
             path="roles"
             element={
-              <PrivateRoute requiredRole="ADMIN">
+              <PrivateRoute menuKey="roles">
                 <RolesPage />
               </PrivateRoute>
             }
@@ -54,7 +54,7 @@ export const AppRouter = () => {
           <Route
             path="audit-logs"
             element={
-              <PrivateRoute requiredRole="ADMIN">
+              <PrivateRoute menuKey="audit_logs">
                 <AuditLogsPage />
               </PrivateRoute>
             }
@@ -62,7 +62,7 @@ export const AppRouter = () => {
           <Route
             path="services/employee-ad"
             element={
-              <PrivateRoute requiredRole="ADMIN">
+              <PrivateRoute menuKey="services">
                 <EmployeeADServicePage />
               </PrivateRoute>
             }

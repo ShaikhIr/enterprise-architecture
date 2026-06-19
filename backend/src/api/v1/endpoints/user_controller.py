@@ -16,7 +16,7 @@ from src.api.v1.schemas.user_response import UserListResponse, UserResponse
 from src.domain.entities.user import User
 from src.domain.repositories.user_repository import UserRepositoryInterface
 from src.infrastructure.security.password_encoder import hash_password
-from src.infrastructure.security.rbac_manager import require_role
+from src.infrastructure.security.permission_manager import require_api_permission
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
@@ -24,8 +24,8 @@ router = APIRouter(prefix="/users", tags=["Users"])
 @router.get(
     "",
     response_model=UserListResponse,
-    summary="List all users (ADMIN only)",
-    dependencies=[Depends(require_role("ADMIN"))],
+    summary="List all users",
+    dependencies=[Depends(require_api_permission("users", "READ"))],
 )
 async def list_users(
     skip: int = Query(default=0, ge=0),
@@ -46,8 +46,8 @@ async def list_users(
     "",
     response_model=UserResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Create a new user (ADMIN only)",
-    dependencies=[Depends(require_role("ADMIN"))],
+    summary="Create a new user",
+    dependencies=[Depends(require_api_permission("users", "CREATE"))],
 )
 async def create_user(
     request: CreateUserRequest,
@@ -98,8 +98,8 @@ async def get_user(
 @router.patch(
     "/{user_id}",
     response_model=UserResponse,
-    summary="Update user (ADMIN only)",
-    dependencies=[Depends(require_role("ADMIN"))],
+    summary="Update user",
+    dependencies=[Depends(require_api_permission("users", "UPDATE"))],
 )
 async def update_user(
     user_id: UUID,

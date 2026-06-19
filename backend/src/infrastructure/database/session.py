@@ -13,6 +13,8 @@ from src.config.settings import settings
 # This ensures FK relationships can be resolved across tables.
 import src.infrastructure.database.models  # noqa: F401
 
+from src.infrastructure.database.audit_listener import register_audit_listener
+
 engine = create_async_engine(
     settings.DATABASE_URL,
     pool_size=settings.DB_POOL_SIZE,
@@ -26,6 +28,9 @@ async_session_factory = async_sessionmaker(
     class_=AsyncSession,
     expire_on_commit=False,
 )
+
+# Register automatic audit logging on all session events
+register_audit_listener()
 
 
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
