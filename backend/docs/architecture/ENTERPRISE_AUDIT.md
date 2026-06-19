@@ -170,7 +170,7 @@ Audit log rows are added to the same session and committed atomically. If the bu
     "username": "john.doe",
     "is_active": "True",
     "is_blocked": "False",
-    "role": "USER",
+    "is_validate_ad": "True",
     "created_by": "admin",
     "created_date": "2026-06-18T10:30:00+00:00"
   },
@@ -195,7 +195,6 @@ Audit log rows are added to the same session and committed atomically. If the bu
     "username": "john.doe",
     "is_active": "True",
     "is_blocked": "False",
-    "role": "USER",
     "modified_by": "system",
     "modified_date": "2026-06-15T08:00:00+00:00"
   },
@@ -204,7 +203,6 @@ Audit log rows are added to the same session and committed atomically. If the bu
     "username": "john.doe",
     "is_active": "True",
     "is_blocked": "True",
-    "role": "USER",
     "modified_by": "admin",
     "modified_date": "2026-06-18T11:00:00+00:00"
   },
@@ -267,7 +265,7 @@ All models inheriting from `BaseModel` are automatically audited:
 
 | Table | Audited | Notes |
 |-------|---------|-------|
-| `users` | ✅ | Password hash changes are captured (consider redacting) |
+| `users` | ✅ | Username, status changes (password_hash redacted recommended) |
 | `user_details` | ✅ | Employee AD data changes |
 | `tenants` | ✅ | Tenant creation/updates |
 | `roles` | ✅ | Role CRUD |

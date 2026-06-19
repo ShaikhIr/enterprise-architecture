@@ -4,11 +4,14 @@
 
 This document describes the enterprise-grade Role-Based Access Control (RBAC) system implemented across the full stack. The system provides:
 
-1. **Audit logging** — Immutable trail for all role/permission changes
-2. **Menu-level permissions** — Controls UI sidebar/navigation visibility
-3. **API-level permissions** — Controls endpoint access
-4. **Field-level permissions** — Controls field read/write visibility per resource
-5. **Multi-tenant RBAC** — Tenant-scoped roles and assignments (SaaS-ready)
+1. **Pure permission-based access** — No hardcoded role checks anywhere in the codebase
+2. **Multiple roles per user** — Users can be assigned multiple roles simultaneously
+3. **Menu-level permissions** — Controls UI sidebar/navigation visibility
+4. **API-level permissions** — Controls endpoint access
+5. **Field-level permissions** — Controls field read/write visibility per resource
+6. **Multi-tenant RBAC** — Tenant-scoped roles and assignments (SaaS-ready)
+7. **Tree-based permission UI** — Checkbox tree grouped by feature for easy management
+8. **Full audit trail** — All permission changes are logged
 
 ---
 
@@ -40,6 +43,7 @@ This document describes the enterprise-grade Role-Based Access Control (RBAC) sy
 │  │  • /rbac/assignments   • /rbac/audit-logs                 │      │
 │  │  • /rbac/my-permissions/menu                              │      │
 │  │  • /rbac/my-permissions/fields/{resource}                 │      │
+│  │  • /rbac/my-permissions/all (debug)                       │      │
 │  └────────────────────────┬──────────────────────────────────┘      │
 │                           │                                         │
 │  ┌────────────────────────▼──────────────────────────────────┐      │
@@ -51,9 +55,9 @@ This document describes the enterprise-grade Role-Based Access Control (RBAC) sy
 │  └────────────────────────┬──────────────────────────────────┘      │
 │                           │                                         │
 │  ┌────────────────────────▼──────────────────────────────────┐      │
-│  │              audit_service.py (Cross-cutting)             │      │
-│  │  • Non-blocking audit writes                             │      │
-│  │  • Captures actor, action, before/after, IP, timestamp   │      │
+│  │           audit_listener.py (Automatic Logging)           │      │
+│  │  • Captures INSERT/UPDATE/DELETE on all tables            │      │
+│  │  • Before/after JSON snapshots                           │      │
 │  └───────────────────────────────────────────────────────────┘      │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
@@ -89,12 +93,15 @@ This document describes the enterprise-grade Role-Based Access Control (RBAC) sy
 
 | Table | Purpose | Key Columns |
 |-------|---------|-------------|
+| `users` | Authentication accounts | username, password_hash, is_active, is_blocked, is_validate_ad |
 | `tenants` | Multi-tenant org boundaries | code, name, domain, is_active |
 | `roles` | Named roles (system or custom) | code, name, tenant_id, parent_role_id, is_system |
 | `permissions` | Granular permission definitions | code, scope (MENU/API/FIELD), resource, action |
 | `role_permissions` | M:N join (role ↔ permission) | role_id, permission_id |
-| `role_assignments` | Links users to roles | user_id, role_id, tenant_id, is_active |
+| `role_assignments` | Links users to roles (multiple per user) | user_id, role_id, tenant_id, is_active |
 | `audit_logs` | Immutable event log | actor_id, action, resource_type, old/new_value, ip, created_at |
+
+**Note**: The `users` table has no `role` column. All role management is via `role_assignments`.
 
 ### Permission Scopes
 
@@ -104,13 +111,62 @@ This document describes the enterprise-grade Role-Based Access Control (RBAC) sy
 | `API` | Endpoint access | `users.create` | User can call POST /users |
 | `FIELD` | Field read/write | `users.salary` | User can see salary column |
 
-### Default Roles (seeded)
+### Default Permissions (Seeded)
 
-| Role | Type | Permissions |
-|------|------|-------------|
-| ADMIN | System | All 25 permissions (full access) |
-| MANAGER | System | 9 permissions (view users, reports, services) |
-| USER | System | 2 permissions (dashboard, services only) |
+| Category | Permissions |
+|----------|-------------|
+| Menu | dashboard, users, roles, audit_logs, services, reports, settings |
+| Users API | list, create, update, delete, export, import |
+| Roles API | list, create, update, assign |
+| RBAC | rbac.manage (CRUD roles/permissions/assignments) |
+| Audit | audit.read |
+| Services | services.employee_ad |
+| Reports | reports.export |
+| Fields | users.salary (read/update), users.email (read/update), users.phone (read) |
+
+### Default Roles (Seeded)
+
+| Role | Permissions |
+|------|-------------|
+| ADMIN | ALL permissions (27 total) |
+| MANAGER | Dashboard, Users (list/export), Reports, Services, email/phone fields |
+| USER | Dashboard, Services only |
+
+---
+
+## Access Control — No Hardcoded Roles
+
+The codebase contains **zero** `require_role("ADMIN")` calls. All access control uses:
+
+```python
+# Permission-based (checks permission code in user's assigned roles)
+@router.get("/users", dependencies=[Depends(require_api_permission("users", "READ"))])
+
+# Or by specific permission code
+@router.get("/audit-logs", dependencies=[Depends(require_permission("audit.read"))])
+```
+
+### Backend Permission Guards
+
+| Endpoint Group | Permission Required |
+|----------------|-------------------|
+| GET/POST /users | `users.list` / `users.create` |
+| PATCH /users | `users.update` |
+| All /rbac/* CRUD | `rbac.manage` |
+| GET /rbac/audit-logs | `audit.read` |
+| All /services/employee-ad | `services.employee_ad` |
+| POST /users/import-employees | `users.import` |
+
+### Frontend Route Guards
+
+Routes use `menuKey` matching RBAC menu permissions:
+
+```tsx
+<PrivateRoute menuKey="users"><UserListPage /></PrivateRoute>
+<PrivateRoute menuKey="roles"><RolesPage /></PrivateRoute>
+<PrivateRoute menuKey="audit_logs"><AuditLogsPage /></PrivateRoute>
+<PrivateRoute menuKey="services"><EmployeeADServicePage /></PrivateRoute>
+```
 
 ---
 
@@ -122,27 +178,25 @@ This document describes the enterprise-grade Role-Based Access Control (RBAC) sy
 backend/src/
 ├── api/v1/
 │   ├── endpoints/
-│   │   └── rbac_controller.py          # RBAC REST API (roles, permissions, audit)
+│   │   ├── rbac_controller.py          # RBAC REST API
+│   │   └── user_controller.py          # User CRUD + /users/{id}/roles
 │   └── schemas/
 │       └── rbac_schema.py              # Pydantic request/response models
 ├── domain/entities/
-│   ├── role.py                         # Role, Permission, RoleAssignment entities
-│   ├── tenant.py                       # Tenant entity
-│   └── audit_log.py                    # AuditLog entity + AuditAction enum
+│   ├── role.py                         # Role, Permission, PermissionScope, PermissionAction
+│   └── audit_log.py                    # AuditLog + AuditAction enum
 ├── infrastructure/
 │   ├── database/
 │   │   ├── models/
-│   │   │   ├── role_model.py           # SQLAlchemy: roles, permissions, role_permissions, role_assignments
-│   │   │   ├── tenant_model.py         # SQLAlchemy: tenants
-│   │   │   └── audit_log_model.py      # SQLAlchemy: audit_logs (append-only)
-│   │   └── migrations/versions/
-│   │       └── b7e2f1c4d9a3_*.py       # Alembic migration for RBAC tables
+│   │   │   ├── role_model.py           # roles, permissions, role_permissions, role_assignments
+│   │   │   └── audit_log_model.py      # audit_logs (append-only)
+│   │   ├── audit_listener.py           # Automatic before/after audit (session event)
+│   │   └── audit_context.py            # Request-scoped actor context (contextvars)
 │   └── security/
-│       ├── permission_manager.py       # Permission resolution engine + FastAPI deps
-│       ├── audit_service.py            # Audit log writer (non-blocking)
-│       └── rbac_manager.py             # Legacy role hierarchy (still works)
+│       ├── permission_manager.py       # Permission resolution + FastAPI dependencies
+│       └── audit_service.py            # Manual audit log writer
 └── scripts/
-    └── seed_rbac.py                    # Seed default permissions + role mappings
+    └── seed_rbac.py                    # Seeds permissions, roles, role-permission links, user assignments
 ```
 
 ### Frontend
@@ -150,54 +204,30 @@ backend/src/
 ```
 frontend/src/
 ├── core/rbac/
-│   ├── index.ts                        # Public barrel export
 │   ├── types.ts                        # Permission, Role, response types
-│   ├── rbacApi.ts                      # API client (GET /rbac/my-permissions/*)
-│   ├── rbacSlice.ts                    # Redux state (menu keys, field perms)
+│   ├── rbacApi.ts                      # GET /rbac/my-permissions/*
+│   ├── rbacSlice.ts                    # Redux state (menuKeys, fieldPerms)
 │   ├── usePermissions.ts              # Hooks: useMenuPermission, useFieldPermissions
-│   └── PermissionGate.tsx             # Components: MenuGate, PermissionGate, FieldGate
+│   └── PermissionGate.tsx             # MenuGate, PermissionGate, FieldGate
 ├── features/rbac-admin/
-│   ├── api/rbacAdminApi.ts            # Admin API (CRUD roles, permissions, audit logs)
-│   ├── models/rbac-admin.types.ts     # Admin feature types
 │   ├── pages/
-│   │   ├── RolesPage.tsx              # Roles CRUD + permission assignment UI
-│   │   └── AuditLogsPage.tsx          # Audit log viewer with filters + JSON popup
-│   └── index.ts
-├── shared/components/
-│   └── ContentViewerDialog.tsx        # Generic popup: JSON / PDF / text viewer
+│   │   ├── RolesPage.tsx              # Tree-based permission management
+│   │   └── AuditLogsPage.tsx          # Audit log viewer
+│   └── api/rbacAdminApi.ts            # Admin CRUD API client
+├── features/user-management/
+│   ├── components/
+│   │   └── UserTable.tsx              # User list + Roles tree popup
+│   └── pages/UserListPage.tsx
 └── app/
-    ├── store/index.ts                 # Redux store (includes rbacReducer)
-    ├── router/AppRouter.tsx           # Routes: /roles, /audit-logs
-    └── layouts/MainLayout.tsx         # Sidebar with Roles & Audit nav items
+    ├── router/
+    │   ├── AppRouter.tsx              # Routes with menuKey guards
+    │   └── PrivateRoute.tsx           # RBAC-based route protection
+    └── layouts/MainLayout.tsx         # Sidebar driven by menuKeys
 ```
 
 ---
 
 ## API Reference
-
-### Permission Management (ADMIN only)
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/v1/rbac/permissions?scope=MENU` | List permissions (optional scope filter) |
-| POST | `/api/v1/rbac/permissions` | Create a new permission definition |
-
-### Role Management (ADMIN only)
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/v1/rbac/roles?tenant_id=...` | List roles with permissions |
-| POST | `/api/v1/rbac/roles` | Create a new role |
-| PATCH | `/api/v1/rbac/roles/{role_id}` | Update role (name, description, active) |
-| POST | `/api/v1/rbac/roles/grant-permission` | Grant a permission to a role |
-| POST | `/api/v1/rbac/roles/revoke-permission` | Revoke a permission from a role |
-
-### Role Assignment (ADMIN only)
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/v1/rbac/assignments` | Assign role to user (with optional tenant) |
-| POST | `/api/v1/rbac/assignments/revoke` | Revoke role from user |
 
 ### User Permission Queries (Authenticated)
 
@@ -205,82 +235,55 @@ frontend/src/
 |--------|----------|-------------|
 | GET | `/api/v1/rbac/my-permissions/menu` | Menu keys + permissions for current user |
 | GET | `/api/v1/rbac/my-permissions/fields/{resource}` | Field-level perms for a resource |
+| GET | `/api/v1/rbac/my-permissions/all` | All permissions (debug endpoint) |
 
-### Audit Logs (ADMIN only)
+### Role Management (requires `rbac.manage`)
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/v1/rbac/audit-logs?action=...&actor_username=...&resource_type=...&skip=0&limit=50` | Query with filters |
+| GET | `/api/v1/rbac/roles` | List roles with permissions |
+| POST | `/api/v1/rbac/roles` | Create a new role |
+| PATCH | `/api/v1/rbac/roles/{role_id}` | Update role |
+| POST | `/api/v1/rbac/roles/grant-permission` | Grant permission to role |
+| POST | `/api/v1/rbac/roles/revoke-permission` | Revoke permission from role |
 
----
+### Role Assignment (requires `rbac.manage`)
 
-## Backend Usage Examples
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/rbac/assignments` | Assign role to user |
+| POST | `/api/v1/rbac/assignments/revoke` | Revoke role from user |
 
-### Protect endpoint with specific permission code
+### User Roles (Authenticated)
 
-```python
-from src.infrastructure.security.permission_manager import require_permission
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/users/{user_id}/roles` | Get roles + permissions tree for a user |
 
-@router.get(
-    "/sensitive-data",
-    dependencies=[Depends(require_permission("users.salary.read"))],
-)
-async def get_sensitive_data(...):
-    ...
-```
+### Audit Logs (requires `audit.read`)
 
-### Protect endpoint with API-level permission (resource + action)
-
-```python
-from src.infrastructure.security.permission_manager import require_api_permission
-
-@router.post(
-    "/reports/export",
-    dependencies=[Depends(require_api_permission("reports", "EXPORT"))],
-)
-async def export_report(...):
-    ...
-```
-
-### Legacy role-based check (still supported)
-
-```python
-from src.infrastructure.security.rbac_manager import require_role
-
-@router.get("/admin-only", dependencies=[Depends(require_role("ADMIN"))])
-async def admin_endpoint(...):
-    ...
-```
-
-### Write an audit log entry
-
-```python
-from src.infrastructure.security.audit_service import AuditService
-
-audit = AuditService(session)
-await audit.log(
-    actor_id=current_user.id,
-    actor_username=current_user.username,
-    action=AuditAction.ROLE_ASSIGNED,
-    resource_type="RoleAssignment",
-    resource_id=str(user_id),
-    new_value={"role_code": "MANAGER"},
-    ip_address=request.client.host,
-)
-```
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/rbac/audit-logs` | Query with filters (action, actor, resource) |
 
 ---
 
 ## Frontend Usage Examples
 
-### Menu-level gating (hide nav items)
+### Route protection (PrivateRoute)
 
 ```tsx
-import { MenuGate } from '@core/rbac';
+<PrivateRoute menuKey="users">
+  <UserListPage />
+</PrivateRoute>
+```
 
-<MenuGate menuKey="users">
-  <NavItem to="/users" icon="pi pi-users" label="Users" />
-</MenuGate>
+### Sidebar visibility (MainLayout)
+
+Menu items use `menuKey` — only shown if the key exists in the user's RBAC menu permissions:
+
+```tsx
+{ label: 'Users', icon: 'pi pi-users', path: '/users', menuKey: 'users' }
 ```
 
 ### Permission-based button visibility
@@ -303,35 +306,39 @@ import { FieldGate } from '@core/rbac';
 </FieldGate>
 ```
 
-### Hook-based checks
+### Tree-based permission assignment (RolesPage)
 
-```tsx
-import { useMenuPermission, useFieldPermissions, useHasPermission } from '@core/rbac';
+Permissions are displayed in a PrimeReact Tree with checkboxes, grouped by:
+- **Scope** (Menu Access / API Access / Field-Level Access)
+- **Feature** (Users, Roles, Reports, etc.)
 
-const MyComponent = () => {
-  const { canAccess } = useMenuPermission('reports');
-  const { canReadField, canWriteField } = useFieldPermissions('users');
-  const canExport = useHasPermission('reports.export');
+Checking a parent node selects all children. Partial selection shows intermediate state.
 
-  return (
-    <div>
-      {canAccess && <ReportsLink />}
-      {canReadField('salary') && <span>{user.salary}</span>}
-      {canWriteField('email') && <InputText ... />}
-      {canExport && <Button label="Export" />}
-    </div>
-  );
-};
+---
+
+## User Roles — Multiple Roles per User
+
+A user can have multiple roles assigned simultaneously. The effective permissions are the **union** of all permissions from all assigned roles.
+
+### Viewing User Roles (UserTable)
+
+The Users page has a shield (🛡) button per row. Clicking it opens a Tree popup showing:
+```
+🛡 Administrator (ADMIN)
+   ├── 🔑 Dashboard Menu
+   ├── 🔑 Users Menu
+   ├── 🔑 List Users (READ)
+   └── ...
+🛡 Manager (MANAGER)
+   ├── 🔑 Reports Menu
+   └── ...
 ```
 
-### Dynamic role loading in forms
+### Assigning Roles
 
-```tsx
-import { useRoles } from '@features/user-management/hooks/useRoles';
-
-const { roleOptions, loading } = useRoles();
-// roleOptions = [{ label: "Administrator", value: "ADMIN" }, ...]
-// Loaded from GET /api/v1/rbac/roles
+Roles are assigned via `POST /api/v1/rbac/assignments`:
+```json
+{ "user_id": "uuid", "role_id": "uuid", "tenant_id": null }
 ```
 
 ---
@@ -343,62 +350,7 @@ const { roleOptions, loading } = useRoles();
 | Tenant-scoped roles | `roles.tenant_id` — NULL means global role |
 | Scoped assignments | `role_assignments.tenant_id` — assigns role within a tenant |
 | Resolution logic | PermissionManager merges global + tenant roles for a user |
-| Tenant auto-assign | `Tenant.matches_email_domain()` — maps email domain to tenant |
 | API filtering | `GET /rbac/roles?tenant_id=...` returns global + tenant roles |
-
----
-
-## Audit Trail
-
-### What's Logged
-
-| Category | Actions |
-|----------|---------|
-| Roles | ROLE_CREATED, ROLE_UPDATED, ROLE_DELETED |
-| Permissions | PERMISSION_CREATED, PERMISSION_GRANTED, PERMISSION_REVOKED |
-| Assignments | ROLE_ASSIGNED, ROLE_REVOKED |
-| Authentication | LOGIN_SUCCESS, LOGIN_FAILED, TOKEN_REFRESHED |
-| Users | USER_BLOCKED, USER_UNBLOCKED, USER_ACTIVATED, USER_DEACTIVATED |
-| Tenants | TENANT_CREATED, TENANT_UPDATED |
-
-### Entry Structure
-
-Each audit log entry captures:
-- **Who**: actor_id, actor_username
-- **What**: action, resource_type, resource_id
-- **Change**: old_value (JSON), new_value (JSON)
-- **Context**: tenant_id, ip_address, user_agent, extra_data
-- **When**: created_at (UTC, indexed)
-
-### Design Decisions
-
-- **Append-only**: No UPDATE/DELETE on audit_logs table
-- **Non-blocking**: Audit writes never fail the parent operation (errors are logged internally)
-- **Denormalized**: actor_username stored for fast querying without JOINs
-- **Indexed**: action, actor_username, resource_type, created_at for efficient filtering
-
----
-
-## Admin UI Pages
-
-### Roles & Permissions (`/roles`)
-
-- DataTable listing all roles with permission count
-- Create new custom roles
-- Manage permissions per role via MultiSelect dialog
-- System roles (ADMIN, MANAGER, USER) are read-only
-
-### Audit Logs (`/audit-logs`)
-
-- Paginated, lazy-loaded DataTable
-- Filters: action type, resource type, actor username
-- Clickable Details column opens JSON viewer popup (ContentViewerDialog)
-- Supports formatted JSON with syntax highlighting + copy to clipboard
-
-### User Management (`/users`)
-
-- Role dropdown dynamically loaded from roles table
-- New roles created in RBAC admin appear immediately in user forms
 
 ---
 
@@ -407,41 +359,35 @@ Each audit log entry captures:
 ### Initial Setup
 
 ```bash
-# 1. Run migration (creates all RBAC tables)
+# 1. Run all migrations
 alembic upgrade head
 
-# 2. Seed default permissions and role mappings
+# 2. Seed default permissions, roles, and user assignments
 python -m scripts.seed_rbac
-
-# 3. Reset admin password (if needed for testing)
-python -m scripts.reset_admin_pw
 ```
 
 ### Adding a New Permission
 
-1. Create via API: `POST /api/v1/rbac/permissions`
-2. Grant to role: `POST /api/v1/rbac/roles/grant-permission`
-3. Use in code: `require_permission("your.new.code")`
+1. Add to `DEFAULT_PERMISSIONS` in `seed_rbac.py`
+2. Add to `ROLE_PERMISSIONS["ADMIN"]` list
+3. Run: `python -m scripts.seed_rbac`
+4. Use in code: `require_permission("your.new.code")`
 
 ### Adding a New Role
 
 1. Create via UI: Navigate to `/roles` → "New Role"
-2. Assign permissions via the shield icon
-3. Assign to users via API or user edit form
+2. Assign permissions via the tree checkbox UI
+3. Assign to users via the RBAC assignments API
 
 ---
 
-## Migration Strategy (Legacy → New RBAC)
+## Security Design Decisions
 
-The existing `users.role` string column coexists with the new granular system:
-
-| Mechanism | Checks | Use Case |
-|-----------|--------|----------|
-| `require_role("ADMIN")` | `users.role` column | Simple role gates (backward compat) |
-| `require_permission("code")` | `role_assignments` + `role_permissions` | Granular permission checks |
-| `require_api_permission(resource, action)` | Same as above, scoped by resource+action | API-level gates |
-
-Both systems work simultaneously. Migration path:
-1. Assign users to roles in `role_assignments` table
-2. Gradually replace `require_role()` with `require_permission()` in endpoints
-3. Eventually deprecate the `users.role` column
+| Decision | Rationale |
+|----------|-----------|
+| No `users.role` column | Replaced by `role_assignments` — supports multiple roles |
+| No hardcoded `ADMIN` checks | All access via permission codes — fully configurable |
+| `require_permission()` dependencies | Declarative, audit-friendly, easy to find/grep |
+| Permission codes are strings | Can be added/removed without schema changes |
+| Immutable audit logs | Append-only table, no UPDATE/DELETE |
+| Non-blocking audit writes | Audit failures never break business operations |
