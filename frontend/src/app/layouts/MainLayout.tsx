@@ -87,13 +87,13 @@ export const MainLayout = () => {
       {/* ─── Vertical Sidebar ─── */}
       <aside
         className="em-sidebar flex-shrink-0 hidden md:flex flex-column"
-        style={{ width: '260px', minHeight: '100vh' }}
+        style={{ width: '220px', minHeight: '100vh' }}
         aria-label="Sidebar navigation"
       >
         {/* Logo */}
         <div
-          className="flex align-items-center gap-2 px-4"
-          style={{ height: '60px', borderBottom: '1px solid var(--color-surface-border)' }}
+          className="flex align-items-center gap-2 px-3"
+          style={{ height: '48px', borderBottom: '1px solid var(--color-surface-border)' }}
         >
           <span
             className="font-bold text-xl"
@@ -104,12 +104,12 @@ export const MainLayout = () => {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto py-3 px-3">
+        <nav className="flex-1 overflow-y-auto py-2 px-2">
           {Object.entries(sections).map(([section, items]) => (
-            <div key={section} className="mb-3">
+            <div key={section} className="mb-2">
               <div
-                className="text-xs font-semibold uppercase mb-2 px-3"
-                style={{ color: 'var(--color-text-muted)', letterSpacing: '0.05em' }}
+                className="text-xs font-semibold uppercase mb-1 px-2"
+                style={{ color: 'var(--color-text-muted)', letterSpacing: '0.05em', fontSize: '0.65rem' }}
               >
                 {section}
               </div>
@@ -119,7 +119,7 @@ export const MainLayout = () => {
                   <button
                     key={item.path}
                     onClick={() => navigate(item.path)}
-                    className={`w-full flex align-items-center gap-3 px-3 py-2 mb-1 border-none cursor-pointer transition-colors transition-duration-200 ${
+                    className={`w-full flex align-items-center gap-2 px-2 py-2 mb-1 border-none cursor-pointer transition-colors transition-duration-200 ${
                       isActive ? 'sidebar-active' : ''
                     }`}
                     style={{
@@ -128,7 +128,7 @@ export const MainLayout = () => {
                       borderLeft: isActive ? '3px solid var(--color-primary)' : '3px solid transparent',
                       color: isActive ? 'var(--color-primary)' : 'var(--color-text-primary)',
                       fontWeight: isActive ? 600 : 400,
-                      fontSize: '14px',
+                      fontSize: '12.5px',
                     }}
                     aria-label={item.label}
                     aria-current={isActive ? 'page' : undefined}
@@ -150,11 +150,11 @@ export const MainLayout = () => {
       </aside>
 
       {/* ─── Main Content Area ─── */}
-      <div className="flex-1 flex flex-column" style={{ minWidth: 0, maxWidth: 'calc(100vw - 260px)' }}>
+      <div className="flex-1 flex flex-column" style={{ minWidth: 0, maxWidth: 'calc(100vw - 220px)' }}>
         {/* Top Bar */}
         <header
-          className="em-topbar flex align-items-center justify-content-between px-4"
-          style={{ height: '60px' }}
+          className="em-topbar flex align-items-center justify-content-between px-3"
+          style={{ height: '48px' }}
           aria-label="Top bar"
         >
           {/* Left: Page breadcrumb or search can go here */}
@@ -203,7 +203,7 @@ export const MainLayout = () => {
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 p-4 overflow-y-auto">
+        <main className="flex-1 p-3 overflow-y-auto">
           <Outlet />
         </main>
       </div>
