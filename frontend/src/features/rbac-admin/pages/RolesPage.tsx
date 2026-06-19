@@ -1,6 +1,7 @@
 /**
  * RBAC Roles Management page.
- * Lists roles, their permissions, and allows granting/revoking.
+ * Lists roles and allows managing permissions via a tree with checkboxes.
+ * Permissions are grouped by feature (resource) for clear visualization.
  */
 
 import { useEffect, useRef, useState } from 'react';
@@ -10,12 +11,171 @@ import { DataTable } from 'primereact/datatable';
 import { Dialog } from 'primereact/dialog';
 import { InputText } from 'primereact/inputtext';
 import { InputTextarea } from 'primereact/inputtextarea';
-import { MultiSelect } from 'primereact/multiselect';
 import { Tag } from 'primereact/tag';
 import { Toast } from 'primereact/toast';
 import { Toolbar } from 'primereact/toolbar';
+import { Tree } from 'primereact/tree';
+import type { TreeNode } from 'primereact/treenode';
+import type { TreeCheckboxSelectionKeys } from 'primereact/tree';
 import { rbacAdminApi } from '../api/rbacAdminApi';
 import type { CreateRoleRequest, Permission, Role } from '../models/rbac-admin.types';
+
+/**
+ * Build a tree structure from flat permissions, grouped by feature (resource).
+ * Structure: Scope → Resource → Permission
+ */
+function buildPermissionTree(permissions: Permission[]): TreeNode[] {
+  // Group by scope first, then by resource
+  const scopeMap: Record<string, Record<string, Permission[]>> = {};
+
+  for (const perm of permissions) {
+    const scope = perm.scope;
+    // Use first part of resource as feature group
+    const resource = perm.resource.split('.')[0];
+
+    if (!scopeMap[scope]) scopeMap[scope] = {};
+    if (!scopeMap[scope][resource]) scopeMap[scope][resource] = [];
+    scopeMap[scope][resource].push(perm);
+  }
+
+  const scopeLabels: Record<string, string> = {
+    MENU: '📋 Menu Access',
+    API: '🔌 API Access',
+    FIELD: '🔒 Field-Level Access',
+  };
+
+  const scopeIcons: Record<string, string> = {
+    MENU: 'pi pi-bars',
+    API: 'pi pi-server',
+    FIELD: 'pi pi-eye',
+  };
+
+  const tree: TreeNode[] = [];
+
+  for (const scope of ['MENU', 'API', 'FIELD']) {
+    const resources = scopeMap[scope];
+    if (!resources) continue;
+
+    const scopeNode: TreeNode = {
+      key: `scope-${scope}`,
+      label: scopeLabels[scope] || scope,
+      icon: scopeIcons[scope],
+      children: [],
+      selectable: true,
+    };
+
+    for (const [resource, perms] of Object.entries(resources).sort()) {
+      if (perms.length === 1) {
+        // Single permission under resource — add directly to scope
+        const perm = perms[0];
+        scopeNode.children!.push({
+          key: perm.id,
+          label: `${perm.name}`,
+          data: perm,
+          icon: 'pi pi-key',
+        });
+      } else {
+        // Multiple permissions — group under resource node
+        const resourceNode: TreeNode = {
+          key: `resource-${scope}-${resource}`,
+          label: resource.charAt(0).toUpperCase() + resource.slice(1),
+          icon: 'pi pi-folder',
+          children: perms.map((perm) => ({
+            key: perm.id,
+            label: `${perm.name} (${perm.action})`,
+            data: perm,
+            icon: 'pi pi-key',
+          })),
+          selectable: true,
+        };
+        scopeNode.children!.push(resourceNode);
+      }
+    }
+
+    tree.push(scopeNode);
+  }
+
+  return tree;
+}
+
+/**
+ * Convert selected permission IDs to TreeCheckboxSelectionKeys format.
+ * Also marks parent nodes as checked/partial based on children.
+ */
+function buildSelectionKeys(
+  selectedIds: Set<string>,
+  tree: TreeNode[]
+): TreeCheckboxSelectionKeys {
+  const keys: TreeCheckboxSelectionKeys = {};
+
+  for (const scopeNode of tree) {
+    let allScopeSelected = true;
+    let anyScopeSelected = false;
+
+    for (const child of scopeNode.children || []) {
+      if (child.children && child.children.length > 0) {
+        // Resource group node
+        let allResourceSelected = true;
+        let anyResourceSelected = false;
+
+        for (const leaf of child.children) {
+          if (selectedIds.has(leaf.key as string)) {
+            keys[leaf.key as string] = { checked: true, partialChecked: false };
+            anyResourceSelected = true;
+          } else {
+            allResourceSelected = false;
+          }
+        }
+
+        if (allResourceSelected && child.children.length > 0) {
+          keys[child.key as string] = { checked: true, partialChecked: false };
+          anyScopeSelected = true;
+        } else if (anyResourceSelected) {
+          keys[child.key as string] = { checked: false, partialChecked: true };
+          anyScopeSelected = true;
+          allScopeSelected = false;
+        } else {
+          allScopeSelected = false;
+        }
+      } else {
+        // Direct leaf under scope
+        if (selectedIds.has(child.key as string)) {
+          keys[child.key as string] = { checked: true, partialChecked: false };
+          anyScopeSelected = true;
+        } else {
+          allScopeSelected = false;
+        }
+      }
+    }
+
+    if (allScopeSelected && (scopeNode.children?.length ?? 0) > 0) {
+      keys[scopeNode.key as string] = { checked: true, partialChecked: false };
+    } else if (anyScopeSelected) {
+      keys[scopeNode.key as string] = { checked: false, partialChecked: true };
+    }
+  }
+
+  return keys;
+}
+
+/**
+ * Extract actual permission IDs (leaf nodes) from TreeCheckboxSelectionKeys.
+ */
+function extractPermissionIds(
+  selectionKeys: TreeCheckboxSelectionKeys,
+  permissions: Permission[]
+): string[] {
+  const permIdSet = new Set(permissions.map((p) => p.id));
+  const selected: string[] = [];
+
+  for (const [key, value] of Object.entries(selectionKeys)) {
+    if (permIdSet.has(key) && (value as any).checked) {
+      selected.push(key);
+    }
+  }
+
+  return selected;
+}
 
 export const RolesPage = () => {
   const toast = useRef<Toast>(null);
@@ -25,7 +185,8 @@ export const RolesPage = () => {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showPermissionsDialog, setShowPermissionsDialog] = useState(false);
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
-  const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
+  const [permissionTree, setPermissionTree] = useState<TreeNode[]>([]);
+  const [selectionKeys, setSelectionKeys] = useState<TreeCheckboxSelectionKeys>({});
   const [createForm, setCreateForm] = useState<CreateRoleRequest>({
     code: '',
     name: '',
@@ -45,6 +206,7 @@ export const RolesPage = () => {
       ]);
       setRoles(rolesData.roles);
       setPermissions(permsData);
+      setPermissionTree(buildPermissionTree(permsData));
     } catch (error: any) {
       toast.current?.show({
         severity: 'error',
@@ -81,20 +243,26 @@ export const RolesPage = () => {
 
   const openPermissionsDialog = (role: Role) => {
     setSelectedRole(role);
-    setSelectedPermissions(role.permissions.map((p) => p.id));
+    const selectedIds = new Set(role.permissions.map((p) => p.id));
+    setSelectionKeys(buildSelectionKeys(selectedIds, permissionTree));
     setShowPermissionsDialog(true);
   };
 
   const handleSavePermissions = async () => {
     if (!selectedRole) return;
 
+    const newPermIds = new Set(extractPermissionIds(selectionKeys, permissions));
     const currentPermIds = new Set(selectedRole.permissions.map((p) => p.id));
-    const newPermIds = new Set(selectedPermissions);
 
     // Permissions to grant (in new but not in current)
     const toGrant = [...newPermIds].filter((id) => !currentPermIds.has(id));
     // Permissions to revoke (in current but not in new)
     const toRevoke = [...currentPermIds].filter((id) => !newPermIds.has(id));
+
+    if (toGrant.length === 0 && toRevoke.length === 0) {
+      setShowPermissionsDialog(false);
+      return;
+    }
 
     try {
       for (const permId of toGrant) {
@@ -113,7 +281,7 @@ export const RolesPage = () => {
       toast.current?.show({
         severity: 'success',
         summary: 'Success',
-        detail: `Permissions updated for '${selectedRole.code}'`,
+        detail: `Permissions updated for '${selectedRole.code}' (+${toGrant.length} / -${toRevoke.length})`,
         life: 3000,
       });
       loadData();
@@ -146,11 +314,6 @@ export const RolesPage = () => {
   const permissionsCountTemplate = (role: Role) => (
     <span className="font-semibold">{role.permissions.length}</span>
   );
-
-  const scopeTemplate = (perm: Permission) => {
-    const severity = perm.scope === 'MENU' ? 'info' : perm.scope === 'API' ? 'warning' : 'danger';
-    return <Tag value={perm.scope} severity={severity} />;
-  };
 
   const actionsTemplate = (role: Role) => (
     <div className="flex gap-2">
@@ -189,6 +352,9 @@ export const RolesPage = () => {
     </div>
   );
 
+  // Count selected permissions for display
+  const selectedCount = extractPermissionIds(selectionKeys, permissions).length;
+
   return (
     <div className="p-4">
       <Toast ref={toast} />
@@ -209,15 +375,14 @@ export const RolesPage = () => {
           paginator
           rows={10}
           emptyMessage="No roles found"
-          tableStyle={{ minWidth: '50rem' }}
         >
-          <Column field="code" header="Code" sortable style={{ width: '10%' }} />
-          <Column field="name" header="Name" sortable style={{ width: '20%' }} />
-          <Column field="description" header="Description" style={{ width: '25%' }} />
-          <Column header="Type" body={typeTemplate} style={{ width: '10%' }} />
-          <Column header="Status" body={statusTemplate} style={{ width: '10%' }} />
-          <Column header="Permissions" body={permissionsCountTemplate} style={{ width: '10%' }} />
-          <Column header="Actions" body={actionsTemplate} style={{ width: '15%' }} />
+          <Column field="code" header="Code" sortable />
+          <Column field="name" header="Name" sortable />
+          <Column field="description" header="Description" />
+          <Column header="Type" body={typeTemplate} />
+          <Column header="Status" body={statusTemplate} />
+          <Column header="Permissions" body={permissionsCountTemplate} />
+          <Column header="Actions" body={actionsTemplate} style={{ width: '8rem' }} />
         </DataTable>
       </div>
 
@@ -278,69 +443,50 @@ export const RolesPage = () => {
         </div>
       </Dialog>
 
-      {/* ─── Manage Permissions Dialog ─── */}
+      {/* ─── Manage Permissions Dialog (Tree with Checkboxes) ─── */}
       <Dialog
         header={`Permissions — ${selectedRole?.name || ''}`}
         visible={showPermissionsDialog}
-        style={{ width: '700px' }}
+        style={{ width: '650px' }}
         modal
         onHide={() => setShowPermissionsDialog(false)}
         footer={
-          <div className="flex justify-content-end gap-2">
-            <Button
-              label="Cancel"
-              icon="pi pi-times"
-              severity="secondary"
-              text
-              onClick={() => setShowPermissionsDialog(false)}
-            />
-            <Button
-              label="Save Changes"
-              icon="pi pi-check"
-              onClick={handleSavePermissions}
-            />
+          <div className="flex justify-content-between align-items-center">
+            <span className="text-600 text-sm">
+              {selectedCount} permission{selectedCount !== 1 ? 's' : ''} selected
+            </span>
+            <div className="flex gap-2">
+              <Button
+                label="Cancel"
+                icon="pi pi-times"
+                severity="secondary"
+                text
+                onClick={() => setShowPermissionsDialog(false)}
+              />
+              <Button
+                label="Save Changes"
+                icon="pi pi-check"
+                onClick={handleSavePermissions}
+              />
+            </div>
           </div>
         }
       >
         <div className="flex flex-column gap-3 mt-2">
           <p className="text-600 m-0">
-            Select the permissions to assign to this role. Changes are audit-logged.
+            Check/uncheck permissions by feature. Changes are audit-logged.
           </p>
-          <MultiSelect
-            value={selectedPermissions}
-            options={permissions.map((p) => ({
-              label: `${p.code} (${p.scope})`,
-              value: p.id,
-              scope: p.scope,
-            }))}
-            onChange={(e) => setSelectedPermissions(e.value)}
-            placeholder="Select permissions"
-            display="chip"
-            filter
+          <Tree
+            value={permissionTree}
+            selectionMode="checkbox"
+            selectionKeys={selectionKeys}
+            onSelectionChange={(e) => setSelectionKeys(e.value as TreeCheckboxSelectionKeys)}
             className="w-full"
-            maxSelectedLabels={5}
-            aria-label="Select permissions for role"
+            style={{ border: 'none' }}
+            filter
+            filterPlaceholder="Search permissions..."
+            aria-label="Permission tree with checkboxes"
           />
-
-          {/* Current permissions table */}
-          {selectedRole && selectedRole.permissions.length > 0 && (
-            <div className="mt-3">
-              <h4 className="text-sm font-semibold text-600 mb-2">
-                Currently Assigned ({selectedRole.permissions.length})
-              </h4>
-              <DataTable
-                value={selectedRole.permissions}
-                size="small"
-                scrollable
-                scrollHeight="250px"
-              >
-                <Column field="code" header="Code" style={{ width: '30%' }} />
-                <Column field="name" header="Name" style={{ width: '30%' }} />
-                <Column header="Scope" body={scopeTemplate} style={{ width: '15%' }} />
-                <Column field="resource" header="Resource" style={{ width: '25%' }} />
-              </DataTable>
-            </div>
-          )}
         </div>
       </Dialog>
     </div>
