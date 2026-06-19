@@ -21,12 +21,12 @@ from src.infrastructure.external.employee_ad.employee_ad_client import (
     EmployeeADAuthError,
     EmployeeADUnavailableError,
 )
-from src.infrastructure.security.rbac_manager import require_role
+from src.infrastructure.security.permission_manager import require_permission
 
 router = APIRouter(
     prefix="/services/employee-ad",
     tags=["Employee AD Service"],
-    dependencies=[Depends(require_role("ADMIN"))],
+    dependencies=[Depends(require_permission("services.employee_ad"))],
 )
 
 # Singleton client instance

@@ -6,7 +6,6 @@ export interface User {
   is_active: boolean;
   is_blocked: boolean;
   is_validate_ad: boolean;
-  role: string;
   created_by: string;
   created_date: string;
   modified_by: string;
@@ -23,7 +22,6 @@ export interface UserListResponse {
 export interface CreateUserRequest {
   username: string;
   password: string;
-  role: string;
   is_validate_ad: boolean;
 }
 
@@ -31,10 +29,27 @@ export interface UpdateUserRequest {
   is_active?: boolean;
   is_blocked?: boolean;
   is_validate_ad?: boolean;
-  role?: string;
 }
 
-export type UserRole = 'ADMIN' | 'MANAGER' | 'USER';
+export interface RolePermission {
+  code: string;
+  name: string;
+  scope: string;
+  resource: string;
+  action: string;
+}
+
+export interface UserRole {
+  id: string;
+  code: string;
+  name: string;
+  permissions: RolePermission[];
+}
+
+export interface UserRolesResponse {
+  user_id: string;
+  roles: UserRole[];
+}
 
 export interface ImportResult {
   employee_id: string;

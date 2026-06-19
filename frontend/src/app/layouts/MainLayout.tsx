@@ -43,14 +43,9 @@ export const MainLayout = () => {
   ];
 
   // Filter items based on RBAC menu permissions
-  // ADMIN role gets full access as a fallback (in case role_assignments not seeded)
-  const isAdmin = user?.role === 'ADMIN';
-
   const visibleItems = navItems.filter((item) => {
     // If no menuKey specified, always show
     if (!item.menuKey) return item.visible !== false;
-    // Admin always sees everything
-    if (isAdmin) return true;
     // If RBAC not loaded yet, hide gated items to avoid flash
     if (!rbacLoaded) return false;
     // Show if user has the menu permission
@@ -59,7 +54,7 @@ export const MainLayout = () => {
 
   const userMenuItems = [
     {
-      label: `${user?.username} (${user?.role})`,
+      label: `${user?.username}`,
       icon: 'pi pi-user',
       disabled: true,
     },

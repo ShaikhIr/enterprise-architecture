@@ -6,6 +6,9 @@ Protected by authentication and RBAC via FastAPI dependencies.
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from src.api.v1.dependencies import (
     get_current_active_user,
@@ -15,6 +18,8 @@ from src.api.v1.schemas.user_request import CreateUserRequest, UpdateUserRequest
 from src.api.v1.schemas.user_response import UserListResponse, UserResponse
 from src.domain.entities.user import User
 from src.domain.repositories.user_repository import UserRepositoryInterface
+from src.infrastructure.database.models.role_model import RoleAssignmentModel, RoleModel
+from src.infrastructure.database.session import get_db_session
 from src.infrastructure.security.password_encoder import hash_password
 from src.infrastructure.security.permission_manager import require_api_permission
 
@@ -65,7 +70,6 @@ async def create_user(
         id=uuid4(),
         username=request.username,
         password_hash=hash_password(request.password),
-        role=request.role,
         is_validate_ad=request.is_validate_ad,
         created_by=current_user.username,
         modified_by=current_user.username,
@@ -121,12 +125,67 @@ async def update_user(
         user.is_blocked = request.is_blocked
     if request.is_validate_ad is not None:
         user.is_validate_ad = request.is_validate_ad
-    if request.role is not None:
-        user.role = request.role
 
     user.mark_modified(current_user.username)
     updated = await user_repo.update(user)
     return _to_response(updated)
+
+
+@router.get(
+    "/{user_id}/roles",
+    summary="Get roles assigned to a user",
+)
+async def get_user_roles(
+    user_id: UUID,
+    current_user: User = Depends(get_current_active_user),
+    session: AsyncSession = Depends(get_db_session),
+) -> dict:
+    """GET /api/v1/users/{user_id}/roles - Returns all roles and their permissions for a user."""
+    # Get active role assignments
+    stmt = (
+        select(RoleAssignmentModel)
+        .where(
+            RoleAssignmentModel.user_id == str(user_id),
+            RoleAssignmentModel.is_active == True,  # noqa: E712
+        )
+    )
+    result = await session.execute(stmt)
+    assignments = result.scalars().all()
+
+    if not assignments:
+        return {"user_id": str(user_id), "roles": []}
+
+    role_ids = [a.role_id for a in assignments]
+
+    # Fetch roles with permissions
+    role_stmt = (
+        select(RoleModel)
+        .options(selectinload(RoleModel.permissions))
+        .where(RoleModel.id.in_(role_ids), RoleModel.is_active == True)  # noqa: E712
+    )
+    role_result = await session.execute(role_stmt)
+    roles = role_result.scalars().all()
+
+    roles_data = []
+    for role in roles:
+        roles_data.append({
+            "id": str(role.id),
+            "code": role.code,
+            "name": role.name,
+            "permissions": [
+                {
+                    "code": p.code,
+                    "name": p.name,
+                    "scope": p.scope,
+                    "resource": p.resource,
+                    "action": p.action,
+                }
+                for p in role.permissions
+                if p.is_active
+            ],
+        })
+
+    return {"user_id": str(user_id), "roles": roles_data}
 
 
 def _to_response(user: User) -> UserResponse:
@@ -137,7 +196,6 @@ def _to_response(user: User) -> UserResponse:
         is_active=user.is_active,
         is_blocked=user.is_blocked,
         is_validate_ad=user.is_validate_ad,
-        role=user.role,
         created_by=user.created_by,
         created_date=user.created_date,
         modified_by=user.modified_by,

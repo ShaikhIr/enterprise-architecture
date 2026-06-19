@@ -111,7 +111,6 @@ async def get_me(current_user: User = Depends(get_current_active_user)) -> dict:
     return {
         "id": str(current_user.id),
         "username": current_user.username,
-        "role": current_user.role,
         "is_active": current_user.is_active,
     }
 

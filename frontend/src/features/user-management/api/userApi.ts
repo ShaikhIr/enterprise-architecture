@@ -10,6 +10,7 @@ import type {
   UpdateUserRequest,
   User,
   UserListResponse,
+  UserRolesResponse,
 } from '../models/User';
 
 export const userApi = {
@@ -32,6 +33,11 @@ export const userApi = {
 
   updateUser: async (userId: string, request: UpdateUserRequest): Promise<User> => {
     const { data } = await apiClient.patch<User>(`/users/${userId}`, request);
+    return data;
+  },
+
+  getUserRoles: async (userId: string): Promise<UserRolesResponse> => {
+    const { data } = await apiClient.get<UserRolesResponse>(`/users/${userId}/roles`);
     return data;
   },
 

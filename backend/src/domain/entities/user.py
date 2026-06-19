@@ -25,7 +25,6 @@ class User(BaseEntity):
     is_active: bool = field(default=True)
     is_blocked: bool = field(default=False)
     is_validate_ad: bool = field(default=True)
-    role: str = field(default="USER")
 
     def can_authenticate(self) -> bool:
         """Check if the user is allowed to authenticate."""

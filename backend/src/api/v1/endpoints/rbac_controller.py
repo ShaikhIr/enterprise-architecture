@@ -1,4 +1,4 @@
-"""
+﻿"""
 RBAC Management API endpoints.
 Provides CRUD for roles, permissions, assignments, and audit log viewing.
 All operations are audit-logged and restricted to ADMIN role.
@@ -41,8 +41,7 @@ from src.infrastructure.database.models.role_model import (
 )
 from src.infrastructure.database.session import get_db_session
 from src.infrastructure.security.audit_service import AuditService
-from src.infrastructure.security.permission_manager import PermissionManager
-from src.infrastructure.security.rbac_manager import require_role
+from src.infrastructure.security.permission_manager import PermissionManager, require_permission, require_api_permission
 
 router = APIRouter(prefix="/rbac", tags=["RBAC"])
 
@@ -55,16 +54,16 @@ def _get_client_ip(request: Request) -> str:
     return request.client.host if request.client else ""
 
 
-# ═══════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # PERMISSIONS CRUD
-# ═══════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 @router.get(
     "/permissions",
     response_model=list[PermissionResponse],
     summary="List all permissions",
-    dependencies=[Depends(require_role("ADMIN"))],
+    dependencies=[Depends(require_permission("rbac.manage"))],
 )
 async def list_permissions(
     scope: str | None = Query(default=None, pattern="^(MENU|API|FIELD)$"),
@@ -83,8 +82,8 @@ async def list_permissions(
     "/permissions",
     response_model=PermissionResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Create a permission (ADMIN only)",
-    dependencies=[Depends(require_role("ADMIN"))],
+    summary="Create a permission ",
+    dependencies=[Depends(require_permission("rbac.manage"))],
 )
 async def create_permission(
     request_body: PermissionCreate,
@@ -134,16 +133,16 @@ async def create_permission(
     return PermissionResponse.model_validate(perm)
 
 
-# ═══════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # ROLES CRUD
-# ═══════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 @router.get(
     "/roles",
     response_model=RoleListResponse,
     summary="List all roles",
-    dependencies=[Depends(require_role("ADMIN"))],
+    dependencies=[Depends(require_permission("rbac.manage"))],
 )
 async def list_roles(
     tenant_id: UUID | None = Query(default=None),
@@ -172,8 +171,8 @@ async def list_roles(
     "/roles",
     response_model=RoleResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Create a role (ADMIN only)",
-    dependencies=[Depends(require_role("ADMIN"))],
+    summary="Create a role ",
+    dependencies=[Depends(require_permission("rbac.manage"))],
 )
 async def create_role(
     request_body: RoleCreate,
@@ -225,8 +224,8 @@ async def create_role(
 @router.patch(
     "/roles/{role_id}",
     response_model=RoleResponse,
-    summary="Update a role (ADMIN only)",
-    dependencies=[Depends(require_role("ADMIN"))],
+    summary="Update a role ",
+    dependencies=[Depends(require_permission("rbac.manage"))],
 )
 async def update_role(
     role_id: UUID,
@@ -279,16 +278,16 @@ async def update_role(
     return RoleResponse.model_validate(role)
 
 
-# ═══════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # PERMISSION GRANT / REVOKE ON ROLES
-# ═══════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 @router.post(
     "/roles/grant-permission",
     status_code=status.HTTP_201_CREATED,
-    summary="Grant permission to a role (ADMIN only)",
-    dependencies=[Depends(require_role("ADMIN"))],
+    summary="Grant permission to a role ",
+    dependencies=[Depends(require_permission("rbac.manage"))],
 )
 async def grant_permission_to_role(
     request_body: PermissionGrantRequest,
@@ -341,8 +340,8 @@ async def grant_permission_to_role(
 
 @router.post(
     "/roles/revoke-permission",
-    summary="Revoke permission from a role (ADMIN only)",
-    dependencies=[Depends(require_role("ADMIN"))],
+    summary="Revoke permission from a role ",
+    dependencies=[Depends(require_permission("rbac.manage"))],
 )
 async def revoke_permission_from_role(
     request_body: PermissionRevokeRequest,
@@ -380,17 +379,17 @@ async def revoke_permission_from_role(
     return {"detail": "Permission revoked"}
 
 
-# ═══════════════════════════════════════════════════════════════════
-# ROLE ASSIGNMENTS (User ↔ Role)
-# ═══════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# ROLE ASSIGNMENTS (User â†” Role)
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 @router.post(
     "/assignments",
     response_model=RoleAssignmentResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Assign role to user (ADMIN only)",
-    dependencies=[Depends(require_role("ADMIN"))],
+    summary="Assign role to user ",
+    dependencies=[Depends(require_permission("rbac.manage"))],
 )
 async def assign_role(
     request_body: RoleAssignRequest,
@@ -443,8 +442,8 @@ async def assign_role(
 
 @router.post(
     "/assignments/revoke",
-    summary="Revoke role from user (ADMIN only)",
-    dependencies=[Depends(require_role("ADMIN"))],
+    summary="Revoke role from user ",
+    dependencies=[Depends(require_permission("rbac.manage"))],
 )
 async def revoke_role(
     request_body: RoleRevokeRequest,
@@ -484,9 +483,9 @@ async def revoke_role(
     return {"detail": "Role revoked"}
 
 
-# ═══════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # USER PERMISSION QUERIES (for frontend consumption)
-# ═══════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 @router.get(
@@ -585,16 +584,16 @@ async def get_my_field_permissions(
     return FieldPermissionsResponse(resource=resource, fields=field_perms)
 
 
-# ═══════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # AUDIT LOGS (read-only)
-# ═══════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 @router.get(
     "/audit-logs",
     response_model=AuditLogListResponse,
-    summary="View audit logs (ADMIN only)",
-    dependencies=[Depends(require_role("ADMIN"))],
+    summary="View audit logs",
+    dependencies=[Depends(require_permission("audit.read"))],
 )
 async def list_audit_logs(
     action: str | None = Query(default=None),

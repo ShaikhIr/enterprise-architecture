@@ -1,22 +1,18 @@
 /**
  * Edit User Dialog.
- * Allows editing role, active/blocked status, and AD validation flag.
- * Role options are loaded dynamically from the roles table.
+ * Allows editing active/blocked status and AD validation flag.
  */
 
 import { useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Dropdown } from 'primereact/dropdown';
 import { InputSwitch } from 'primereact/inputswitch';
 import { Button } from 'primereact/button';
 import { Dialog } from 'primereact/dialog';
 import type { User, UpdateUserRequest } from '../models/User';
-import { useRoles } from '../hooks/useRoles';
 
 const editUserSchema = z.object({
-  role: z.string().min(1, 'Role is required'),
   is_active: z.boolean(),
   is_blocked: z.boolean(),
   is_validate_ad: z.boolean(),
@@ -33,16 +29,13 @@ interface EditUserDialogProps {
 }
 
 export const EditUserDialog = ({ visible, user, onHide, onSubmit, loading }: EditUserDialogProps) => {
-  const { roleOptions, loading: rolesLoading } = useRoles();
   const {
     handleSubmit,
     control,
     reset,
-    formState: { errors },
   } = useForm<EditUserFormData>({
     resolver: zodResolver(editUserSchema),
     defaultValues: {
-      role: 'USER',
       is_active: true,
       is_blocked: false,
       is_validate_ad: true,
@@ -53,7 +46,6 @@ export const EditUserDialog = ({ visible, user, onHide, onSubmit, loading }: Edi
   useEffect(() => {
     if (user) {
       reset({
-        role: user.role,
         is_active: user.is_active,
         is_blocked: user.is_blocked,
         is_validate_ad: user.is_validate_ad,
@@ -99,26 +91,6 @@ export const EditUserDialog = ({ visible, user, onHide, onSubmit, loading }: Edi
         <div className="flex flex-column gap-2">
           <label className="font-medium">Username</label>
           <span className="text-900 font-semibold">{user?.username}</span>
-        </div>
-
-        {/* Role */}
-        <div className="flex flex-column gap-2">
-          <label htmlFor="edit-role" className="font-medium">Role</label>
-          <Controller
-            name="role"
-            control={control}
-            render={({ field }) => (
-              <Dropdown
-                id="edit-role"
-                {...field}
-                options={roleOptions}
-                placeholder={rolesLoading ? 'Loading roles...' : 'Select role'}
-                disabled={rolesLoading}
-                className={errors.role ? 'p-invalid' : ''}
-                aria-label="User role"
-              />
-            )}
-          />
         </div>
 
         {/* Active */}

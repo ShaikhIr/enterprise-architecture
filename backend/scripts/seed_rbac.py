@@ -50,6 +50,12 @@ DEFAULT_PERMISSIONS = [
     {"code": "audit.read", "name": "View Audit Logs", "scope": "API", "resource": "audit_logs", "action": "READ"},
     {"code": "reports.export", "name": "Export Reports", "scope": "API", "resource": "reports", "action": "EXPORT"},
 
+    # RBAC management permission — controls access to RBAC CRUD (roles, permissions, assignments)
+    {"code": "rbac.manage", "name": "Manage RBAC", "scope": "API", "resource": "rbac", "action": "EXECUTE"},
+
+    # Employee AD service permission
+    {"code": "services.employee_ad", "name": "Access Employee AD Service", "scope": "API", "resource": "services", "action": "EXECUTE"},
+
     # Field-level permissions — control visibility of sensitive fields
     {"code": "users.salary.read", "name": "View Salary", "scope": "FIELD", "resource": "users.salary", "action": "READ"},
     {"code": "users.salary.update", "name": "Edit Salary", "scope": "FIELD", "resource": "users.salary", "action": "UPDATE"},
@@ -61,13 +67,14 @@ DEFAULT_PERMISSIONS = [
 # Role → permission code assignments
 ROLE_PERMISSIONS = {
     "ADMIN": [
-        # Admin gets everything
+        # Admin gets ALL permissions
         "menu.dashboard", "menu.users", "menu.roles", "menu.audit_logs",
         "menu.services", "menu.reports", "menu.settings",
         "users.list", "users.create", "users.update", "users.delete",
         "users.export", "users.import",
         "roles.list", "roles.create", "roles.update", "roles.assign",
         "audit.read", "reports.export",
+        "rbac.manage", "services.employee_ad",
         "users.salary.read", "users.salary.update",
         "users.email.read", "users.email.update", "users.phone.read",
     ],
@@ -154,48 +161,45 @@ async def seed() -> None:
         await session.commit()
         print("\n✓ RBAC seed complete.")
 
-    # 3. Assign ADMIN role to all users with role='ADMIN' in the users table
+    # 3. Assign ADMIN role to all existing users who don't have any role assignment
     async with async_session_factory() as session:
-        print("\nAssigning roles to existing users...")
+        print("\nAssigning default role to existing users without role assignments...")
 
-        for role_code in ROLE_PERMISSIONS.keys():
-            # Find the role
-            role_result = await session.execute(
-                select(RoleModel).where(RoleModel.code == role_code)
-            )
-            role = role_result.scalar_one_or_none()
-            if not role:
-                continue
-
-            # Find all users with this legacy role
-            users_result = await session.execute(
-                select(UserModel).where(UserModel.role == role_code)
-            )
+        # Find the ADMIN role
+        admin_role_result = await session.execute(
+            select(RoleModel).where(RoleModel.code == "ADMIN")
+        )
+        admin_role = admin_role_result.scalar_one_or_none()
+        if not admin_role:
+            print("  [warn] ADMIN role not found — skipping user assignments")
+        else:
+            # Find all users
+            users_result = await session.execute(select(UserModel))
             users = users_result.scalars().all()
 
             for user in users:
-                # Check if assignment already exists
+                # Check if user already has any role assignment
                 existing_assignment = await session.execute(
                     select(RoleAssignmentModel).where(
                         RoleAssignmentModel.user_id == str(user.id),
-                        RoleAssignmentModel.role_id == str(role.id),
                     )
                 )
                 if existing_assignment.scalar_one_or_none():
-                    print(f"  [skip] User '{user.username}' already assigned to role '{role_code}'")
+                    print(f"  [skip] User '{user.username}' already has a role assignment")
                     continue
 
+                # Assign ADMIN role as default for existing users
                 assignment = RoleAssignmentModel(
                     id=uuid4(),
                     user_id=str(user.id),
-                    role_id=str(role.id),
+                    role_id=str(admin_role.id),
                     tenant_id=None,
                     is_active=True,
                     created_by="seed_script",
                     modified_by="seed_script",
                 )
                 session.add(assignment)
-                print(f"  [new]  User '{user.username}' → Role '{role_code}'")
+                print(f"  [new]  User '{user.username}' → Role 'ADMIN'")
 
         await session.commit()
         print("\n✓ Role assignments complete.")

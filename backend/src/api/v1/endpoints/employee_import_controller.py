@@ -27,7 +27,7 @@ from src.infrastructure.external.employee_ad.employee_ad_client import (
     EmployeeADError,
 )
 from src.infrastructure.security.password_encoder import hash_password
-from src.infrastructure.security.rbac_manager import require_role
+from src.infrastructure.security.permission_manager import require_permission
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
@@ -61,8 +61,8 @@ class ImportEmployeesResponse(BaseModel):
 @router.post(
     "/import-employees",
     response_model=ImportEmployeesResponse,
-    summary="Import employees from Darwin AD (ADMIN only)",
-    dependencies=[Depends(require_role("ADMIN"))],
+    summary="Import employees from Darwin AD",
+    dependencies=[Depends(require_permission("users.import"))],
 )
 async def import_employees(
     request: ImportEmployeesRequest,

@@ -1,7 +1,6 @@
 /**
- * User create/edit form component.
+ * User create form component.
  * Uses React Hook Form + Zod + PrimeReact.
- * Role options are loaded dynamically from the roles table.
  */
 
 import { useForm, Controller } from 'react-hook-form';
@@ -9,16 +8,13 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { InputText } from 'primereact/inputtext';
 import { Password } from 'primereact/password';
-import { Dropdown } from 'primereact/dropdown';
 import { InputSwitch } from 'primereact/inputswitch';
 import { Button } from 'primereact/button';
 import { Dialog } from 'primereact/dialog';
-import { useRoles } from '../hooks/useRoles';
 
 const createUserSchema = z.object({
   username: z.string().min(3, 'Username must be at least 3 characters').max(255),
   password: z.string().min(8, 'Password must be at least 8 characters').max(128),
-  role: z.string().min(1, 'Role is required'),
   is_validate_ad: z.boolean(),
 });
 
@@ -32,8 +28,6 @@ interface UserFormProps {
 }
 
 export const UserForm = ({ visible, onHide, onSubmit, loading }: UserFormProps) => {
-  const { roleOptions, loading: rolesLoading } = useRoles();
-
   const {
     register,
     handleSubmit,
@@ -42,7 +36,7 @@ export const UserForm = ({ visible, onHide, onSubmit, loading }: UserFormProps) 
     formState: { errors },
   } = useForm<CreateUserFormData>({
     resolver: zodResolver(createUserSchema),
-    defaultValues: { role: 'USER', is_validate_ad: true },
+    defaultValues: { is_validate_ad: true },
   });
 
   const handleFormSubmit = (data: CreateUserFormData) => {
@@ -120,30 +114,6 @@ export const UserForm = ({ visible, onHide, onSubmit, loading }: UserFormProps) 
             <small id="new-password-error" className="p-error">
               {errors.password.message}
             </small>
-          )}
-        </div>
-
-        <div className="flex flex-column gap-2">
-          <label htmlFor="new-role" className="font-medium">
-            Role
-          </label>
-          <Controller
-            name="role"
-            control={control}
-            render={({ field }) => (
-              <Dropdown
-                id="new-role"
-                {...field}
-                options={roleOptions}
-                placeholder={rolesLoading ? 'Loading roles...' : 'Select role'}
-                disabled={rolesLoading}
-                className={errors.role ? 'p-invalid' : ''}
-                aria-label="User role"
-              />
-            )}
-          />
-          {errors.role && (
-            <small className="p-error">{errors.role.message}</small>
           )}
         </div>
 
