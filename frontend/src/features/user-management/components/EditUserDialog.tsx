@@ -1,21 +1,25 @@
 /**
  * Edit User Dialog.
- * Allows editing active/blocked status and AD validation flag.
+ * Allows editing active/blocked status, AD validation, and single role assignment.
  */
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { Dropdown } from 'primereact/dropdown';
 import { InputSwitch } from 'primereact/inputswitch';
 import { Button } from 'primereact/button';
 import { Dialog } from 'primereact/dialog';
+import { useRoles } from '../hooks/useRoles';
+import { userApi } from '../api/userApi';
 import type { User, UpdateUserRequest } from '../models/User';
 
 const editUserSchema = z.object({
   is_active: z.boolean(),
   is_blocked: z.boolean(),
   is_validate_ad: z.boolean(),
+  role_id: z.string().nullable(),
 });
 
 type EditUserFormData = z.infer<typeof editUserSchema>;
@@ -29,33 +33,55 @@ interface EditUserDialogProps {
 }
 
 export const EditUserDialog = ({ visible, user, onHide, onSubmit, loading }: EditUserDialogProps) => {
+  const { roleOptions, loading: rolesLoading } = useRoles();
+  const [loadingUserRole, setLoadingUserRole] = useState(false);
+
   const {
     handleSubmit,
     control,
     reset,
+    setValue,
   } = useForm<EditUserFormData>({
     resolver: zodResolver(editUserSchema),
     defaultValues: {
       is_active: true,
       is_blocked: false,
       is_validate_ad: true,
+      role_id: null,
     },
   });
 
-  // Reset form when user changes
+  // Reset form and load user's current role when dialog opens
   useEffect(() => {
-    if (user) {
+    if (user && visible) {
       reset({
         is_active: user.is_active,
         is_blocked: user.is_blocked,
         is_validate_ad: user.is_validate_ad,
+        role_id: null,
       });
+
+      // Fetch user's current role assignment
+      setLoadingUserRole(true);
+      userApi.getUserRoles(user.id)
+        .then((data) => {
+          if (data.roles.length > 0) {
+            setValue('role_id', data.roles[0].id);
+          }
+        })
+        .catch(() => {})
+        .finally(() => setLoadingUserRole(false));
     }
-  }, [user, reset]);
+  }, [user, visible, reset, setValue]);
 
   const handleFormSubmit = (data: EditUserFormData) => {
     if (!user) return;
-    onSubmit(user.id, data);
+    onSubmit(user.id, {
+      is_active: data.is_active,
+      is_blocked: data.is_blocked,
+      is_validate_ad: data.is_validate_ad,
+      role_id: data.role_id,
+    });
   };
 
   const footer = (
@@ -91,6 +117,27 @@ export const EditUserDialog = ({ visible, user, onHide, onSubmit, loading }: Edi
         <div className="flex flex-column gap-2">
           <label className="font-medium">Username</label>
           <span className="text-900 font-semibold">{user?.username}</span>
+        </div>
+
+        {/* Role Assignment */}
+        <div className="flex flex-column gap-2">
+          <label htmlFor="edit-role" className="font-medium">Role</label>
+          <Controller
+            name="role_id"
+            control={control}
+            render={({ field }) => (
+              <Dropdown
+                id="edit-role"
+                value={field.value}
+                options={roleOptions}
+                onChange={(e) => field.onChange(e.value)}
+                placeholder={rolesLoading || loadingUserRole ? 'Loading...' : 'Select a role'}
+                disabled={rolesLoading || loadingUserRole}
+                className="w-full"
+                aria-label="Assign role"
+              />
+            )}
+          />
         </div>
 
         {/* Active */}
@@ -144,9 +191,6 @@ export const EditUserDialog = ({ visible, user, onHide, onSubmit, loading }: Edi
           <label htmlFor="edit-validate-ad" className="font-medium cursor-pointer">
             Validate with AD
           </label>
-          <small className="text-600">
-            Login via Darwin AD when enabled
-          </small>
         </div>
       </form>
     </Dialog>

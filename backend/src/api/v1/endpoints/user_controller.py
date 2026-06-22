@@ -58,6 +58,7 @@ async def create_user(
     request: CreateUserRequest,
     current_user: User = Depends(get_current_active_user),
     user_repo: UserRepositoryInterface = Depends(get_user_repository),
+    session: AsyncSession = Depends(get_db_session),
 ) -> UserResponse:
     """POST /api/v1/users - Create a new user."""
     if await user_repo.exists_by_username(request.username):
@@ -76,6 +77,20 @@ async def create_user(
     )
 
     created = await user_repo.create(user)
+
+    # Assign role if provided
+    if request.role_id:
+        assignment = RoleAssignmentModel(
+            id=uuid4(),
+            user_id=str(created.id),
+            role_id=str(request.role_id),
+            tenant_id=None,
+            is_active=True,
+            created_by=current_user.username,
+            modified_by=current_user.username,
+        )
+        session.add(assignment)
+
     return _to_response(created)
 
 
@@ -110,6 +125,7 @@ async def update_user(
     request: UpdateUserRequest,
     current_user: User = Depends(get_current_active_user),
     user_repo: UserRepositoryInterface = Depends(get_user_repository),
+    session: AsyncSession = Depends(get_db_session),
 ) -> UserResponse:
     """PATCH /api/v1/users/{user_id} - Update user properties."""
     user = await user_repo.get_by_id(user_id)
@@ -128,6 +144,31 @@ async def update_user(
 
     user.mark_modified(current_user.username)
     updated = await user_repo.update(user)
+
+    # Update role assignment if provided (replace existing)
+    if request.role_id is not None:
+        # Deactivate existing assignments
+        existing_stmt = select(RoleAssignmentModel).where(
+            RoleAssignmentModel.user_id == str(user_id),
+            RoleAssignmentModel.is_active == True,  # noqa: E712
+        )
+        existing_result = await session.execute(existing_stmt)
+        for assignment in existing_result.scalars().all():
+            assignment.is_active = False
+            assignment.modified_by = current_user.username
+
+        # Create new single assignment
+        assignment = RoleAssignmentModel(
+            id=uuid4(),
+            user_id=str(user_id),
+            role_id=str(request.role_id),
+            tenant_id=None,
+            is_active=True,
+            created_by=current_user.username,
+            modified_by=current_user.username,
+        )
+        session.add(assignment)
+
     return _to_response(updated)
 
 

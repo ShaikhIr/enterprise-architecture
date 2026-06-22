@@ -1,6 +1,7 @@
 /**
  * Hook to fetch roles from the RBAC roles table.
  * Used in user create/edit forms to populate the role dropdown dynamically.
+ * Returns role ID as the value for use with role_assignments.
  */
 
 import { useEffect, useState } from 'react';
@@ -8,7 +9,7 @@ import { apiClient } from '@shared/services/apiClient';
 
 interface RoleOption {
   label: string;
-  value: string;
+  value: string; // role ID (UUID)
 }
 
 interface RoleFromApi {
@@ -34,17 +35,12 @@ export const useRoles = () => {
         const options = response.data.roles
           .filter((r) => r.is_active)
           .map((r) => ({
-            label: r.name,
-            value: r.code,
+            label: `${r.name} (${r.code})`,
+            value: r.id,
           }));
         setRoleOptions(options);
       } catch {
-        // Fallback to defaults if RBAC endpoint is unavailable
-        setRoleOptions([
-          { label: 'Admin', value: 'ADMIN' },
-          { label: 'Manager', value: 'MANAGER' },
-          { label: 'User', value: 'USER' },
-        ]);
+        setRoleOptions([]);
       } finally {
         setLoading(false);
       }

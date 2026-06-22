@@ -23,12 +23,14 @@ export interface CreateUserRequest {
   username: string;
   password: string;
   is_validate_ad: boolean;
+  role_id: string | null;
 }
 
 export interface UpdateUserRequest {
   is_active?: boolean;
   is_blocked?: boolean;
   is_validate_ad?: boolean;
+  role_id?: string | null;
 }
 
 export interface RolePermission {

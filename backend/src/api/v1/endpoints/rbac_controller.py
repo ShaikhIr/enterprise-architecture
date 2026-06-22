@@ -63,7 +63,7 @@ def _get_client_ip(request: Request) -> str:
     "/permissions",
     response_model=list[PermissionResponse],
     summary="List all permissions",
-    dependencies=[Depends(require_permission("rbac.manage"))],
+    dependencies=[Depends(require_permission("rbac.read"))],
 )
 async def list_permissions(
     scope: str | None = Query(default=None, pattern="^(MENU|API|FIELD)$"),
@@ -83,7 +83,7 @@ async def list_permissions(
     response_model=PermissionResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Create a permission ",
-    dependencies=[Depends(require_permission("rbac.manage"))],
+    dependencies=[Depends(require_permission("rbac.create"))],
 )
 async def create_permission(
     request_body: PermissionCreate,
@@ -142,7 +142,7 @@ async def create_permission(
     "/roles",
     response_model=RoleListResponse,
     summary="List all roles",
-    dependencies=[Depends(require_permission("rbac.manage"))],
+    dependencies=[Depends(require_permission("rbac.read"))],
 )
 async def list_roles(
     tenant_id: UUID | None = Query(default=None),
@@ -172,7 +172,7 @@ async def list_roles(
     response_model=RoleResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Create a role ",
-    dependencies=[Depends(require_permission("rbac.manage"))],
+    dependencies=[Depends(require_permission("rbac.create"))],
 )
 async def create_role(
     request_body: RoleCreate,
@@ -225,7 +225,7 @@ async def create_role(
     "/roles/{role_id}",
     response_model=RoleResponse,
     summary="Update a role ",
-    dependencies=[Depends(require_permission("rbac.manage"))],
+    dependencies=[Depends(require_permission("rbac.update"))],
 )
 async def update_role(
     role_id: UUID,
@@ -287,7 +287,7 @@ async def update_role(
     "/roles/grant-permission",
     status_code=status.HTTP_201_CREATED,
     summary="Grant permission to a role ",
-    dependencies=[Depends(require_permission("rbac.manage"))],
+    dependencies=[Depends(require_permission("rbac.update"))],
 )
 async def grant_permission_to_role(
     request_body: PermissionGrantRequest,
@@ -341,7 +341,7 @@ async def grant_permission_to_role(
 @router.post(
     "/roles/revoke-permission",
     summary="Revoke permission from a role ",
-    dependencies=[Depends(require_permission("rbac.manage"))],
+    dependencies=[Depends(require_permission("rbac.update"))],
 )
 async def revoke_permission_from_role(
     request_body: PermissionRevokeRequest,
@@ -389,7 +389,7 @@ async def revoke_permission_from_role(
     response_model=RoleAssignmentResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Assign role to user ",
-    dependencies=[Depends(require_permission("rbac.manage"))],
+    dependencies=[Depends(require_permission("rbac.update"))],
 )
 async def assign_role(
     request_body: RoleAssignRequest,
@@ -443,7 +443,7 @@ async def assign_role(
 @router.post(
     "/assignments/revoke",
     summary="Revoke role from user ",
-    dependencies=[Depends(require_permission("rbac.manage"))],
+    dependencies=[Depends(require_permission("rbac.update"))],
 )
 async def revoke_role(
     request_body: RoleRevokeRequest,

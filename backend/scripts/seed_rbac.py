@@ -50,8 +50,10 @@ DEFAULT_PERMISSIONS = [
     {"code": "audit.read", "name": "View Audit Logs", "scope": "API", "resource": "audit_logs", "action": "READ"},
     {"code": "reports.export", "name": "Export Reports", "scope": "API", "resource": "reports", "action": "EXPORT"},
 
-    # RBAC management permission — controls access to RBAC CRUD (roles, permissions, assignments)
-    {"code": "rbac.manage", "name": "Manage RBAC", "scope": "API", "resource": "rbac", "action": "EXECUTE"},
+    # RBAC management permissions — granular control over roles & permissions CRUD
+    {"code": "rbac.read", "name": "View Roles & Permissions", "scope": "API", "resource": "rbac", "action": "READ"},
+    {"code": "rbac.create", "name": "Create Roles & Permissions", "scope": "API", "resource": "rbac", "action": "CREATE"},
+    {"code": "rbac.update", "name": "Update Roles & Permissions", "scope": "API", "resource": "rbac", "action": "UPDATE"},
 
     # Employee AD service permission
     {"code": "services.employee_ad", "name": "Access Employee AD Service", "scope": "API", "resource": "services", "action": "EXECUTE"},
@@ -74,7 +76,7 @@ ROLE_PERMISSIONS = {
         "users.export", "users.import",
         "roles.list", "roles.create", "roles.update", "roles.assign",
         "audit.read", "reports.export",
-        "rbac.manage", "services.employee_ad",
+        "rbac.read", "rbac.create", "rbac.update", "services.employee_ad",
         "users.salary.read", "users.salary.update",
         "users.email.read", "users.email.update", "users.phone.read",
     ],
