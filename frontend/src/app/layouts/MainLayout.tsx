@@ -32,12 +32,15 @@ export const MainLayout = () => {
 
   const navItems: NavItem[] = [
     { label: 'Dashboard', icon: 'pi pi-th-large', path: '/dashboard', section: 'Main', menuKey: 'dashboard' },
+    { label: 'Commission Claims', icon: 'pi pi-wallet', path: '/claims', section: 'Main', menuKey: 'dashboard' },
     { label: 'Orders', icon: 'pi pi-list', path: '/orders', section: 'Main' },
     { label: 'Reports', icon: 'pi pi-chart-bar', path: '/reports', section: 'Main', menuKey: 'reports' },
     { label: 'Inventory', icon: 'pi pi-box', path: '/inventory', section: 'Main' },
     { label: 'Users', icon: 'pi pi-users', path: '/users', section: 'Management', menuKey: 'users' },
     { label: 'Roles & Permissions', icon: 'pi pi-shield', path: '/roles', section: 'Management', menuKey: 'roles' },
     { label: 'Audit Logs', icon: 'pi pi-history', path: '/audit-logs', section: 'Management', menuKey: 'audit_logs' },
+    { label: 'Workflows', icon: 'pi pi-sitemap', path: '/workflows', section: 'Workflow', menuKey: 'workflows' },
+    { label: 'Approval Matrix', icon: 'pi pi-check-square', path: '/approval-matrix', section: 'Workflow', menuKey: 'workflows' },
     { label: 'Settings', icon: 'pi pi-cog', path: '/settings', section: 'Management', menuKey: 'settings' },
     { label: 'Employee AD', icon: 'pi pi-id-card', path: '/services/employee-ad', section: 'Services', menuKey: 'services' },
   ];

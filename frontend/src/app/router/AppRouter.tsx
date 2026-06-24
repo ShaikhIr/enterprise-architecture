@@ -10,6 +10,8 @@ import { UserListPage } from '@features/user-management/pages/UserListPage';
 import { EmployeeADServicePage } from '@features/service-menu/pages/EmployeeADServicePage';
 import { RolesPage } from '@features/rbac-admin/pages/RolesPage';
 import { AuditLogsPage } from '@features/rbac-admin/pages/AuditLogsPage';
+import { WorkflowDefinitionsPage, WorkflowBuilderPage, ApprovalMatrixPage } from '@features/workflow-admin';
+import { CommissionClaimsPage } from '@features/commission-claims';
 import { MainLayout } from '@app/layouts/MainLayout';
 import { PrivateRoute } from './PrivateRoute';
 
@@ -64,6 +66,38 @@ export const AppRouter = () => {
             element={
               <PrivateRoute menuKey="services">
                 <EmployeeADServicePage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="workflows"
+            element={
+              <PrivateRoute menuKey="workflows">
+                <WorkflowDefinitionsPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="workflow-builder/:definitionId"
+            element={
+              <PrivateRoute menuKey="workflows">
+                <WorkflowBuilderPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="approval-matrix"
+            element={
+              <PrivateRoute menuKey="workflows">
+                <ApprovalMatrixPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="claims"
+            element={
+              <PrivateRoute menuKey="dashboard">
+                <CommissionClaimsPage />
               </PrivateRoute>
             }
           />
