@@ -6,6 +6,10 @@ export interface User {
   is_active: boolean;
   is_blocked: boolean;
   is_validate_ad: boolean;
+  employee_id: string | null;
+  employee_name: string | null;
+  email: string | null;
+  last_login: string | null;
   created_by: string;
   created_date: string;
   modified_by: string;

@@ -15,10 +15,12 @@ from src.api.v1.dependencies import (
     get_user_repository,
 )
 from src.api.v1.schemas.user_request import CreateUserRequest, UpdateUserRequest
-from src.api.v1.schemas.user_response import UserListResponse, UserResponse
+from src.api.v1.schemas.user_response import UserDetailResponse, UserListResponse, UserResponse
 from src.domain.entities.user import User
 from src.domain.repositories.user_repository import UserRepositoryInterface
 from src.infrastructure.database.models.role_model import RoleAssignmentModel, RoleModel
+from src.infrastructure.database.models.user_details_model import UserDetailsModel
+from src.infrastructure.database.models.user_model import UserModel
 from src.infrastructure.database.session import get_db_session
 from src.infrastructure.security.password_encoder import hash_password
 from src.infrastructure.security.permission_manager import require_api_permission
@@ -36,11 +38,62 @@ async def list_users(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=100, ge=1, le=500),
     user_repo: UserRepositoryInterface = Depends(get_user_repository),
+    session: AsyncSession = Depends(get_db_session),
 ) -> UserListResponse:
-    """GET /api/v1/users - List users with pagination."""
-    users = await user_repo.list_all(skip=skip, limit=limit)
+    """GET /api/v1/users - List users with employee details and last login."""
+    from src.infrastructure.database.models.audit_log_model import AuditLogModel
+    from sqlalchemy import func, and_
+
+    # Query users with LEFT JOIN to user_details
+    stmt = (
+        select(UserModel, UserDetailsModel)
+        .outerjoin(UserDetailsModel, UserDetailsModel.user_id == UserModel.id)
+        .offset(skip)
+        .limit(limit)
+    )
+    result = await session.execute(stmt)
+    rows = result.all()
+
+    # Get last login for each user in one query
+    user_ids = [str(row[0].id) for row in rows]
+    last_login_map: dict[str, str] = {}
+    if user_ids:
+        # Subquery: max created_at per actor_id where action=LOGIN_SUCCESS
+        last_login_stmt = (
+            select(
+                AuditLogModel.actor_id,
+                func.max(AuditLogModel.created_at).label("last_login"),
+            )
+            .where(
+                AuditLogModel.action == "LOGIN_SUCCESS",
+                AuditLogModel.actor_id.in_(user_ids),
+            )
+            .group_by(AuditLogModel.actor_id)
+        )
+        ll_result = await session.execute(last_login_stmt)
+        for row_ll in ll_result.all():
+            last_login_map[str(row_ll[0])] = row_ll[1]
+
+    users = []
+    for user_model, details_model in rows:
+        users.append(UserResponse(
+            id=user_model.id,
+            username=user_model.username,
+            is_active=user_model.is_active,
+            is_blocked=user_model.is_blocked,
+            is_validate_ad=user_model.is_validate_ad,
+            employee_id=details_model.employee_id if details_model else None,
+            employee_name=details_model.employee_name if details_model else None,
+            email=details_model.email if details_model else None,
+            last_login=last_login_map.get(str(user_model.id)),
+            created_by=user_model.created_by,
+            created_date=user_model.created_date,
+            modified_by=user_model.modified_by,
+            modified_date=user_model.modified_date,
+        ))
+
     return UserListResponse(
-        users=[_to_response(u) for u in users],
+        users=users,
         total=len(users),
         skip=skip,
         limit=limit,
@@ -173,6 +226,67 @@ async def update_user(
 
 
 @router.get(
+    "/{user_id}/details",
+    response_model=UserDetailResponse,
+    summary="Get full user details (all employee AD fields)",
+)
+async def get_user_details(
+    user_id: UUID,
+    current_user: User = Depends(get_current_active_user),
+    session: AsyncSession = Depends(get_db_session),
+) -> UserDetailResponse:
+    """GET /api/v1/users/{user_id}/details — Full user profile with all employee data."""
+    stmt = (
+        select(UserModel, UserDetailsModel)
+        .outerjoin(UserDetailsModel, UserDetailsModel.user_id == UserModel.id)
+        .where(UserModel.id == user_id)
+    )
+    result = await session.execute(stmt)
+    row = result.one_or_none()
+
+    if not row:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user_model, details = row
+
+    return UserDetailResponse(
+        id=user_model.id,
+        username=user_model.username,
+        is_active=user_model.is_active,
+        is_blocked=user_model.is_blocked,
+        is_validate_ad=user_model.is_validate_ad,
+        employee_id=details.employee_id if details else None,
+        employee_name=details.employee_name if details else None,
+        first_name=details.first_name if details else None,
+        middle_name=details.middle_name if details else None,
+        last_name=details.last_name if details else None,
+        email=details.email if details else None,
+        designation_title=details.designation_title if details else None,
+        department=details.department if details else None,
+        business_unit=details.business_unit if details else None,
+        group_company=details.group_company if details else None,
+        location=details.location if details else None,
+        region=details.region if details else None,
+        zone=details.zone if details else None,
+        grade=details.grade if details else None,
+        office_mobile_no=details.office_mobile_no if details else None,
+        personal_mobile_no=details.personal_mobile_no if details else None,
+        date_of_joining=details.date_of_joining if details else None,
+        reporting_manager=details.reporting_manager if details else None,
+        direct_manager_employee_id=details.direct_manager_employee_id if details else None,
+        direct_manager_name=details.direct_manager_name if details else None,
+        direct_manager_email=details.direct_manager_email if details else None,
+        sap_user_id=details.sap_user_id if details else None,
+        division_id=details.division_id if details else None,
+        territory_id=details.territory_id if details else None,
+        created_by=user_model.created_by,
+        created_date=user_model.created_date,
+        modified_by=user_model.modified_by,
+        modified_date=user_model.modified_date,
+    )
+
+
+@router.get(
     "/{user_id}/roles",
     summary="Get roles assigned to a user",
 )
@@ -227,6 +341,70 @@ async def get_user_roles(
         })
 
     return {"user_id": str(user_id), "roles": roles_data}
+
+
+@router.get(
+    "/{user_id}/login-history",
+    summary="Get login/logout history for a user",
+)
+async def get_user_login_history(
+    user_id: UUID,
+    limit: int = Query(default=20, ge=1, le=100),
+    current_user: User = Depends(get_current_active_user),
+    session: AsyncSession = Depends(get_db_session),
+) -> list[dict]:
+    """GET /api/v1/users/{user_id}/login-history — Login/logout audit trail."""
+    from src.infrastructure.database.models.audit_log_model import AuditLogModel
+
+    stmt = (
+        select(AuditLogModel)
+        .where(
+            AuditLogModel.resource_type == "Authentication",
+            AuditLogModel.resource_id == str(user_id),
+        )
+        .order_by(AuditLogModel.created_at.desc())
+        .limit(limit)
+    )
+    # Also try matching by actor_id
+    stmt2 = (
+        select(AuditLogModel)
+        .where(
+            AuditLogModel.resource_type == "Authentication",
+            AuditLogModel.actor_id == str(user_id),
+        )
+        .order_by(AuditLogModel.created_at.desc())
+        .limit(limit)
+    )
+
+    result = await session.execute(stmt2)
+    entries = result.scalars().all()
+
+    # If no results by actor_id, try by username from resource_id
+    if not entries:
+        # Get the username
+        user_model = await session.get(UserModel, str(user_id))
+        if user_model:
+            stmt3 = (
+                select(AuditLogModel)
+                .where(
+                    AuditLogModel.resource_type == "Authentication",
+                    AuditLogModel.actor_username == user_model.username,
+                )
+                .order_by(AuditLogModel.created_at.desc())
+                .limit(limit)
+            )
+            result = await session.execute(stmt3)
+            entries = result.scalars().all()
+
+    return [
+        {
+            "action": e.action,
+            "ip_address": e.ip_address,
+            "user_agent": e.user_agent,
+            "created_at": e.created_at.isoformat() if e.created_at else None,
+        }
+        for e in entries
+    ]
 
 
 def _to_response(user: User) -> UserResponse:

@@ -1,6 +1,6 @@
 """
-Logging configuration with rotating file handler and ZIP compression.
-Provides file-based logging with automatic rotation at 10MB and compressed backups.
+File logging configuration with rotating handler and ZIP compression.
+Writes to log file ONLY — does not add another console handler.
 """
 
 import gzip
@@ -14,22 +14,12 @@ from src.config.settings import settings
 
 
 class CompressedRotatingFileHandler(RotatingFileHandler):
-    """
-    RotatingFileHandler that compresses rotated log files with gzip.
-
-    Produces:
-        application.log          (current)
-        application.log.1.gz     (most recent rotated)
-        application.log.2.gz     (older)
-        ...
-    """
+    """RotatingFileHandler that compresses rotated log files with gzip."""
 
     def rotation_filename(self, default_name: str) -> str:
-        """Append .gz extension to rotated filenames."""
         return default_name + ".gz"
 
     def rotate(self, source: str, dest: str) -> None:
-        """Compress the source log file into dest using gzip."""
         with open(source, "rb") as f_in:
             with gzip.open(dest, "wb") as f_out:
                 shutil.copyfileobj(f_in, f_out)
@@ -38,13 +28,9 @@ class CompressedRotatingFileHandler(RotatingFileHandler):
 
 def configure_file_logging() -> None:
     """
-    Set up file-based rotating log handler.
-
-    Configuration:
-    - Max file size: 10 MB (configurable via settings)
-    - Backup count: 10 (configurable via settings)
-    - Format: Structured with timestamp, level, correlation context
-    - Compression: gzip for rotated files
+    Add a rotating file handler to the root logger.
+    This writes to the log FILE only (not console).
+    Console output is handled by structured_logger.py.
     """
     log_path = Path(settings.LOG_FILE_PATH)
     log_path.parent.mkdir(parents=True, exist_ok=True)
@@ -56,16 +42,13 @@ def configure_file_logging() -> None:
         encoding="utf-8",
     )
 
+    # File gets a readable format (not JSON)
     formatter = logging.Formatter(
-        fmt=(
-            '{"timestamp": "%(asctime)s", "level": "%(levelname)s", '
-            '"logger": "%(name)s", "module": "%(module)s", '
-            '"function": "%(funcName)s", "message": "%(message)s"}'
-        ),
-        datefmt="%Y-%m-%dT%H:%M:%S",
+        fmt="%(asctime)s | %(levelname)-5s | %(name)s | %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
     )
     handler.setFormatter(formatter)
     handler.setLevel(getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO))
 
-    root_logger = logging.getLogger()
-    root_logger.addHandler(handler)
+    # Only add to root logger — it will receive events from all loggers
+    logging.getLogger().addHandler(handler)

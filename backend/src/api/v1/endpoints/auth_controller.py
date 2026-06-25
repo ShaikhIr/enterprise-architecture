@@ -1,9 +1,12 @@
 """
 Authentication API endpoints.
-Handles login and token refresh operations.
+Handles login, logout, and token refresh operations.
+Captures audit trail for all authentication events.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.v1.dependencies import get_auth_manager, get_current_active_user, get_user_repository
 from src.api.v1.schemas.auth_schema import (
@@ -13,6 +16,9 @@ from src.api.v1.schemas.auth_schema import (
 )
 from src.common.decorators.log_execution import log_execution
 from src.domain.entities.user import User
+from src.infrastructure.database.models.audit_log_model import AuditLogModel
+from src.infrastructure.database.session import get_db_session
+from src.infrastructure.security.audit_service import AuditService
 from src.infrastructure.security.auth_manager import (
     AuthManager,
     AuthenticationError,
@@ -26,6 +32,13 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 logger = get_logger(__name__)
 
 
+def _get_client_ip(request: Request) -> str:
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else ""
+
+
 @router.post(
     "/login",
     response_model=TokenResponse,
@@ -36,28 +49,49 @@ logger = get_logger(__name__)
 @log_execution
 async def login(
     request: LoginRequest,
+    http_request: Request,
     auth_manager: AuthManager = Depends(get_auth_manager),
+    session: AsyncSession = Depends(get_db_session),
 ) -> TokenResponse:
-    """
-    POST /api/v1/auth/login
+    """POST /api/v1/auth/login — Authenticates and logs the event."""
+    audit = AuditService(session)
+    ip = _get_client_ip(http_request)
+    user_agent = http_request.headers.get("user-agent", "")
 
-    Authenticates a user and returns access + refresh tokens.
-
-    Errors:
-        401: Invalid credentials
-        403: User blocked or inactive
-    """
     try:
         result = await auth_manager.login(
             username=request.username,
             password=request.password,
         )
     except InvalidCredentialsError as e:
+        await audit.log_login(
+            user_id=None, username=request.username, success=False,
+            ip_address=ip, user_agent=user_agent, reason="Invalid credentials",
+        )
         raise HTTPException(status_code=e.status_code, detail=e.message)
     except UserInactiveError as e:
+        await audit.log_login(
+            user_id=None, username=request.username, success=False,
+            ip_address=ip, user_agent=user_agent, reason="User inactive",
+        )
         raise HTTPException(status_code=e.status_code, detail=e.message)
     except UserBlockedError as e:
+        await audit.log_login(
+            user_id=None, username=request.username, success=False,
+            ip_address=ip, user_agent=user_agent, reason="User blocked",
+        )
         raise HTTPException(status_code=e.status_code, detail=e.message)
+
+    # Log successful login
+    from src.domain.repositories.user_repository import UserRepositoryInterface
+    from src.infrastructure.database.repositories.user_repository_impl import UserRepositoryImpl
+    user_repo = UserRepositoryImpl(session)
+    user = await user_repo.get_by_username(request.username)
+    if user:
+        await audit.log_login(
+            user_id=user.id, username=user.username, success=True,
+            ip_address=ip, user_agent=user_agent,
+        )
 
     return TokenResponse(
         access_token=result.access_token,
@@ -65,6 +99,35 @@ async def login(
         token_type=result.token_type,
         expires_in=result.expires_in,
     )
+
+
+@router.post(
+    "/logout",
+    status_code=status.HTTP_200_OK,
+    summary="Logout user",
+    description="Logs the logout event in audit trail.",
+)
+async def logout(
+    http_request: Request,
+    current_user: User = Depends(get_current_active_user),
+    session: AsyncSession = Depends(get_db_session),
+) -> dict:
+    """POST /api/v1/auth/logout — Records logout in audit trail."""
+    audit = AuditService(session)
+    ip = _get_client_ip(http_request)
+    user_agent = http_request.headers.get("user-agent", "")
+
+    await audit.log(
+        actor_id=current_user.id,
+        actor_username=current_user.username,
+        action="LOGOUT",
+        resource_type="Authentication",
+        resource_id=current_user.username,
+        ip_address=ip,
+        user_agent=user_agent,
+    )
+
+    return {"detail": "Logged out successfully"}
 
 
 @router.post(
