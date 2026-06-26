@@ -1,1 +1,1 @@
-# User domain service - logic spanning multiple aggregates
+﻿# User domain service - logic spanning multiple aggregates

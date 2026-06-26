@@ -1,4 +1,4 @@
-"""
+﻿"""
 Enterprise Permission Manager.
 Provides granular permission checks for menu, API, and field-level access control.
 Integrates with the role-permission database model and supports multi-tenancy.

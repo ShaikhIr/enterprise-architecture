@@ -1,1 +1,1 @@
-# User specifications (e.g., IsActiveUser, HasPermission)
+﻿# User specifications (e.g., IsActiveUser, HasPermission)

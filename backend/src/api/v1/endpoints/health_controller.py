@@ -1,4 +1,4 @@
-"""
+﻿"""
 Health check endpoints for Kubernetes liveness, readiness, and startup probes.
 """
 

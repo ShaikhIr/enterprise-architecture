@@ -1,4 +1,4 @@
-"""
+﻿"""
 User response schemas (Pydantic v2).
 Never exposes password_hash.
 """

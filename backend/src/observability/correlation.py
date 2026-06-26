@@ -1,4 +1,4 @@
-"""
+﻿"""
 Correlation ID context management.
 Uses contextvars to propagate a unique ID throughout the request lifecycle.
 """

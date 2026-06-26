@@ -1,1 +1,1 @@
-# User domain events (UserCreated, UserUpdated, UserDeactivated)
+﻿# User domain events (UserCreated, UserUpdated, UserDeactivated)

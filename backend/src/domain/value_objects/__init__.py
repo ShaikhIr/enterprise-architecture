@@ -1,1 +1,1 @@
-# Domain Value Objects - immutable, identity-less objects
+﻿# Domain Value Objects - immutable, identity-less objects

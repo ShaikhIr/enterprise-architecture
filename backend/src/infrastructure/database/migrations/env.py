@@ -1,4 +1,4 @@
-"""
+﻿"""
 Alembic migration environment configuration.
 Supports both sync and async migration execution.
 """

@@ -1,4 +1,4 @@
-"""
+﻿"""
 Workflow Engine — Orchestration Service.
 Coordinates state machine, approval matrix, events, and audit trail.
 This is the primary entry point for business modules to interact with the workflow system.

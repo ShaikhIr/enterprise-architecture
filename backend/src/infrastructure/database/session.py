@@ -1,4 +1,4 @@
-"""
+﻿"""
 Database session management.
 Provides async session factory and dependency for FastAPI.
 """

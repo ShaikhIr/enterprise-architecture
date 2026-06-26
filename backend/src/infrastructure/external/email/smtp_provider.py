@@ -1,1 +1,1 @@
-# SMTP email provider adapter
+﻿# SMTP email provider adapter

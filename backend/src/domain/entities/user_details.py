@@ -1,4 +1,4 @@
-"""
+﻿"""
 UserDetails domain entity.
 Stores additional employee information from Darwin AD service.
 One-to-one relationship with User entity (user.username == employee_id).

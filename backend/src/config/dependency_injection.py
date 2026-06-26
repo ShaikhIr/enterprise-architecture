@@ -1,4 +1,4 @@
-"""
+﻿"""
 Dependency Injection container.
 Wires domain interfaces to infrastructure implementations.
 Used for overriding dependencies in tests and different environments.
@@ -7,7 +7,7 @@ Used for overriding dependencies in tests and different environments.
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.domain.repositories.user_repository import UserRepositoryInterface
+from src.domain.repositories.user_repository import IUserRepository
 from src.infrastructure.database.repositories.user_repository_impl import (
     UserRepositoryImpl,
 )
@@ -27,12 +27,12 @@ class Container:
         return JWTProvider()
 
     @staticmethod
-    def get_user_repository(session: AsyncSession) -> UserRepositoryInterface:
+    def get_user_repository(session: AsyncSession) -> IUserRepository:
         return UserRepositoryImpl(session)
 
     @staticmethod
     def get_auth_manager(
-        user_repo: UserRepositoryInterface,
+        user_repo: IUserRepository,
         jwt_provider: JWTProvider,
     ) -> AuthManager:
         return AuthManager(user_repository=user_repo, jwt_provider=jwt_provider)

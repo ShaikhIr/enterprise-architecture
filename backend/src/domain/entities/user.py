@@ -1,4 +1,4 @@
-"""
+﻿"""
 User domain entity.
 Contains business logic and invariants for user management.
 """

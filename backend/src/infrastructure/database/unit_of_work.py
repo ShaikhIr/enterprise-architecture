@@ -1,1 +1,1 @@
-# Unit of Work pattern - manages transaction boundaries
+﻿# Unit of Work pattern - manages transaction boundaries

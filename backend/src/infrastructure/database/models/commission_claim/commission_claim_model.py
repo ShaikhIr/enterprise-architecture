@@ -1,4 +1,4 @@
-"""Commission Claim SQLAlchemy model."""
+﻿"""Commission Claim SQLAlchemy model."""
 
 from sqlalchemy import DateTime, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import UUID

@@ -1,4 +1,4 @@
-"""Create workflow engine tables.
+﻿"""Create workflow engine tables.
 
 Revision ID: d1e2f3a4b5c6
 Revises: c9d4e2f5a1b7

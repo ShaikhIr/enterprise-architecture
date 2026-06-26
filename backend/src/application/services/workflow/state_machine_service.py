@@ -1,4 +1,4 @@
-"""
+﻿"""
 State Machine Service.
 Manages state transitions for workflow instances.
 Validates transitions against configured rules and executes them atomically.

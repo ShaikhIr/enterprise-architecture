@@ -1,4 +1,4 @@
-"""
+﻿"""
 FastAPI dependency injection for API v1.
 Provides current user resolution from JWT tokens and service factories.
 """
@@ -10,7 +10,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.domain.entities.user import User
-from src.domain.repositories.user_repository import UserRepositoryInterface
+from src.domain.repositories.user_repository import IUserRepository
 from src.infrastructure.database.repositories.user_repository_impl import (
     UserRepositoryImpl,
 )
@@ -29,13 +29,13 @@ def get_jwt_provider() -> JWTProvider:
 
 def get_user_repository(
     session: AsyncSession = Depends(get_db_session),
-) -> UserRepositoryInterface:
+) -> IUserRepository:
     """Provide user repository with injected session."""
     return UserRepositoryImpl(session)
 
 
 def get_auth_manager(
-    user_repo: UserRepositoryInterface = Depends(get_user_repository),
+    user_repo: IUserRepository = Depends(get_user_repository),
     jwt_provider: JWTProvider = Depends(get_jwt_provider),
 ) -> AuthManager:
     """Provide authentication manager with dependencies."""
@@ -45,7 +45,7 @@ def get_auth_manager(
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
     jwt_provider: JWTProvider = Depends(get_jwt_provider),
-    user_repo: UserRepositoryInterface = Depends(get_user_repository),
+    user_repo: IUserRepository = Depends(get_user_repository),
 ) -> User:
     """
     Resolve the current authenticated user from the JWT access token.

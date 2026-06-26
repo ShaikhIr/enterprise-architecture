@@ -1,4 +1,4 @@
-"""
+﻿"""
 Automatic audit logging via SQLAlchemy session events.
 
 Hooks into `before_flush` to capture before/after snapshots for every

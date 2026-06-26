@@ -1,1 +1,1 @@
-# AWS S3 / Azure Blob storage adapter
+﻿# AWS S3 / Azure Blob storage adapter

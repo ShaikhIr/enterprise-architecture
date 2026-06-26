@@ -1,1 +1,1 @@
-# Get User query
+﻿# Get User query

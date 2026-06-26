@@ -1,1 +1,1 @@
-# Domain Aggregates - cluster of entities treated as a single unit
+﻿# Domain Aggregates - cluster of entities treated as a single unit

@@ -1,4 +1,4 @@
-"""
+﻿"""
 Employee AD (Darwin) integration client.
 
 Proxies requests to the Emcure Darwin AD integrator service at:

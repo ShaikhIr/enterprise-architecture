@@ -1,1 +1,1 @@
-# Domain exceptions (EntityNotFound, BusinessRuleViolation, etc.)
+﻿# Domain exceptions (EntityNotFound, BusinessRuleViolation, etc.)

@@ -1,4 +1,4 @@
-"""Workflow Status domain entity."""
+﻿"""Workflow Status domain entity."""
 from dataclasses import dataclass, field
 from uuid import UUID, uuid4
 

@@ -1,4 +1,4 @@
-"""
+﻿"""
 Audit logging service.
 Records all security-relevant operations to the audit_logs table.
 Designed to be non-blocking — audit failures do not break business flows.

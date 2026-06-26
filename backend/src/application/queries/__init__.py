@@ -1,1 +1,1 @@
-# Queries (CQRS read operations)
+﻿# Queries (CQRS read operations)

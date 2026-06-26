@@ -1,4 +1,4 @@
-"""Create commission_claims table (example module).
+﻿"""Create commission_claims table (example module).
 
 Revision ID: e2f3a4b5c6d7
 Revises: d1e2f3a4b5c6

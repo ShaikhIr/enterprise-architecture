@@ -1,4 +1,4 @@
-"""
+﻿"""
 Enterprise structured logger using structlog.
 Console: Human-readable colored output (development).
 File: JSON format (handled separately in logging_config.py).

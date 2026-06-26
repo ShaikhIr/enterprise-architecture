@@ -1,1 +1,1 @@
-# Base domain event class
+﻿# Base domain event class

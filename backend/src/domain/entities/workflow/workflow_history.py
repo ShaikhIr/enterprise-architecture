@@ -1,4 +1,4 @@
-"""Workflow History domain entity - immutable audit trail of transitions."""
+﻿"""Workflow History domain entity - immutable audit trail of transitions."""
 from dataclasses import dataclass, field
 from uuid import UUID, uuid4
 from datetime import datetime, timezone

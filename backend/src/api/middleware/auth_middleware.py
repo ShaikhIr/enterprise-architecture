@@ -1,1 +1,1 @@
-# Authentication middleware - JWT token validation
+﻿# Authentication middleware - JWT token validation

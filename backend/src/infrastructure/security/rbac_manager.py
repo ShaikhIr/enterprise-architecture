@@ -1,4 +1,4 @@
-"""
+﻿"""
 Role-Based Access Control (RBAC) manager.
 Provides role validation and endpoint protection via FastAPI dependencies.
 """

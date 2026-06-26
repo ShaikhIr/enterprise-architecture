@@ -1,4 +1,4 @@
-"""
+﻿"""
 FastAPI application entry point.
 Configures middleware, routers, CORS, and OpenAPI documentation.
 """

@@ -1,4 +1,4 @@
-"""Drop role column from users table.
+﻿"""Drop role column from users table.
 
 The legacy role column is replaced by the role_assignments table
 which supports multiple roles per user via the RBAC system.

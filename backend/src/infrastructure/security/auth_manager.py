@@ -1,4 +1,4 @@
-"""
+﻿"""
 Authentication manager.
 Coordinates login flow: user lookup, password verification, status checks, token issuance.
 Supports dual authentication:
@@ -10,7 +10,7 @@ import logging
 from dataclasses import dataclass
 
 from src.config.settings import settings
-from src.domain.repositories.user_repository import UserRepositoryInterface
+from src.domain.repositories.user_repository import IUserRepository
 from src.infrastructure.security.jwt_provider import JWTProvider
 from src.infrastructure.security.password_encoder import verify_password
 
@@ -66,7 +66,7 @@ class AuthManager:
 
     def __init__(
         self,
-        user_repository: UserRepositoryInterface,
+        user_repository: IUserRepository,
         jwt_provider: JWTProvider,
     ) -> None:
         self._user_repo = user_repository

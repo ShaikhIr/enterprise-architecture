@@ -1,4 +1,4 @@
-"""Value objects for the workflow domain."""
+﻿"""Value objects for the workflow domain."""
 from enum import StrEnum
 
 

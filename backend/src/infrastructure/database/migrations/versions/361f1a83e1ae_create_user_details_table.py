@@ -1,4 +1,4 @@
-"""create_user_details_table
+﻿"""create_user_details_table
 
 Revision ID: 361f1a83e1ae
 Revises: 0c8129f326a8

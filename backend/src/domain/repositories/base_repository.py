@@ -1,1 +1,1 @@
-# Base repository interface - defines common CRUD contract
+﻿# Base repository interface - defines common CRUD contract

@@ -1,1 +1,1 @@
-# Common schemas (pagination, error response, generic envelope)
+﻿# Common schemas (pagination, error response, generic envelope)

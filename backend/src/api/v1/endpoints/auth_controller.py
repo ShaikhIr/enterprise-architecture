@@ -1,4 +1,4 @@
-"""
+﻿"""
 Authentication API endpoints.
 Handles login, logout, and token refresh operations.
 Captures audit trail for all authentication events.
@@ -83,7 +83,7 @@ async def login(
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
     # Log successful login
-    from src.domain.repositories.user_repository import UserRepositoryInterface
+    from src.domain.repositories.user_repository import IUserRepository
     from src.infrastructure.database.repositories.user_repository_impl import UserRepositoryImpl
     user_repo = UserRepositoryImpl(session)
     user = await user_repo.get_by_username(request.username)

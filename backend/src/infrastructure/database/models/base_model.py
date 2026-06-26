@@ -1,4 +1,4 @@
-"""
+﻿"""
 SQLAlchemy declarative base with audit mixin.
 All ORM models inherit from this to get automatic audit field population.
 """

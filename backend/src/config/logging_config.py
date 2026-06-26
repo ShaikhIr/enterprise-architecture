@@ -1,4 +1,4 @@
-"""
+﻿"""
 File logging configuration with rotating handler and ZIP compression.
 Writes to log file ONLY — does not add another console handler.
 """

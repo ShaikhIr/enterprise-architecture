@@ -1,1 +1,1 @@
-# Money value object (amount + currency)
+﻿# Money value object (amount + currency)

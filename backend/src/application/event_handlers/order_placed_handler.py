@@ -1,1 +1,1 @@
-# Handles OrderPlaced domain event
+﻿# Handles OrderPlaced domain event

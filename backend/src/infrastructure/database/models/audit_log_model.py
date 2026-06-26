@@ -1,4 +1,4 @@
-"""
+﻿"""
 SQLAlchemy ORM model for immutable audit logs.
 This table is append-only — no UPDATE or DELETE operations are permitted.
 """

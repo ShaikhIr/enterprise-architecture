@@ -1,4 +1,4 @@
-"""
+﻿"""
 Request-scoped audit context using Python contextvars.
 
 Stores the current actor (user) info so that the audit listener

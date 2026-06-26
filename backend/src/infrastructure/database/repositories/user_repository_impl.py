@@ -1,6 +1,6 @@
-"""
+﻿"""
 User repository implementation (Adapter).
-Implements the UserRepositoryInterface using SQLAlchemy async.
+Implements the IUserRepository using SQLAlchemy async.
 """
 
 from uuid import UUID
@@ -9,11 +9,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.domain.entities.user import User
-from src.domain.repositories.user_repository import UserRepositoryInterface
+from src.domain.repositories.user_repository import IUserRepository
 from src.infrastructure.database.models.user_model import UserModel
 
 
-class UserRepositoryImpl(UserRepositoryInterface):
+class UserRepositoryImpl(IUserRepository):
     """Concrete implementation of user persistence using SQLAlchemy."""
 
     def __init__(self, session: AsyncSession) -> None:

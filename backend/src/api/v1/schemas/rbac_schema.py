@@ -1,4 +1,4 @@
-"""
+﻿"""
 Pydantic schemas for RBAC API endpoints.
 """
 

@@ -1,1 +1,1 @@
-# Base specification pattern - composable business rules
+﻿# Base specification pattern - composable business rules

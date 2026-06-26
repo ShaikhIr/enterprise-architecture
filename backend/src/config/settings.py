@@ -1,4 +1,4 @@
-"""
+﻿"""
 Application settings using Pydantic BaseSettings.
 Loads configuration from environment variables and .env files.
 """

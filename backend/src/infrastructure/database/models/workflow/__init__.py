@@ -1,4 +1,4 @@
-"""Workflow database models."""
+﻿"""Workflow database models."""
 from src.infrastructure.database.models.workflow.workflow_models import (
     WorkflowDefinitionModel,
     WorkflowStatusModel,

@@ -1,4 +1,4 @@
-"""
+﻿"""
 SQLAlchemy ORM model for the User entity.
 Maps the User domain entity to the 'users' database table.
 """

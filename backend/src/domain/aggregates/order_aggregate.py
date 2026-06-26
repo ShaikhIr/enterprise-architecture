@@ -1,1 +1,1 @@
-# Order aggregate (Order + OrderItems + Shipping)
+﻿# Order aggregate (Order + OrderItems + Shipping)

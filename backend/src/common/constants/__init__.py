@@ -1,1 +1,1 @@
-# Application constants
+﻿# Application constants

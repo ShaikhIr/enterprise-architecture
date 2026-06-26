@@ -1,4 +1,4 @@
-"""
+﻿"""
 Role and Permission domain entities.
 Implements granular RBAC with menu, API, and field-level permissions.
 """

@@ -1,4 +1,4 @@
-"""
+﻿"""
 Middleware to populate the audit context from the current request.
 
 Sets actor identity (user ID, username, IP, user-agent) into the

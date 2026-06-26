@@ -1,4 +1,4 @@
-"""Workflow Transition domain entity."""
+﻿"""Workflow Transition domain entity."""
 from dataclasses import dataclass, field
 from uuid import UUID, uuid4
 

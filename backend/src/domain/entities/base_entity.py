@@ -1,4 +1,4 @@
-"""
+﻿"""
 Base domain entity with audit fields.
 All domain entities inherit from this to ensure consistent audit tracking.
 """

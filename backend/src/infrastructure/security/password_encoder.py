@@ -1,4 +1,4 @@
-"""
+﻿"""
 Password hashing and verification using BCrypt directly.
 Provides secure one-way hashing for user passwords.
 """

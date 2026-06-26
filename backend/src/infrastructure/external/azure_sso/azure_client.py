@@ -1,4 +1,4 @@
-"""
+﻿"""
 Azure AD / Microsoft SSO integration client.
 
 Handles:

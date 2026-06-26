@@ -1,4 +1,4 @@
-"""
+﻿"""
 In-process Event Bus.
 Publishes domain events to registered handlers asynchronously.
 """

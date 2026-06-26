@@ -1,1 +1,1 @@
-# Stripe payment gateway adapter
+﻿# Stripe payment gateway adapter

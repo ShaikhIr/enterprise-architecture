@@ -1,4 +1,4 @@
-"""add_is_validate_ad_to_users
+﻿"""add_is_validate_ad_to_users
 
 Revision ID: a5aa03181478
 Revises: 361f1a83e1ae

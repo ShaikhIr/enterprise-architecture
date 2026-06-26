@@ -1,4 +1,4 @@
-"""
+﻿"""
 Tenant domain entity for multi-tenant RBAC support.
 """
 

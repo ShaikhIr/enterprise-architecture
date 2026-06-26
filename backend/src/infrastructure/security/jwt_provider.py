@@ -1,4 +1,4 @@
-"""
+﻿"""
 JWT token creation, validation, and decoding.
 Handles access tokens and refresh tokens with configurable expiry.
 """

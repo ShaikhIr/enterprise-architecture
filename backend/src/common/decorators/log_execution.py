@@ -1,4 +1,4 @@
-"""
+﻿"""
 Method entry/exit logging decorator.
 Automatically logs START and END of function execution with timing and correlation ID.
 """

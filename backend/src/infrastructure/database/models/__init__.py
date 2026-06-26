@@ -1,4 +1,4 @@
-"""
+﻿"""
 SQLAlchemy ORM Models.
 
 All models must be imported here so that SQLAlchemy's Base.metadata

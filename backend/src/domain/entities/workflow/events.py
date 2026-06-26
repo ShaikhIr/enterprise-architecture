@@ -1,4 +1,4 @@
-"""Domain events for workflow engine."""
+﻿"""Domain events for workflow engine."""
 from dataclasses import dataclass, field
 from uuid import UUID, uuid4
 from datetime import datetime, timezone

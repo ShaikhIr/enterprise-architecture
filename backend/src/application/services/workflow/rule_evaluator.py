@@ -1,4 +1,4 @@
-"""
+﻿"""
 Rule Evaluator for Approval Matrix.
 Evaluates configurable conditions against entity data to determine approval routing.
 """

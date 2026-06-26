@@ -1,4 +1,4 @@
-"""add_rbac_and_audit_tables
+﻿"""add_rbac_and_audit_tables
 
 Revision ID: b7e2f1c4d9a3
 Revises: a5aa03181478

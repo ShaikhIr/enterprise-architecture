@@ -1,1 +1,1 @@
-# Commands (CQRS write operations)
+﻿# Commands (CQRS write operations)

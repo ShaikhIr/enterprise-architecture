@@ -1,4 +1,4 @@
-"""
+﻿"""
 User repository interface (Port).
 Defines the contract for user persistence operations.
 The domain layer owns this interface; infrastructure implements it.
@@ -10,7 +10,7 @@ from uuid import UUID
 from src.domain.entities.user import User
 
 
-class UserRepositoryInterface(ABC):
+class IUserRepository(ABC):
     """Abstract repository for User aggregate persistence."""
 
     @abstractmethod

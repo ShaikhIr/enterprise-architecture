@@ -1,4 +1,4 @@
-"""
+﻿"""
 Global exception handler middleware.
 Catches unhandled exceptions, logs them with correlation ID and stack trace,
 and returns a standardized error response.

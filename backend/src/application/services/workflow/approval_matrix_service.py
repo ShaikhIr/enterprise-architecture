@@ -1,4 +1,4 @@
-"""
+﻿"""
 Approval Matrix Service.
 Resolves approvers based on configurable rules and creates approval tasks.
 """

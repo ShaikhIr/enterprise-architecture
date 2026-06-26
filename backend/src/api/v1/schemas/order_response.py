@@ -1,1 +1,1 @@
-# Order response schemas (Pydantic v2)
+﻿# Order response schemas (Pydantic v2)

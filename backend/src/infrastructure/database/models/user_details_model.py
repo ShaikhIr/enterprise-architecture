@@ -1,4 +1,4 @@
-"""
+﻿"""
 SQLAlchemy ORM model for the UserDetails entity.
 Maps to the 'user_details' table. One-to-one with users table.
 """

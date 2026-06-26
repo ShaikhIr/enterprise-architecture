@@ -1,1 +1,1 @@
-# User aggregate (User + Roles + Permissions)
+﻿# User aggregate (User + Roles + Permissions)

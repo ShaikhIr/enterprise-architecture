@@ -1,4 +1,4 @@
-"""
+﻿"""
 SQLAlchemy ORM models for Role, Permission, and their associations.
 """
 

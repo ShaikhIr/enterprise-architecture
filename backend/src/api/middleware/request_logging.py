@@ -1,4 +1,4 @@
-"""
+﻿"""
 Request/response logging middleware.
 Logs method, URL, headers, query params, status code, and duration with correlation ID.
 """

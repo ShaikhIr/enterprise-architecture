@@ -1,4 +1,4 @@
-"""SQLAlchemy ORM models for the Approval Matrix."""
+﻿"""SQLAlchemy ORM models for the Approval Matrix."""
 from datetime import datetime, timezone
 
 from sqlalchemy import Boolean, DateTime, Integer, String, Text

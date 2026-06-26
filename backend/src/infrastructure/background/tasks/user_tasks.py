@@ -1,1 +1,1 @@
-# User-related Celery tasks (e.g., send verification email)
+﻿# User-related Celery tasks (e.g., send verification email)

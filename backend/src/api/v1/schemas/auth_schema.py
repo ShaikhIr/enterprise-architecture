@@ -1,4 +1,4 @@
-"""
+﻿"""
 Authentication request and response schemas (Pydantic v2).
 """
 

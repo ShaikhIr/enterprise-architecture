@@ -1,1 +1,1 @@
-# Specifications - composable business rules
+﻿# Specifications - composable business rules

@@ -1,1 +1,1 @@
-# Order-related Celery tasks (e.g., process payment, send invoice)
+﻿# Order-related Celery tasks (e.g., process payment, send invoice)

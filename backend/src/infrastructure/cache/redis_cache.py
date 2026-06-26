@@ -1,1 +1,1 @@
-# Redis cache adapter
+﻿# Redis cache adapter

@@ -1,4 +1,4 @@
-"""
+﻿"""
 Audit Log domain entity.
 Captures all security-relevant operations: role changes, permission grants, etc.
 """

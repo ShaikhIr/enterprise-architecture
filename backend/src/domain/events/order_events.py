@@ -1,1 +1,1 @@
-# Order domain events (OrderPlaced, OrderCancelled, OrderShipped)
+﻿# Order domain events (OrderPlaced, OrderCancelled, OrderShipped)
