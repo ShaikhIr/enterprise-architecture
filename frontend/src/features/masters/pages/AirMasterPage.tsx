@@ -175,7 +175,8 @@ export const AirMasterPage = () => {
   const statusTemplate = (row: AirMaster) => <Tag value={row.is_active ? 'Active' : 'Inactive'} severity={row.is_active ? 'success' : 'danger'} />;
   const ratesTemplate = (row: AirMaster) => {
     const activeRates = (row.rates || []).filter(r => r.is_active);
-    return <span>{activeRates.length > 0 ? `${activeRates[0].rate}` : '—'}</span>;
+    const firstRate = activeRates[0];
+    return <span>{firstRate ? `${firstRate.rate}` : '—'}</span>;
   };
   const actionsTemplate = (row: AirMaster) => (
     <div className="flex gap-1">

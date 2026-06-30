@@ -104,7 +104,7 @@ export const LocalMasterPage = () => {
   };
 
   const statusTemplate = (row: LocalMaster) => <Tag value={row.is_active ? 'Active' : 'Inactive'} severity={row.is_active ? 'success' : 'danger'} />;
-  const ratesTemplate = (row: LocalMaster) => { const ar = (row.rates || []).filter(r => r.is_active); return <span>{ar.length > 0 ? `${ar[0].rate}` : '—'}</span>; };
+  const ratesTemplate = (row: LocalMaster) => { const ar = (row.rates || []).filter(r => r.is_active); const firstRate = ar[0]; return <span>{firstRate ? `${firstRate.rate}` : '—'}</span>; };
   const actionsTemplate = (row: LocalMaster) => (
     <div className="flex gap-1">
       <Button icon="pi pi-plus-circle" rounded outlined size="small" tooltip="Add Rate" onClick={() => openRateDialog(row)} />
