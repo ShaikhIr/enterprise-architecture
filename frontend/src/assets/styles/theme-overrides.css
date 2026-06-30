@@ -127,6 +127,21 @@ h2 {
   box-shadow: 0 0 0 2px var(--color-primary-50);
 }
 
+/* Password component — force full width */
+.p-password {
+  width: 100% !important;
+  display: block !important;
+}
+
+.p-password .p-inputtext,
+.p-password input {
+  width: 100% !important;
+}
+
+.p-password-panel {
+  display: none;
+}
+
 .p-dropdown,
 .p-multiselect {
   font-size: 0.813rem;
@@ -246,6 +261,7 @@ h2 {
 .em-sidebar {
   background: var(--color-surface);
   border-right: 1px solid var(--color-surface-border);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.03);
 }
 
 .em-sidebar .p-panelmenu .p-panelmenu-header > a {
