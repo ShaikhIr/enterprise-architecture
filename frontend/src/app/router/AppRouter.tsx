@@ -12,6 +12,7 @@ import { RolesPage } from '@features/rbac-admin/pages/RolesPage';
 import { AuditLogsPage } from '@features/rbac-admin/pages/AuditLogsPage';
 import { WorkflowDefinitionsPage, WorkflowBuilderPage, ApprovalMatrixPage } from '@features/workflow-admin';
 import { CommissionClaimsPage } from '@features/commission-claims';
+import { RegionMasterPage, CountryMasterPage, StateMasterPage, CityMasterPage } from '@features/masters';
 import { MainLayout } from '@app/layouts/MainLayout';
 import { PrivateRoute } from './PrivateRoute';
 
@@ -101,6 +102,15 @@ export const AppRouter = () => {
               </PrivateRoute>
             }
           />
+
+          {/* Masters sub-routes */}
+          <Route path="masters">
+            <Route index element={<Navigate to="/masters/regions" replace />} />
+            <Route path="regions" element={<RegionMasterPage />} />
+            <Route path="countries" element={<CountryMasterPage />} />
+            <Route path="states" element={<StateMasterPage />} />
+            <Route path="cities" element={<CityMasterPage />} />
+          </Route>
         </Route>
 
         {/* Unauthorized */}
