@@ -43,6 +43,16 @@ export const MainLayout = () => {
     { label: 'Approval Matrix', icon: 'pi pi-check-square', path: '/approval-matrix', section: 'Workflow', menuKey: 'workflows' },
     { label: 'Settings', icon: 'pi pi-cog', path: '/settings', section: 'Management', menuKey: 'settings' },
     { label: 'Employee AD', icon: 'pi pi-id-card', path: '/services/employee-ad', section: 'Services', menuKey: 'services' },
+    { label: 'Product Types', icon: 'pi pi-tags', path: '/masters/product-types', section: 'Masters' },
+    { label: 'Pack Styles', icon: 'pi pi-box', path: '/masters/pack-styles', section: 'Masters' },
+    { label: 'Pallet Types', icon: 'pi pi-table', path: '/masters/pallets', section: 'Masters' },
+    { label: 'Countries', icon: 'pi pi-flag', path: '/masters/countries', section: 'Masters' },
+    { label: 'Cities', icon: 'pi pi-building', path: '/masters/cities', section: 'Masters' },
+    { label: 'Air Master', icon: 'pi pi-send', path: '/masters/air-master', section: 'Freight Masters' },
+    { label: 'Sea Master', icon: 'pi pi-globe', path: '/masters/sea-master', section: 'Freight Masters' },
+    { label: 'Sea CBM Master', icon: 'pi pi-calculator', path: '/masters/sea-cbm', section: 'Freight Masters' },
+    { label: 'Vehicle Types', icon: 'pi pi-car', path: '/masters/vehicle-types', section: 'Freight Masters' },
+    { label: 'Local Master', icon: 'pi pi-map-marker', path: '/masters/local-master', section: 'Freight Masters' },
   ];
 
   // Filter items based on RBAC menu permissions

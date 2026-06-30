@@ -101,10 +101,6 @@ h2 {
   border-color: var(--color-success);
 }
 
-.p-button.p-button-danger {
-  background: linear-gradient(135deg, #ff6b6b, #b91c1c);
-  border-color: var(--color-error);
-}
 
 .p-button.p-button-secondary {
   background: linear-gradient(135deg, #f8f9fa, #e9ecef);

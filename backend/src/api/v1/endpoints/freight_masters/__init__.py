@@ -1,0 +1,1 @@
+"""Freight Masters API endpoints."""

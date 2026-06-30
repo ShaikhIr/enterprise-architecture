@@ -31,6 +31,11 @@ apiClient.interceptors.request.use(
     // Add correlation ID
     config.headers['X-Correlation-ID'] = crypto.randomUUID();
 
+    // Let browser set Content-Type for FormData (multipart/form-data with boundary)
+    if (config.data instanceof FormData) {
+      delete config.headers['Content-Type'];
+    }
+
     return config;
   },
   (error) => Promise.reject(error)

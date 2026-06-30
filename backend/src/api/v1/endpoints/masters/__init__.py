@@ -1,0 +1,1 @@
+"""Master data API endpoints."""

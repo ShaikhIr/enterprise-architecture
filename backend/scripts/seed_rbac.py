@@ -36,6 +36,7 @@ DEFAULT_PERMISSIONS = [
     {"code": "menu.reports", "name": "Reports Menu", "scope": "MENU", "resource": "reports", "action": "READ"},
     {"code": "menu.settings", "name": "Settings Menu", "scope": "MENU", "resource": "settings", "action": "READ"},
     {"code": "menu.workflows", "name": "Workflows Menu", "scope": "MENU", "resource": "workflows", "action": "READ"},
+    {"code": "menu.masters", "name": "Masters Menu", "scope": "MENU", "resource": "masters", "action": "READ"},
 
     # API permissions — control endpoint access
     {"code": "users.list", "name": "List Users", "scope": "API", "resource": "users", "action": "READ"},
@@ -73,6 +74,7 @@ ROLE_PERMISSIONS = {
         # Admin gets ALL permissions
         "menu.dashboard", "menu.users", "menu.roles", "menu.audit_logs",
         "menu.services", "menu.reports", "menu.settings", "menu.workflows",
+        "menu.masters",
         "users.list", "users.create", "users.update", "users.delete",
         "users.export", "users.import",
         "roles.list", "roles.create", "roles.update", "roles.assign",

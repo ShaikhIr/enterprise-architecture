@@ -12,6 +12,8 @@ from src.api.v1.endpoints.rbac_controller import router as rbac_router
 from src.api.v1.endpoints.user_controller import router as user_router
 from src.api.v1.endpoints.workflow.workflow_controller import router as workflow_router
 from src.api.v1.endpoints.commission_claim.controller import router as claims_router
+from src.api.v1.endpoints.masters.controller import router as masters_router
+from src.api.v1.endpoints.freight_masters.controller import router as freight_masters_router
 
 api_v1_router = APIRouter(prefix="/api/v1")
 
@@ -23,3 +25,5 @@ api_v1_router.include_router(health_router)
 api_v1_router.include_router(employee_ad_router)
 api_v1_router.include_router(workflow_router)
 api_v1_router.include_router(claims_router)
+api_v1_router.include_router(masters_router)
+api_v1_router.include_router(freight_masters_router)

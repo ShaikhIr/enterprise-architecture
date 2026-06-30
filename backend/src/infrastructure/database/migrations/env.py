@@ -25,6 +25,21 @@ from src.infrastructure.database.models.role_model import (  # noqa: F401
     RoleAssignmentModel,
 )
 from src.infrastructure.database.models.audit_log_model import AuditLogModel  # noqa: F401
+from src.infrastructure.database.models.masters import (  # noqa: F401
+    ProductTypeMasterModel,
+    PackStyleMasterModel,
+    TypeOfPalletMasterModel,
+    CountryMasterModel,
+    CityMasterModel,
+    AirMasterModel,
+    AirMasterRateModel,
+    SeaMasterModel,
+    SeaMasterRateModel,
+    SeaCbmMasterModel,
+    VehicleTypeMasterModel,
+    LocalMasterModel,
+    LocalMasterRateModel,
+)
 
 # Alembic Config object
 config = context.config
