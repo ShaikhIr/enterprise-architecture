@@ -12,7 +12,6 @@ import { RolesPage } from '@features/rbac-admin/pages/RolesPage';
 import { AuditLogsPage } from '@features/rbac-admin/pages/AuditLogsPage';
 import { WorkflowDefinitionsPage, WorkflowBuilderPage, ApprovalMatrixPage } from '@features/workflow-admin';
 import { CommissionClaimsPage } from '@features/commission-claims';
-import { ProductTypeMasterPage, PackStyleMasterPage, TypeOfPalletMasterPage, CountryMasterPage, CityMasterPage, AirMasterPage, SeaMasterPage, SeaCbmMasterPage, VehicleTypeMasterPage, LocalMasterPage } from '@features/masters';
 import { MainLayout } from '@app/layouts/MainLayout';
 import { PrivateRoute } from './PrivateRoute';
 
@@ -99,86 +98,6 @@ export const AppRouter = () => {
             element={
               <PrivateRoute menuKey="dashboard">
                 <CommissionClaimsPage />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="masters/product-types"
-            element={
-              <PrivateRoute>
-                <ProductTypeMasterPage />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="masters/pack-styles"
-            element={
-              <PrivateRoute>
-                <PackStyleMasterPage />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="masters/pallets"
-            element={
-              <PrivateRoute>
-                <TypeOfPalletMasterPage />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="masters/countries"
-            element={
-              <PrivateRoute>
-                <CountryMasterPage />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="masters/cities"
-            element={
-              <PrivateRoute>
-                <CityMasterPage />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="masters/air-master"
-            element={
-              <PrivateRoute>
-                <AirMasterPage />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="masters/sea-master"
-            element={
-              <PrivateRoute>
-                <SeaMasterPage />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="masters/sea-cbm"
-            element={
-              <PrivateRoute>
-                <SeaCbmMasterPage />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="masters/vehicle-types"
-            element={
-              <PrivateRoute>
-                <VehicleTypeMasterPage />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="masters/local-master"
-            element={
-              <PrivateRoute>
-                <LocalMasterPage />
               </PrivateRoute>
             }
           />
