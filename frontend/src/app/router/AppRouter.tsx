@@ -12,6 +12,18 @@ import { RolesPage } from '@features/rbac-admin/pages/RolesPage';
 import { AuditLogsPage } from '@features/rbac-admin/pages/AuditLogsPage';
 import { WorkflowDefinitionsPage, WorkflowBuilderPage, ApprovalMatrixPage } from '@features/workflow-admin';
 import { CommissionClaimsPage } from '@features/commission-claims';
+import {
+  BrandMasterPage,
+  DosageMasterPage,
+  ModeOfShipmentMasterPage,
+  TherapeuticCategoryMasterPage,
+} from '@features/masters';
+import {
+  CurrencyConversionPage,
+  ContainerMasterPage,
+  TransitDayMasterPage,
+  FixedChargesMasterPage,
+} from '@features/freight-masters';
 import { MainLayout } from '@app/layouts/MainLayout';
 import { PrivateRoute } from './PrivateRoute';
 
@@ -98,6 +110,74 @@ export const AppRouter = () => {
             element={
               <PrivateRoute menuKey="dashboard">
                 <CommissionClaimsPage />
+              </PrivateRoute>
+            }
+          />
+
+          {/* Master Data routes */}
+          <Route
+            path="masters/brands"
+            element={
+              <PrivateRoute menuKey="masters">
+                <BrandMasterPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="masters/dosages"
+            element={
+              <PrivateRoute menuKey="masters">
+                <DosageMasterPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="masters/modes-of-shipment"
+            element={
+              <PrivateRoute menuKey="masters">
+                <ModeOfShipmentMasterPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="masters/therapeutic-categories"
+            element={
+              <PrivateRoute menuKey="masters">
+                <TherapeuticCategoryMasterPage />
+              </PrivateRoute>
+            }
+          />
+
+          {/* Freight Master Data routes */}
+          <Route
+            path="freight-masters/currency-conversion"
+            element={
+              <PrivateRoute menuKey="masters">
+                <CurrencyConversionPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="freight-masters/containers"
+            element={
+              <PrivateRoute menuKey="masters">
+                <ContainerMasterPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="freight-masters/transit-days"
+            element={
+              <PrivateRoute menuKey="masters">
+                <TransitDayMasterPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="freight-masters/fixed-charges"
+            element={
+              <PrivateRoute menuKey="masters">
+                <FixedChargesMasterPage />
               </PrivateRoute>
             }
           />

@@ -102,7 +102,7 @@ h2 {
 }
 
 .p-button.p-button-danger {
-  background: linear-gradient(135deg, #ff6b6b, #b91c1c);
+  /* background: linear-gradient(135deg, #ff6b6b, #b91c1c); */
   border-color: var(--color-error);
 }
 
