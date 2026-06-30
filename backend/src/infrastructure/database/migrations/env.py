@@ -40,6 +40,16 @@ from src.infrastructure.database.models.masters import (  # noqa: F401
     LocalMasterModel,
     LocalMasterRateModel,
 )
+from src.infrastructure.database.models.masters import (  # noqa: F401
+    BrandMasterModel,
+    DosageMasterModel,
+    ModeOfShipmentMasterModel,
+    TherapeuticCategoryMasterModel,
+    CurrencyConversionRateModel,
+    ContainerMasterModel,
+    TransitDayMasterModel,
+    FixedChargesMasterModel,
+)
 
 # Alembic Config object
 config = context.config

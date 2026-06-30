@@ -82,3 +82,87 @@ class PalletResponse(BaseModel):
     is_active: bool
 
     model_config = {"from_attributes": True}
+
+
+# ============================================================
+# BRAND MASTER
+# ============================================================
+
+class BrandCreateRequest(BaseModel):
+    brand_name: str = Field(..., min_length=1, max_length=100)
+
+
+class BrandUpdateRequest(BaseModel):
+    brand_name: Optional[str] = Field(None, min_length=1, max_length=100)
+    is_active: Optional[bool] = None
+
+
+class BrandResponse(BaseModel):
+    id: UUID
+    brand_name: str
+    is_active: bool
+
+    model_config = {"from_attributes": True}
+
+
+# ============================================================
+# DOSAGE MASTER
+# ============================================================
+
+class DosageCreateRequest(BaseModel):
+    dosage: str = Field(..., min_length=1, max_length=100)
+
+
+class DosageUpdateRequest(BaseModel):
+    dosage: Optional[str] = Field(None, min_length=1, max_length=100)
+    is_active: Optional[bool] = None
+
+
+class DosageResponse(BaseModel):
+    id: UUID
+    dosage: str
+    is_active: bool
+
+    model_config = {"from_attributes": True}
+
+
+# ============================================================
+# MODE OF SHIPMENT MASTER
+# ============================================================
+
+class ModeOfShipmentCreateRequest(BaseModel):
+    mode_name: str = Field(..., min_length=1, max_length=100)
+
+
+class ModeOfShipmentUpdateRequest(BaseModel):
+    mode_name: Optional[str] = Field(None, min_length=1, max_length=100)
+    is_active: Optional[bool] = None
+
+
+class ModeOfShipmentResponse(BaseModel):
+    id: UUID
+    mode_name: str
+    is_active: bool
+
+    model_config = {"from_attributes": True}
+
+
+# ============================================================
+# THERAPEUTIC CATEGORY MASTER
+# ============================================================
+
+class TherapeuticCategoryCreateRequest(BaseModel):
+    therapeutic_category_name: str = Field(..., min_length=1, max_length=100)
+
+
+class TherapeuticCategoryUpdateRequest(BaseModel):
+    therapeutic_category_name: Optional[str] = Field(None, min_length=1, max_length=100)
+    is_active: Optional[bool] = None
+
+
+class TherapeuticCategoryResponse(BaseModel):
+    id: UUID
+    therapeutic_category_name: str
+    is_active: bool
+
+    model_config = {"from_attributes": True}

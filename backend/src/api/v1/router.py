@@ -14,6 +14,7 @@ from src.api.v1.endpoints.workflow.workflow_controller import router as workflow
 from src.api.v1.endpoints.commission_claim.controller import router as claims_router
 from src.api.v1.endpoints.masters.controller import router as masters_router
 from src.api.v1.endpoints.freight_masters.controller import router as freight_masters_router
+from src.api.v1.endpoints.masters.freight_controller import router as masters_freight_router
 
 api_v1_router = APIRouter(prefix="/api/v1")
 
@@ -27,3 +28,4 @@ api_v1_router.include_router(workflow_router)
 api_v1_router.include_router(claims_router)
 api_v1_router.include_router(masters_router)
 api_v1_router.include_router(freight_masters_router)
+api_v1_router.include_router(masters_freight_router)

@@ -30,4 +30,8 @@ from src.infrastructure.database.models.masters import (  # noqa: F401
     VehicleTypeMasterModel,
     LocalMasterModel,
     LocalMasterRateModel,
+    BrandMasterModel,
+    DosageMasterModel,
+    ModeOfShipmentMasterModel,
+    TherapeuticCategoryMasterModel,
 )

@@ -33,6 +33,7 @@ DEFAULT_PERMISSIONS = [
     {"code": "menu.roles", "name": "Roles Menu", "scope": "MENU", "resource": "roles", "action": "READ"},
     {"code": "menu.audit_logs", "name": "Audit Logs Menu", "scope": "MENU", "resource": "audit_logs", "action": "READ"},
     {"code": "menu.services", "name": "Services Menu", "scope": "MENU", "resource": "services", "action": "READ"},
+    {"code": "menu.masters", "name": "Masters Menu", "scope": "MENU", "resource": "masters", "action": "READ"},
     {"code": "menu.reports", "name": "Reports Menu", "scope": "MENU", "resource": "reports", "action": "READ"},
     {"code": "menu.settings", "name": "Settings Menu", "scope": "MENU", "resource": "settings", "action": "READ"},
     {"code": "menu.workflows", "name": "Workflows Menu", "scope": "MENU", "resource": "workflows", "action": "READ"},

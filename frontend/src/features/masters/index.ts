@@ -8,3 +8,7 @@ export { SeaMasterPage } from './pages/SeaMasterPage';
 export { SeaCbmMasterPage } from './pages/SeaCbmMasterPage';
 export { VehicleTypeMasterPage } from './pages/VehicleTypeMasterPage';
 export { LocalMasterPage } from './pages/LocalMasterPage';
+export { BrandMasterPage } from './pages/BrandMasterPage';
+export { DosageMasterPage } from './pages/DosageMasterPage';
+export { ModeOfShipmentMasterPage } from './pages/ModeOfShipmentMasterPage';
+export { TherapeuticCategoryMasterPage } from './pages/TherapeuticCategoryMasterPage';

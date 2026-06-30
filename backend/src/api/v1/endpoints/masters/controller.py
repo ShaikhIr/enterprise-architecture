@@ -439,3 +439,447 @@ async def import_pallets_excel(
     await session.flush()
     wb.close()
     return {"created": created, "skipped": skipped}
+
+
+# ============================================================
+# BRAND MASTER — CRUD
+# ============================================================
+
+from src.infrastructure.database.models.masters.brand_model import BrandMasterModel
+from src.api.v1.endpoints.masters.schemas import (
+    BrandCreateRequest, BrandUpdateRequest, BrandResponse,
+)
+
+
+@router.get("/brands", response_model=list[BrandResponse])
+async def list_brands(
+    include_inactive: bool = False,
+    session: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_active_user),
+):
+    """List brands. By default only active records are returned."""
+    query = select(BrandMasterModel).order_by(BrandMasterModel.brand_name)
+    if not include_inactive:
+        query = query.where(BrandMasterModel.is_active == True)  # noqa: E712
+    result = await session.execute(query)
+    return [BrandResponse.model_validate(r) for r in result.scalars().all()]
+
+
+@router.post("/brands", response_model=BrandResponse, status_code=status.HTTP_201_CREATED)
+async def create_brand(
+    request: BrandCreateRequest,
+    session: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Create a new brand. Duplicate name is not allowed."""
+    existing = await session.execute(
+        select(BrandMasterModel).where(
+            BrandMasterModel.brand_name.ilike(request.brand_name)
+        )
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Brand already exists.",
+        )
+    record = BrandMasterModel(
+        brand_name=request.brand_name,
+        is_active=True,
+        created_by=current_user.username,
+        modified_by=current_user.username,
+    )
+    session.add(record)
+    await session.flush()
+    await session.refresh(record)
+    return BrandResponse.model_validate(record)
+
+
+@router.put("/brands/{record_id}", response_model=BrandResponse)
+async def update_brand(
+    record_id: UUID,
+    request: BrandUpdateRequest,
+    session: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Update a brand."""
+    result = await session.execute(
+        select(BrandMasterModel).where(BrandMasterModel.id == str(record_id))
+    )
+    record = result.scalar_one_or_none()
+    if not record:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Brand not found")
+
+    if request.brand_name is not None and request.brand_name != record.brand_name:
+        dup = await session.execute(
+            select(BrandMasterModel).where(
+                BrandMasterModel.brand_name.ilike(request.brand_name),
+                BrandMasterModel.id != str(record_id),
+            )
+        )
+        if dup.scalar_one_or_none():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Brand already exists.",
+            )
+        record.brand_name = request.brand_name
+
+    if request.is_active is not None:
+        record.is_active = request.is_active
+
+    record.modified_by = current_user.username
+    await session.flush()
+    await session.refresh(record)
+    return BrandResponse.model_validate(record)
+
+
+@router.delete("/brands/{record_id}", status_code=status.HTTP_200_OK)
+async def delete_brand(
+    record_id: UUID,
+    session: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Soft-delete a brand (sets is_active = false)."""
+    result = await session.execute(
+        select(BrandMasterModel).where(BrandMasterModel.id == str(record_id))
+    )
+    record = result.scalar_one_or_none()
+    if not record:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Brand not found")
+
+    record.is_active = False
+    record.modified_by = current_user.username
+    await session.flush()
+    return {"message": "Brand deactivated successfully"}
+
+
+# ============================================================
+# DOSAGE MASTER — CRUD
+# ============================================================
+
+from src.infrastructure.database.models.masters.dosage_model import DosageMasterModel
+from src.api.v1.endpoints.masters.schemas import (
+    DosageCreateRequest, DosageUpdateRequest, DosageResponse,
+)
+
+
+@router.get("/dosages", response_model=list[DosageResponse])
+async def list_dosages(
+    include_inactive: bool = False,
+    session: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_active_user),
+):
+    """List dosages. By default only active records are returned."""
+    query = select(DosageMasterModel).order_by(DosageMasterModel.dosage)
+    if not include_inactive:
+        query = query.where(DosageMasterModel.is_active == True)  # noqa: E712
+    result = await session.execute(query)
+    return [DosageResponse.model_validate(r) for r in result.scalars().all()]
+
+
+@router.post("/dosages", response_model=DosageResponse, status_code=status.HTTP_201_CREATED)
+async def create_dosage(
+    request: DosageCreateRequest,
+    session: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Create a new dosage. Duplicate value is not allowed."""
+    existing = await session.execute(
+        select(DosageMasterModel).where(
+            DosageMasterModel.dosage.ilike(request.dosage)
+        )
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Dosage already exists.",
+        )
+    record = DosageMasterModel(
+        dosage=request.dosage,
+        is_active=True,
+        created_by=current_user.username,
+        modified_by=current_user.username,
+    )
+    session.add(record)
+    await session.flush()
+    await session.refresh(record)
+    return DosageResponse.model_validate(record)
+
+
+@router.put("/dosages/{record_id}", response_model=DosageResponse)
+async def update_dosage(
+    record_id: UUID,
+    request: DosageUpdateRequest,
+    session: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Update a dosage."""
+    result = await session.execute(
+        select(DosageMasterModel).where(DosageMasterModel.id == str(record_id))
+    )
+    record = result.scalar_one_or_none()
+    if not record:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dosage not found")
+
+    if request.dosage is not None and request.dosage != record.dosage:
+        dup = await session.execute(
+            select(DosageMasterModel).where(
+                DosageMasterModel.dosage.ilike(request.dosage),
+                DosageMasterModel.id != str(record_id),
+            )
+        )
+        if dup.scalar_one_or_none():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Dosage already exists.",
+            )
+        record.dosage = request.dosage
+
+    if request.is_active is not None:
+        record.is_active = request.is_active
+
+    record.modified_by = current_user.username
+    await session.flush()
+    await session.refresh(record)
+    return DosageResponse.model_validate(record)
+
+
+@router.delete("/dosages/{record_id}", status_code=status.HTTP_200_OK)
+async def delete_dosage(
+    record_id: UUID,
+    session: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Soft-delete a dosage (sets is_active = false)."""
+    result = await session.execute(
+        select(DosageMasterModel).where(DosageMasterModel.id == str(record_id))
+    )
+    record = result.scalar_one_or_none()
+    if not record:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dosage not found")
+
+    record.is_active = False
+    record.modified_by = current_user.username
+    await session.flush()
+    return {"message": "Dosage deactivated successfully"}
+
+
+# ============================================================
+# MODE OF SHIPMENT MASTER — CRUD
+# ============================================================
+
+from src.infrastructure.database.models.masters.mode_of_shipment_model import ModeOfShipmentMasterModel
+from src.api.v1.endpoints.masters.schemas import (
+    ModeOfShipmentCreateRequest, ModeOfShipmentUpdateRequest, ModeOfShipmentResponse,
+)
+
+
+@router.get("/modes-of-shipment", response_model=list[ModeOfShipmentResponse])
+async def list_modes_of_shipment(
+    include_inactive: bool = False,
+    session: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_active_user),
+):
+    """List modes of shipment. By default only active records are returned."""
+    query = select(ModeOfShipmentMasterModel).order_by(ModeOfShipmentMasterModel.mode_name)
+    if not include_inactive:
+        query = query.where(ModeOfShipmentMasterModel.is_active == True)  # noqa: E712
+    result = await session.execute(query)
+    return [ModeOfShipmentResponse.model_validate(r) for r in result.scalars().all()]
+
+
+@router.post("/modes-of-shipment", response_model=ModeOfShipmentResponse, status_code=status.HTTP_201_CREATED)
+async def create_mode_of_shipment(
+    request: ModeOfShipmentCreateRequest,
+    session: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Create a new mode of shipment. Duplicate name is not allowed."""
+    existing = await session.execute(
+        select(ModeOfShipmentMasterModel).where(
+            ModeOfShipmentMasterModel.mode_name.ilike(request.mode_name)
+        )
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Mode of Shipment already exists.",
+        )
+    record = ModeOfShipmentMasterModel(
+        mode_name=request.mode_name,
+        is_active=True,
+        created_by=current_user.username,
+        modified_by=current_user.username,
+    )
+    session.add(record)
+    await session.flush()
+    await session.refresh(record)
+    return ModeOfShipmentResponse.model_validate(record)
+
+
+@router.put("/modes-of-shipment/{record_id}", response_model=ModeOfShipmentResponse)
+async def update_mode_of_shipment(
+    record_id: UUID,
+    request: ModeOfShipmentUpdateRequest,
+    session: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Update a mode of shipment."""
+    result = await session.execute(
+        select(ModeOfShipmentMasterModel).where(ModeOfShipmentMasterModel.id == str(record_id))
+    )
+    record = result.scalar_one_or_none()
+    if not record:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Mode of Shipment not found")
+
+    if request.mode_name is not None and request.mode_name != record.mode_name:
+        dup = await session.execute(
+            select(ModeOfShipmentMasterModel).where(
+                ModeOfShipmentMasterModel.mode_name.ilike(request.mode_name),
+                ModeOfShipmentMasterModel.id != str(record_id),
+            )
+        )
+        if dup.scalar_one_or_none():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Mode of Shipment already exists.",
+            )
+        record.mode_name = request.mode_name
+
+    if request.is_active is not None:
+        record.is_active = request.is_active
+
+    record.modified_by = current_user.username
+    await session.flush()
+    await session.refresh(record)
+    return ModeOfShipmentResponse.model_validate(record)
+
+
+@router.delete("/modes-of-shipment/{record_id}", status_code=status.HTTP_200_OK)
+async def delete_mode_of_shipment(
+    record_id: UUID,
+    session: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Soft-delete a mode of shipment (sets is_active = false)."""
+    result = await session.execute(
+        select(ModeOfShipmentMasterModel).where(ModeOfShipmentMasterModel.id == str(record_id))
+    )
+    record = result.scalar_one_or_none()
+    if not record:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Mode of Shipment not found")
+
+    record.is_active = False
+    record.modified_by = current_user.username
+    await session.flush()
+    return {"message": "Mode of Shipment deactivated successfully"}
+
+
+# ============================================================
+# THERAPEUTIC CATEGORY MASTER — CRUD
+# ============================================================
+
+from src.infrastructure.database.models.masters.therapeutic_category_model import TherapeuticCategoryMasterModel
+from src.api.v1.endpoints.masters.schemas import (
+    TherapeuticCategoryCreateRequest, TherapeuticCategoryUpdateRequest, TherapeuticCategoryResponse,
+)
+
+
+@router.get("/therapeutic-categories", response_model=list[TherapeuticCategoryResponse])
+async def list_therapeutic_categories(
+    include_inactive: bool = False,
+    session: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_active_user),
+):
+    """List therapeutic categories. By default only active records are returned."""
+    query = select(TherapeuticCategoryMasterModel).order_by(TherapeuticCategoryMasterModel.therapeutic_category_name)
+    if not include_inactive:
+        query = query.where(TherapeuticCategoryMasterModel.is_active == True)  # noqa: E712
+    result = await session.execute(query)
+    return [TherapeuticCategoryResponse.model_validate(r) for r in result.scalars().all()]
+
+
+@router.post("/therapeutic-categories", response_model=TherapeuticCategoryResponse, status_code=status.HTTP_201_CREATED)
+async def create_therapeutic_category(
+    request: TherapeuticCategoryCreateRequest,
+    session: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Create a new therapeutic category. Duplicate name is not allowed."""
+    existing = await session.execute(
+        select(TherapeuticCategoryMasterModel).where(
+            TherapeuticCategoryMasterModel.therapeutic_category_name.ilike(request.therapeutic_category_name)
+        )
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Therapeutic Category already exists.",
+        )
+    record = TherapeuticCategoryMasterModel(
+        therapeutic_category_name=request.therapeutic_category_name,
+        is_active=True,
+        created_by=current_user.username,
+        modified_by=current_user.username,
+    )
+    session.add(record)
+    await session.flush()
+    await session.refresh(record)
+    return TherapeuticCategoryResponse.model_validate(record)
+
+
+@router.put("/therapeutic-categories/{record_id}", response_model=TherapeuticCategoryResponse)
+async def update_therapeutic_category(
+    record_id: UUID,
+    request: TherapeuticCategoryUpdateRequest,
+    session: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Update a therapeutic category."""
+    result = await session.execute(
+        select(TherapeuticCategoryMasterModel).where(TherapeuticCategoryMasterModel.id == str(record_id))
+    )
+    record = result.scalar_one_or_none()
+    if not record:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Therapeutic Category not found")
+
+    if request.therapeutic_category_name is not None and request.therapeutic_category_name != record.therapeutic_category_name:
+        dup = await session.execute(
+            select(TherapeuticCategoryMasterModel).where(
+                TherapeuticCategoryMasterModel.therapeutic_category_name.ilike(request.therapeutic_category_name),
+                TherapeuticCategoryMasterModel.id != str(record_id),
+            )
+        )
+        if dup.scalar_one_or_none():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Therapeutic Category already exists.",
+            )
+        record.therapeutic_category_name = request.therapeutic_category_name
+
+    if request.is_active is not None:
+        record.is_active = request.is_active
+
+    record.modified_by = current_user.username
+    await session.flush()
+    await session.refresh(record)
+    return TherapeuticCategoryResponse.model_validate(record)
+
+
+@router.delete("/therapeutic-categories/{record_id}", status_code=status.HTTP_200_OK)
+async def delete_therapeutic_category(
+    record_id: UUID,
+    session: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Soft-delete a therapeutic category (sets is_active = false)."""
+    result = await session.execute(
+        select(TherapeuticCategoryMasterModel).where(TherapeuticCategoryMasterModel.id == str(record_id))
+    )
+    record = result.scalar_one_or_none()
+    if not record:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Therapeutic Category not found")
+
+    record.is_active = False
+    record.modified_by = current_user.username
+    await session.flush()
+    return {"message": "Therapeutic Category deactivated successfully"}

@@ -12,6 +12,28 @@ import { RolesPage } from '@features/rbac-admin/pages/RolesPage';
 import { AuditLogsPage } from '@features/rbac-admin/pages/AuditLogsPage';
 import { WorkflowDefinitionsPage, WorkflowBuilderPage, ApprovalMatrixPage } from '@features/workflow-admin';
 import { CommissionClaimsPage } from '@features/commission-claims';
+import {
+  BrandMasterPage,
+  DosageMasterPage,
+  ModeOfShipmentMasterPage,
+  TherapeuticCategoryMasterPage,
+  CountryMasterPage,
+  CityMasterPage,
+  AirMasterPage,
+  SeaMasterPage,
+  SeaCbmMasterPage,
+  VehicleTypeMasterPage,
+  LocalMasterPage,
+  ProductTypeMasterPage,
+  PackStyleMasterPage,
+  TypeOfPalletMasterPage,
+} from '@features/masters';
+import {
+  CurrencyConversionPage,
+  ContainerMasterPage,
+  TransitDayMasterPage,
+  FixedChargesMasterPage,
+} from '@features/freight-masters';
 import { MainLayout } from '@app/layouts/MainLayout';
 import { PrivateRoute } from './PrivateRoute';
 
@@ -98,6 +120,156 @@ export const AppRouter = () => {
             element={
               <PrivateRoute menuKey="dashboard">
                 <CommissionClaimsPage />
+              </PrivateRoute>
+            }
+          />
+
+          {/* Master Data routes */}
+          <Route
+            path="masters/brands"
+            element={
+              <PrivateRoute menuKey="masters">
+                <BrandMasterPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="masters/dosages"
+            element={
+              <PrivateRoute menuKey="masters">
+                <DosageMasterPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="masters/modes-of-shipment"
+            element={
+              <PrivateRoute menuKey="masters">
+                <ModeOfShipmentMasterPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="masters/therapeutic-categories"
+            element={
+              <PrivateRoute menuKey="masters">
+                <TherapeuticCategoryMasterPage />
+              </PrivateRoute>
+            }
+          />
+
+          {/* Freight Master Data routes */}
+          <Route
+            path="freight-masters/currency-conversion"
+            element={
+              <PrivateRoute menuKey="masters">
+                <CurrencyConversionPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="freight-masters/containers"
+            element={
+              <PrivateRoute menuKey="masters">
+                <ContainerMasterPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="freight-masters/transit-days"
+            element={
+              <PrivateRoute menuKey="masters">
+                <TransitDayMasterPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="freight-masters/fixed-charges"
+            element={
+              <PrivateRoute menuKey="masters">
+                <FixedChargesMasterPage />
+              </PrivateRoute>
+            }
+          />
+
+          {/* Additional Master Data routes */}
+          <Route
+            path="masters/product-types"
+            element={
+              <PrivateRoute menuKey="masters">
+                <ProductTypeMasterPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="masters/pack-styles"
+            element={
+              <PrivateRoute menuKey="masters">
+                <PackStyleMasterPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="masters/pallets"
+            element={
+              <PrivateRoute menuKey="masters">
+                <TypeOfPalletMasterPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="masters/countries"
+            element={
+              <PrivateRoute menuKey="masters">
+                <CountryMasterPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="masters/cities"
+            element={
+              <PrivateRoute menuKey="masters">
+                <CityMasterPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="masters/air-master"
+            element={
+              <PrivateRoute menuKey="masters">
+                <AirMasterPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="masters/sea-master"
+            element={
+              <PrivateRoute menuKey="masters">
+                <SeaMasterPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="masters/sea-cbm"
+            element={
+              <PrivateRoute menuKey="masters">
+                <SeaCbmMasterPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="masters/vehicle-types"
+            element={
+              <PrivateRoute menuKey="masters">
+                <VehicleTypeMasterPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="masters/local-master"
+            element={
+              <PrivateRoute menuKey="masters">
+                <LocalMasterPage />
               </PrivateRoute>
             }
           />
