@@ -10,7 +10,6 @@ import { Tag } from 'primereact/tag';
 import { Button } from 'primereact/button';
 import { Dialog } from 'primereact/dialog';
 import { FilterMatchMode } from 'primereact/api';
-import { InputText } from 'primereact/inputtext';
 import { apiClient } from '@shared/services/apiClient';
 import { userApi } from '../api/userApi';
 import type { User, UserRole } from '../models/User';
@@ -169,7 +168,7 @@ export const UserTable = ({ users, loading, onEdit }: UserTableProps) => {
       >
         <Column field="username" header="Username" sortable filter filterPlaceholder="Search..." />
         <Column field="employee_id" header="Employee ID" sortable filter filterPlaceholder="Search..." />
-        <Column field="employee_name" header="Employee Name" sortable filter filterPlaceholder="Search..." />
+        <Column field="employee_name" header="Name" sortable filter filterPlaceholder="Search..." />
         <Column field="email" header="Email" sortable filter filterPlaceholder="Search..." />
         <Column header="Last Login" body={(row) => row.last_login ? formatDate(row.last_login) : '—'} sortable field="last_login" />
         <Column header="Status" body={statusBodyTemplate} style={{ width: '6rem' }} />

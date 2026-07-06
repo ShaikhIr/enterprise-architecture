@@ -9,6 +9,7 @@ import type {
   ImportEmployeesResponse,
   UpdateUserRequest,
   User,
+  UserDetails,
   UserListResponse,
   UserRolesResponse,
 } from '../models/User';
@@ -23,6 +24,11 @@ export const userApi = {
 
   getUserById: async (userId: string): Promise<User> => {
     const { data } = await apiClient.get<User>(`/users/${userId}`);
+    return data;
+  },
+
+  getUserDetails: async (userId: string): Promise<UserDetails> => {
+    const { data } = await apiClient.get<UserDetails>(`/users/${userId}/details`);
     return data;
   },
 

@@ -1,0 +1,92 @@
+/* =========================================================
+   StatusBadge — base styles
+   ========================================================= */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+
+/* Dot pseudo-element — colour inherits from the variant's `color` value */
+.badge::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+/* =========================================================
+   Flat variants
+   ========================================================= */
+
+.success {
+  background: rgba(23, 199, 101, 0.1);
+  color: #17c765;
+}
+
+.warning {
+  background: rgba(255, 162, 30, 0.1);
+  color: #ffa21e;
+}
+
+.error {
+  background: rgba(239, 68, 68, 0.12);
+  color: #c81515;
+}
+
+.info {
+  background: rgba(105, 90, 205, 0.15);
+  color: #6a5acd;
+}
+
+.draft {
+  background: #d9f3b1;
+  color: #73a327;
+}
+
+/* =========================================================
+   Gradient variants
+   ========================================================= */
+
+.completed {
+  background: linear-gradient(145deg, #00cc00, #009900);
+  color: #fff;
+}
+
+/* The dot is rendered via currentColor, so it inherits the text colour.
+   For gradient badges with white text the dot will be white, matching
+   the spec's intent of using currentColor for the dot across all variants. */
+
+.overdue {
+  background: linear-gradient(145deg, #ff3333, #b30000);
+  color: #fff;
+}
+
+/* waiting — dark text (#5a4a00) for legibility on the yellow gradient */
+.waiting {
+  background: linear-gradient(145deg, #fff176, #fbc02d);
+  color: #5a4a00;
+}
+
+/* assigned — dark text (#333) for legibility on the grey gradient */
+.assigned {
+  background: linear-gradient(145deg, #e0e0e0, #bdbdbd);
+  color: #333;
+}
+
+.referred {
+  background: linear-gradient(145deg, #ffb347, #ff6600);
+  color: #fff;
+}

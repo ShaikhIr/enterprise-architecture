@@ -20,6 +20,7 @@ import type { TreeCheckboxSelectionKeys } from 'primereact/tree';
 import { rbacAdminApi } from '../api/rbacAdminApi';
 import type { CreateRoleRequest, Permission, Role } from '../models/rbac-admin.types';
 
+
 /**
  * Build a tree structure from flat permissions, grouped by feature (resource).
  * Structure: Scope → Resource → Permission
@@ -360,13 +361,13 @@ export const RolesPage = () => {
       <Toast ref={toast} />
 
       {/* Header */}
-      <div className="mb-4">
-        <h2 className="text-2xl font-semibold text-900 m-0">Roles & Permissions</h2>
+      <div className="mb-3">
+        <h2 className="text-xl font-semibold text-900 m-0">Roles & Permissions</h2>
         <p className="text-600 mt-1 mb-0">Manage roles, assign permissions, and configure access control</p>
       </div>
 
-      <div className="surface-card p-4 border-round shadow-1">
-        <Toolbar className="mb-4" start={leftToolbar} />
+      <div className="surface-card p-3 border-round shadow-1">
+          <Toolbar className="mb-4" start={leftToolbar} />
 
         <DataTable
           value={roles}

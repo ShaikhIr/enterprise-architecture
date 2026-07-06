@@ -14,6 +14,7 @@ import { WorkflowDefinitionsPage, WorkflowBuilderPage, ApprovalMatrixPage } from
 import { CommissionClaimsPage } from '@features/commission-claims';
 import { MainLayout } from '@app/layouts/MainLayout';
 import { PrivateRoute } from './PrivateRoute';
+import { renderMastersRoutes } from '@features/masters/routes/mastersRoutes';
 
 export const AppRouter = () => {
   return (
@@ -22,6 +23,7 @@ export const AppRouter = () => {
         {/* Public routes */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/auth/microsoft/callback" element={<MicrosoftCallbackPage />} />
+        <Route path="/oauth/v2/callback" element={<MicrosoftCallbackPage />} />
 
         {/* Protected routes with layout */}
         <Route
@@ -36,6 +38,26 @@ export const AppRouter = () => {
           <Route
             path="dashboard"
             element={<div className="p-4"><h2>Dashboard</h2><p>Welcome to the Enterprise App</p></div>}
+          />
+          <Route
+            path="orders"
+            element={<div className="p-4"><h2 className="text-xl font-semibold text-900 m-0">Orders</h2><p className="text-600 mt-1">Coming soon</p></div>}
+          />
+          <Route
+            path="reports"
+            element={<div className="p-4"><h2 className="text-xl font-semibold text-900 m-0">Reports</h2><p className="text-600 mt-1">Coming soon</p></div>}
+          />
+          <Route
+            path="inventory"
+            element={<div className="p-4"><h2 className="text-xl font-semibold text-900 m-0">Inventory</h2><p className="text-600 mt-1">Coming soon</p></div>}
+          />
+          <Route
+            path="settings"
+            element={<div className="p-4"><h2 className="text-xl font-semibold text-900 m-0">Settings</h2><p className="text-600 mt-1">Coming soon</p></div>}
+          />
+          <Route
+            path="profile"
+            element={<div className="p-4"><h2 className="text-xl font-semibold text-900 m-0">Profile</h2><p className="text-600 mt-1">Coming soon</p></div>}
           />
           <Route
             path="users"
@@ -101,6 +123,11 @@ export const AppRouter = () => {
               </PrivateRoute>
             }
           />
+
+          {/* Masters routes */}
+          <Route path="masters">
+            {renderMastersRoutes()}
+          </Route>
         </Route>
 
         {/* Unauthorized */}

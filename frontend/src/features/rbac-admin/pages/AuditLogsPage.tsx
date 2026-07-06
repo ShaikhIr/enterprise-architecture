@@ -16,6 +16,7 @@ import { ContentViewerDialog } from '@shared/components/ContentViewerDialog';
 import { rbacAdminApi } from '../api/rbacAdminApi';
 import type { AuditLogEntry } from '../models/rbac-admin.types';
 
+
 const ACTION_OPTIONS = [
   { label: 'All Actions', value: '' },
   { label: 'Role Created', value: 'ROLE_CREATED' },
@@ -207,15 +208,13 @@ export const AuditLogsPage = () => {
       <Toast ref={toast} />
 
       {/* Header */}
-      <div className="mb-4">
-        <h2 className="text-2xl font-semibold text-900 m-0">Audit Logs</h2>
-        <p className="text-600 mt-1 mb-0">
-          View all security-relevant operations: role changes, permission grants, and authentication events
-        </p>
+      <div className="mb-3">
+        <h2 className="text-xl font-semibold text-900 m-0">Audit Logs</h2>
+        <p className="text-600 mt-1 mb-0">View all security-relevant operations: role changes, permission grants, and authentication events</p>
       </div>
 
-      <div className="surface-card p-4 border-round shadow-1">
-        <Toolbar className="mb-4" start={toolbarContent} />
+      <div className="surface-card p-3 border-round shadow-1">
+          <Toolbar className="mb-4" start={toolbarContent} />
 
         <DataTable
           value={logs}

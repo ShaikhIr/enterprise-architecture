@@ -26,7 +26,23 @@ class UserRepositoryImpl(IUserRepository):
         return self._to_entity(model) if model else None
 
     async def get_by_username(self, username: str) -> User | None:
-        stmt = select(UserModel).where(UserModel.username == username)
+        from sqlalchemy import func
+        stmt = select(UserModel).where(func.lower(UserModel.username) == username.lower())
+        result = await self._session.execute(stmt)
+        model = result.scalar_one_or_none()
+        return self._to_entity(model) if model else None
+
+    async def get_by_email(self, email: str) -> User | None:
+        """Look up user by email in user_details table (case-insensitive)."""
+        from sqlalchemy import func
+
+        from src.infrastructure.database.models.user_details_model import UserDetailsModel
+
+        stmt = (
+            select(UserModel)
+            .join(UserDetailsModel, UserDetailsModel.user_id == UserModel.id)
+            .where(func.lower(UserDetailsModel.email) == email.lower())
+        )
         result = await self._session.execute(stmt)
         model = result.scalar_one_or_none()
         return self._to_entity(model) if model else None

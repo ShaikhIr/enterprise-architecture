@@ -18,6 +18,7 @@ class User(BaseEntity):
     - Username must be unique (enforced at repository level).
     - Password hash is never exposed outside the domain/infrastructure boundary.
     - A blocked user cannot authenticate regardless of active status.
+    - A user may optionally belong to exactly one Entity via entity_id.
     """
 
     username: str = field(default="")

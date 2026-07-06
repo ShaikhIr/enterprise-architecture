@@ -1,0 +1,58 @@
+/* =========================================================
+   Alert — base styles
+   ========================================================= */
+
+.alert {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  border-left: 4px solid currentColor;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+}
+
+.alertContent {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.alertTitle {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.alertMessage {
+  font-size: 13px;
+  opacity: 0.9;
+}
+
+.alertIcon {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* =========================================================
+   Variants
+   ========================================================= */
+
+.success {
+  background: rgba(23, 199, 101, 0.08);
+  color: #15803d;
+}
+
+.warning {
+  background: rgba(255, 162, 30, 0.08);
+  color: #b45309;
+}
+
+.error {
+  background: rgba(239, 68, 68, 0.08);
+  color: #b91c1c;
+}
+
+.info {
+  background: rgba(59, 130, 246, 0.08);
+  color: #1d4ed8;
+}

@@ -1,0 +1,182 @@
+/* =============================================================================
+   Button Component — Emcure Design System
+   All values reference tokens from src/assets/styles/tokens.css
+   ============================================================================= */
+
+/* ---------------------------------------------------------------------------
+   Base Button
+   Shared by ALL variants. Pill shape, overflow:hidden for shine pseudo-element.
+   --------------------------------------------------------------------------- */
+.btn {
+  position: relative;
+  overflow: hidden;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 20px;
+  min-height: 36px;
+  border-radius: var(--radius-full);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+  transition: all var(--duration-fast) var(--ease-out);
+  user-select: none;
+  outline: none;
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* ---------------------------------------------------------------------------
+   Hover Shine Sweep — ::before pseudo-element
+   Slides from translateX(-100%) → translateX(200%) on hover.
+   Parent must have overflow: hidden (already on .btn).
+   --------------------------------------------------------------------------- */
+.btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.25),
+    transparent
+  );
+  transform: translateX(-100%);
+  transition: transform var(--duration-normal) var(--ease-out);
+  pointer-events: none;
+}
+
+.btn:not(.disabled):hover::before {
+  transform: translateX(200%);
+}
+
+/* ---------------------------------------------------------------------------
+   Active Press State
+   Only fires when NOT disabled.
+   --------------------------------------------------------------------------- */
+.btn:not(.disabled):active {
+  transform: translateY(1px) scale(0.98);
+}
+
+/* ---------------------------------------------------------------------------
+   Disabled State
+   pointer-events: none prevents all click/hover events.
+   --------------------------------------------------------------------------- */
+.disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: grayscale(0.4);
+  pointer-events: none;
+}
+
+/* ---------------------------------------------------------------------------
+   Variant: primary
+   Red gradient + shadow
+   --------------------------------------------------------------------------- */
+.primary {
+  background: linear-gradient(135deg, #ff4d54 0%, #ed1c24 45%, #b00e14 100%);
+  color: #fff;
+  box-shadow: var(--shadow-primary-md);
+}
+
+.primary:not(.disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(237, 28, 36, 0.45);
+}
+
+/* ---------------------------------------------------------------------------
+   Variant: secondary
+   White background, neutral border; red border + text on hover
+   --------------------------------------------------------------------------- */
+.secondary {
+  background: #fff;
+  border: 1px solid var(--color-neutral-300);
+  color: var(--color-neutral-800);
+}
+
+.secondary:not(.disabled):hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+/* ---------------------------------------------------------------------------
+   Variant: ghost
+   Transparent background, primary text; primary-50 bg on hover
+   --------------------------------------------------------------------------- */
+.ghost {
+  background: transparent;
+  color: var(--color-primary);
+  border: none;
+}
+
+.ghost:not(.disabled):hover {
+  background: var(--color-primary-50);
+}
+
+/* ---------------------------------------------------------------------------
+   Variant: danger
+   Solid primary red background
+   --------------------------------------------------------------------------- */
+.danger {
+  background: var(--color-primary);
+  color: #fff;
+  border: none;
+}
+
+.danger:not(.disabled):hover {
+  background: var(--color-primary-hover);
+  transform: translateY(-1px);
+}
+
+/* ---------------------------------------------------------------------------
+   Variant: save
+   Green gradient background
+   --------------------------------------------------------------------------- */
+.save {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: #fff;
+  border: none;
+}
+
+.save:not(.disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(34, 197, 94, 0.4);
+}
+
+/* ---------------------------------------------------------------------------
+   Variant: delete
+   Light red background, primary red text, primary-100 border
+   --------------------------------------------------------------------------- */
+.delete {
+  background: var(--color-primary-50);
+  color: var(--color-primary);
+  border: 1px solid var(--color-primary-100);
+}
+
+.delete:not(.disabled):hover {
+  background: var(--color-primary-100);
+  border-color: var(--color-primary-200);
+}
+
+/* ---------------------------------------------------------------------------
+   Size Modifier: sm
+   Smaller padding, font-size, and min-height.
+   Can be composed with any color variant class.
+   --------------------------------------------------------------------------- */
+.sm {
+  padding: 5px 14px;
+  font-size: 12px;
+  min-height: 30px;
+}

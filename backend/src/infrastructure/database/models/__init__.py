@@ -16,3 +16,4 @@ from src.infrastructure.database.models.role_model import (  # noqa: F401
     RoleAssignmentModel,
 )
 from src.infrastructure.database.models.audit_log_model import AuditLogModel  # noqa: F401
+from src.infrastructure.database.models.masters.customer_model import CustomerModel  # noqa: F401

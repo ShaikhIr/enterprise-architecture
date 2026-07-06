@@ -1,0 +1,52 @@
+/**
+ * PageHeader component styles
+ * Standardised page-level header with title, optional subtitle, and actions slot.
+ * Uses design-system tokens for all visual values — no hardcoded colours, spacing,
+ * radii, or shadows.
+ */
+
+/* ── Page header root ──────────────────────────────────────── */
+.pageHeader {
+  background: #fff;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-5);
+  margin-bottom: var(--space-5);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid var(--color-neutral-200);
+}
+
+/* ── Title group (left side) ───────────────────────────────── */
+.titleGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* ── Page title ────────────────────────────────────────────── */
+.title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--color-neutral-900);
+  line-height: 1.2;
+  margin: 0;
+  padding: 0;
+}
+
+/* ── Optional subtitle ─────────────────────────────────────── */
+.subtitle {
+  font-size: 13px;
+  color: var(--color-neutral-600);
+  margin: 0;
+  padding: 0;
+}
+
+/* ── Actions slot (right side) ─────────────────────────────── */
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}

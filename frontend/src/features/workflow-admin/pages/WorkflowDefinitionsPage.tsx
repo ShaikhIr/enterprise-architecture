@@ -15,6 +15,7 @@ import { Toolbar } from 'primereact/toolbar';
 import { useNavigate } from 'react-router-dom';
 import { workflowApi, type WorkflowDefinition } from '../api/workflowApi';
 
+
 export const WorkflowDefinitionsPage = () => {
   const toast = useRef<Toast>(null);
   const navigate = useNavigate();
@@ -74,21 +75,21 @@ export const WorkflowDefinitionsPage = () => {
       </div>
 
       <div className="surface-card p-3 border-round shadow-1">
-        <Toolbar className="mb-3" start={() => (
-          <div className="flex gap-2">
-            <Button label="New Workflow" icon="pi pi-plus" onClick={() => setShowCreate(true)} />
-            <Button label="Refresh" icon="pi pi-refresh" severity="secondary" outlined onClick={loadData} />
-          </div>
-        )} />
+          <Toolbar className="mb-3" start={() => (
+            <div className="flex gap-2">
+              <Button label="New Workflow" icon="pi pi-plus" onClick={() => setShowCreate(true)} />
+              <Button label="Refresh" icon="pi pi-refresh" severity="secondary" outlined onClick={loadData} />
+            </div>
+          )} />
 
-        <DataTable value={definitions} loading={loading} stripedRows paginator rows={10} emptyMessage="No workflows defined">
-          <Column field="code" header="Code" sortable />
-          <Column field="name" header="Name" sortable />
-          <Column field="entity_type" header="Entity Type" sortable />
-          <Column field="version" header="Version" />
-          <Column header="Status" body={statusTemplate} />
-          <Column header="Actions" body={actionsTemplate} style={{ width: '5rem' }} />
-        </DataTable>
+          <DataTable value={definitions} loading={loading} stripedRows paginator rows={10} emptyMessage="No workflows defined">
+            <Column field="code" header="Code" sortable />
+            <Column field="name" header="Name" sortable />
+            <Column field="entity_type" header="Entity Type" sortable />
+            <Column field="version" header="Version" />
+            <Column header="Status" body={statusTemplate} />
+            <Column header="Actions" body={actionsTemplate} style={{ width: '5rem' }} />
+          </DataTable>
       </div>
 
       <Dialog header="Create Workflow" visible={showCreate} onHide={() => setShowCreate(false)} style={{ width: '450px' }} modal

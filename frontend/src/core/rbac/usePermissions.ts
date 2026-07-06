@@ -102,6 +102,7 @@ export const useFieldPermissions = (resource: string) => {
  */
 export const useHasPermission = (permissionCode: string): boolean => {
   const { menuPermissions, isLoaded } = useAppSelector((state) => state.rbac);
-  if (!isLoaded) return false;
+  // When RBAC is not loaded yet, default to allowing so buttons aren't hidden during loading
+  if (!isLoaded) return true;
   return menuPermissions.some((p) => p.code === permissionCode);
 };

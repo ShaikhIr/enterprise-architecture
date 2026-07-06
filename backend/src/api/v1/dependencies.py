@@ -10,7 +10,11 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.domain.entities.user import User
+from src.domain.repositories.masters.entity_repository import IEntityRepository
 from src.domain.repositories.user_repository import IUserRepository
+from src.infrastructure.database.repositories.masters.entity_repository_impl import (
+    EntityRepositoryImpl,
+)
 from src.infrastructure.database.repositories.user_repository_impl import (
     UserRepositoryImpl,
 )
@@ -32,6 +36,13 @@ def get_user_repository(
 ) -> IUserRepository:
     """Provide user repository with injected session."""
     return UserRepositoryImpl(session)
+
+
+def get_entity_repository(
+    session: AsyncSession = Depends(get_db_session),
+) -> IEntityRepository:
+    """Provide Entity master repository with injected session."""
+    return EntityRepositoryImpl(session)
 
 
 def get_auth_manager(

@@ -35,6 +35,7 @@ class UserDetailResponse(BaseModel):
     is_active: bool
     is_blocked: bool
     is_validate_ad: bool
+    entity_id: UUID | None = None
     employee_id: str | None = None
     employee_name: str | None = None
     first_name: str | None = None
@@ -72,3 +73,24 @@ class UserListResponse(BaseModel):
     total: int = Field(default=0)
     skip: int = Field(default=0)
     limit: int = Field(default=100)
+
+
+class ImportRowError(BaseModel):
+    """A single row-level failure encountered during HR import (Req 3.5)."""
+
+    row_number: int = Field(..., description="1-based position of the row in the batch")
+    employee_id: str | None = Field(default=None)
+    reason: str = Field(..., description="Why the row could not be imported")
+
+
+class ImportSummary(BaseModel):
+    """Outcome of an HR import batch (Requirement 3).
+
+    ``received`` always equals ``created + updated + failed``.
+    """
+
+    received: int = Field(default=0)
+    created: int = Field(default=0)
+    updated: int = Field(default=0)
+    failed: int = Field(default=0)
+    errors: list[ImportRowError] = Field(default_factory=list)

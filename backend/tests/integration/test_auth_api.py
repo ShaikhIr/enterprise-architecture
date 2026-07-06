@@ -3,12 +3,13 @@ Integration tests for authentication API endpoints.
 Tests the full request/response cycle through FastAPI test client.
 """
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from src.api.v1.dependencies import get_user_repository
 from src.domain.entities.user import User
 from src.infrastructure.security.password_encoder import hash_password
 from src.main import app
@@ -22,7 +23,7 @@ def active_user():
         password_hash=hash_password("TestPass123!"),
         is_active=True,
         is_blocked=False,
-        role="USER",
+        is_validate_ad=False,
     )
 
 
@@ -39,10 +40,8 @@ class TestLoginAPI:
 
     async def test_login_success(self, mock_user_repo, active_user):
         """Valid login should return 200 with token pair."""
-        with patch(
-            "src.api.v1.dependencies.get_user_repository",
-            return_value=mock_user_repo,
-        ):
+        app.dependency_overrides[get_user_repository] = lambda: mock_user_repo
+        try:
             transport = ASGITransport(app=app)
             async with AsyncClient(transport=transport, base_url="http://test") as client:
                 response = await client.post(
@@ -55,13 +54,13 @@ class TestLoginAPI:
             assert "access_token" in data
             assert "refresh_token" in data
             assert data["token_type"] == "Bearer"
+        finally:
+            app.dependency_overrides.pop(get_user_repository, None)
 
     async def test_login_invalid_password(self, mock_user_repo):
         """Wrong password should return 401."""
-        with patch(
-            "src.api.v1.dependencies.get_user_repository",
-            return_value=mock_user_repo,
-        ):
+        app.dependency_overrides[get_user_repository] = lambda: mock_user_repo
+        try:
             transport = ASGITransport(app=app)
             async with AsyncClient(transport=transport, base_url="http://test") as client:
                 response = await client.post(
@@ -70,6 +69,8 @@ class TestLoginAPI:
                 )
 
             assert response.status_code == 401
+        finally:
+            app.dependency_overrides.pop(get_user_repository, None)
 
     async def test_login_missing_fields(self):
         """Missing fields should return 422."""

@@ -77,7 +77,7 @@ export const LoginPage = () => {
           >
             <img src={emcureLogo} alt="Emcure — cure and beyond" style={{ height: '56px', width: 'auto' }} />
           </div>
-          <span style={{ color: 'var(--color-text-secondary)' }}>
+          <span style={{ color: 'var(--color-neutral-600)' }}>
             Enterprise App Template
           </span>
         </div>
@@ -93,7 +93,7 @@ export const LoginPage = () => {
             <label
               htmlFor="username"
               className="block font-medium mb-2"
-              style={{ color: 'var(--color-text-primary)', fontSize: '14px' }}
+              style={{ color: 'var(--color-neutral-900)', fontSize: '14px' }}
             >
               Username
             </label>
@@ -116,7 +116,7 @@ export const LoginPage = () => {
             <label
               htmlFor="password"
               className="block font-medium mb-2"
-              style={{ color: 'var(--color-text-primary)', fontSize: '14px' }}
+              style={{ color: 'var(--color-neutral-900)', fontSize: '14px' }}
             >
               Password
             </label>
@@ -156,7 +156,7 @@ export const LoginPage = () => {
 
         {/* Divider */}
         <Divider align="center" className="my-4">
-          <span style={{ color: 'var(--color-text-muted)', fontSize: '12px' }}>OR</span>
+          <span style={{ color: 'var(--color-neutral-500)', fontSize: '12px' }}>OR</span>
         </Divider>
 
         {/* Microsoft SSO Button */}
@@ -169,8 +169,8 @@ export const LoginPage = () => {
           onClick={handleMicrosoftLogin}
           aria-label="Sign in with Microsoft"
           style={{
-            borderColor: 'var(--color-surface-border)',
-            color: 'var(--color-text-primary)',
+            borderColor: 'var(--color-neutral-300)',
+            color: 'var(--color-neutral-900)',
           }}
         />
       </div>

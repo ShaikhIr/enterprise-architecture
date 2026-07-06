@@ -17,6 +17,7 @@ import { Toolbar } from 'primereact/toolbar';
 import { apiClient } from '@shared/services/apiClient';
 import { workflowApi, type ApprovalMatrix } from '../api/workflowApi';
 
+
 const OPERATORS = [
   { label: 'Equals', value: 'EQ' },
   { label: 'Not Equals', value: 'NEQ' },
@@ -167,23 +168,23 @@ export const ApprovalMatrixPage = () => {
       </div>
 
       <div className="surface-card p-3 border-round shadow-1">
-        <Toolbar className="mb-3" start={() => (
-          <div className="flex gap-2">
-            <Button label="New Matrix" icon="pi pi-plus" onClick={openCreate} />
-            <Button label="Refresh" icon="pi pi-refresh" severity="secondary" outlined onClick={loadData} />
-          </div>
-        )} />
+          <Toolbar className="mb-3" start={() => (
+            <div className="flex gap-2">
+              <Button label="New Matrix" icon="pi pi-plus" onClick={openCreate} />
+              <Button label="Refresh" icon="pi pi-refresh" severity="secondary" outlined onClick={loadData} />
+            </div>
+          )} />
 
-        <DataTable value={matrices} loading={loading} stripedRows paginator rows={10} emptyMessage="No approval matrices defined">
-          <Column field="code" header="Code" sortable />
-          <Column field="name" header="Name" sortable />
-          <Column field="entity_type" header="Entity Type" />
-          <Column field="priority" header="Priority" />
-          <Column header="Rules" body={rulesTemplate} />
-          <Column header="Levels" body={levelsTemplate} />
-          <Column header="Status" body={(row) => <Tag value={row.is_active ? 'Active' : 'Inactive'} severity={row.is_active ? 'success' : 'danger'} />} />
-          <Column header="Actions" body={actionsTemplate} style={{ width: '5rem' }} />
-        </DataTable>
+          <DataTable value={matrices} loading={loading} stripedRows paginator rows={10} emptyMessage="No approval matrices defined">
+            <Column field="code" header="Code" sortable />
+            <Column field="name" header="Name" sortable />
+            <Column field="entity_type" header="Entity Type" />
+            <Column field="priority" header="Priority" />
+            <Column header="Rules" body={rulesTemplate} />
+            <Column header="Levels" body={levelsTemplate} />
+            <Column header="Status" body={(row) => <Tag value={row.is_active ? 'Active' : 'Inactive'} severity={row.is_active ? 'success' : 'danger'} />} />
+            <Column header="Actions" body={actionsTemplate} style={{ width: '5rem' }} />
+          </DataTable>
       </div>
 
       {/* Create / Edit Matrix Dialog */}

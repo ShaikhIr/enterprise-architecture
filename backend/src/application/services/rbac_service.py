@@ -408,13 +408,23 @@ class RbacService:
     # ═══════════════════════════════════════════════════════════════════
 
     async def get_my_menu_permissions(self, current_user: User) -> dict:
-        """Get menu permissions for a user. Returns dict with menu_keys and permissions."""
+        """Get all permissions for a user for frontend gating.
+
+        Returns all scopes (MENU + API + FIELD) so that the frontend
+        PermissionGate can check any permission code (e.g. entity_create,
+        vendor_update, product_master_create) regardless of scope.
+        Menu keys are extracted from MENU-scoped permissions only.
+        """
         manager = PermissionManager(self._session)
-        permissions = await manager.get_user_permissions(
-            current_user.id, scope=PermissionScope.MENU
-        )
-        menu_keys = list({p.resource for p in permissions})
-        return {"menu_keys": menu_keys, "permissions": permissions}
+
+        # All permissions (all scopes) — used by PermissionGate checks
+        all_permissions = await manager.get_user_permissions(current_user.id)
+
+        # Menu keys come only from MENU-scoped permissions
+        menu_permissions = [p for p in all_permissions if p.scope == PermissionScope.MENU]
+        menu_keys = list({p.resource for p in menu_permissions})
+
+        return {"menu_keys": menu_keys, "permissions": all_permissions}
 
     async def get_my_all_permissions(self, current_user: User) -> dict:
         """Get all permissions for the current user (debug/introspection)."""

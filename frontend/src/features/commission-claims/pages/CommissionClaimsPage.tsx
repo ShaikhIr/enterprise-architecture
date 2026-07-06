@@ -17,6 +17,7 @@ import { Toast } from 'primereact/toast';
 import { Toolbar } from 'primereact/toolbar';
 import { apiClient } from '@shared/services/apiClient';
 
+
 interface Claim {
   id: string;
   claim_number: string;
@@ -155,22 +156,22 @@ export const CommissionClaimsPage = () => {
       </div>
 
       <div className="surface-card p-3 border-round shadow-1">
-        <Toolbar className="mb-3" start={() => (
-          <div className="flex gap-2">
-            <Button label="New Claim" icon="pi pi-plus" onClick={() => setShowCreate(true)} />
-            <Button label="Refresh" icon="pi pi-refresh" severity="secondary" outlined onClick={loadClaims} />
-          </div>
-        )} />
+          <Toolbar className="mb-3" start={() => (
+            <div className="flex gap-2">
+              <Button label="New Claim" icon="pi pi-plus" onClick={() => setShowCreate(true)} />
+              <Button label="Refresh" icon="pi pi-refresh" severity="secondary" outlined onClick={loadClaims} />
+            </div>
+          )} />
 
-        <DataTable value={claims} loading={loading} stripedRows paginator rows={10} emptyMessage="No claims yet — create one to test the workflow">
-          <Column field="claim_number" header="Claim #" sortable />
-          <Column field="employee_name" header="Employee" sortable />
-          <Column header="Amount" body={amountTemplate} sortable field="amount" />
-          <Column field="company" header="Company" />
-          <Column header="Status" body={statusTemplate} sortable field="status" />
-          <Column field="created_by" header="Created By" />
-          <Column header="Actions" body={actionsTemplate} style={{ width: '8rem' }} />
-        </DataTable>
+          <DataTable value={claims} loading={loading} stripedRows paginator rows={10} emptyMessage="No claims yet — create one to test the workflow">
+            <Column field="claim_number" header="Claim #" sortable />
+            <Column field="employee_name" header="Employee" sortable />
+            <Column header="Amount" body={amountTemplate} sortable field="amount" />
+            <Column field="company" header="Company" />
+            <Column header="Status" body={statusTemplate} sortable field="status" />
+            <Column field="created_by" header="Created By" />
+            <Column header="Actions" body={actionsTemplate} style={{ width: '8rem' }} />
+          </DataTable>
       </div>
 
       {/* Create Claim Dialog */}

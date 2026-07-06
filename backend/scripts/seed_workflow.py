@@ -15,13 +15,13 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from sqlalchemy import select
 from src.infrastructure.database.session import async_session_factory
-from src.workflow.infrastructure.models.workflow_models import (
+from src.infrastructure.database.models.workflow.workflow_models import (
     WorkflowDefinitionModel,
     WorkflowStatusModel,
     WorkflowTransitionModel,
     WorkflowActionModel,
 )
-from src.workflow.infrastructure.models.approval_matrix_models import (
+from src.infrastructure.database.models.workflow.approval_matrix_models import (
     ApprovalMatrixModel,
     ApprovalRuleModel,
     ApprovalAssignmentModel,

@@ -69,7 +69,7 @@ class Settings(BaseSettings):
     AZURE_CLIENT_SECRET: str = Field(default="", description="Azure App Registration client secret")
     AZURE_TENANT_ID: str = Field(default="", description="Azure AD tenant ID")
     AZURE_REDIRECT_URI: str = Field(
-        default="http://localhost:3000/auth/microsoft/callback",
+        default="http://localhost:3000/oauth/v2/callback",
         description="OAuth2 redirect URI (must match Azure App Registration)",
     )
 
@@ -82,6 +82,13 @@ class Settings(BaseSettings):
     # CORS
     CORS_ORIGINS: list[str] = Field(
         default=["http://localhost:3000"], description="Allowed CORS origins"
+    )
+
+    # Vendor portal provisioning
+    VENDOR_PORTAL_DEFAULT_PASSWORD: str = Field(
+        default="ChangeMe@123",
+        description="System-default password assigned to newly provisioned "
+        "vendor portal-login users (must be changed on first login)",
     )
 
     model_config = {

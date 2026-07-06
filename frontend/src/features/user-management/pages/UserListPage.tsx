@@ -3,10 +3,9 @@
  * Lists all users and provides create/edit/import functionality.
  */
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Button } from 'primereact/button';
 import { Toast } from 'primereact/toast';
-import { useRef } from 'react';
 import { UserTable } from '../components/UserTable';
 import { UserForm } from '../components/UserForm';
 import { EditUserDialog } from '../components/EditUserDialog';
@@ -85,9 +84,9 @@ export const UserListPage = () => {
       <Toast ref={toast} />
 
       {/* Header */}
-      <div className="flex align-items-center justify-content-between mb-4">
+      <div className="flex align-items-center justify-content-between mb-3">
         <div>
-          <h2 className="text-2xl font-semibold text-900 m-0">User Management</h2>
+          <h2 className="text-xl font-semibold text-900 m-0">User Management</h2>
           <p className="text-600 mt-1 mb-0">Manage application users and roles</p>
         </div>
         <div className="flex gap-2">
@@ -109,12 +108,12 @@ export const UserListPage = () => {
       </div>
 
       {/* Data Table */}
-      <div className="surface-card p-4 border-round shadow-1">
-        <UserTable
-          users={data?.users || []}
-          loading={isLoading}
-          onEdit={handleEditUser}
-        />
+      <div className="surface-card p-3 border-round shadow-1">
+          <UserTable
+            users={data?.users || []}
+            loading={isLoading}
+            onEdit={handleEditUser}
+          />
       </div>
 
       {/* Create User Dialog */}

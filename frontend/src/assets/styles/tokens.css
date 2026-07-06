@@ -1,0 +1,99 @@
+/* =============================================================================
+   Emcure Design System — CSS Custom Properties (Design Tokens)
+   All downstream stylesheets must reference these variables only.
+   No token values should be duplicated outside this file.
+   ============================================================================= */
+
+:root {
+
+  /* ---------------------------------------------------------------------------
+     Brand / Primary Colors
+     Base: #ed1c24 (Emcure Red)
+     --------------------------------------------------------------------------- */
+  --color-primary:        #ed1c24;
+  --color-primary-hover:  #d41920;
+  --color-primary-active: #b80e14;
+  --color-primary-50:     #fff0f0;
+  --color-primary-100:    #ffd6d7;
+  --color-primary-200:    #ffacae;
+
+  /* ---------------------------------------------------------------------------
+     Neutral Scale (10 stops)
+     0 = white → 900 = near-black
+     --------------------------------------------------------------------------- */
+  --color-neutral-0:   #ffffff;
+  --color-neutral-50:  #f8f9fa;
+  --color-neutral-100: #f1f3f5;
+  --color-neutral-200: #e9ecef;
+  --color-neutral-300: #dee2e6;
+  --color-neutral-400: #ced4da;
+  --color-neutral-500: #adb5bd;
+  --color-neutral-600: #6c757d;
+  --color-neutral-700: #495057;
+  --color-neutral-800: #343a40;
+  --color-neutral-900: #212529;
+
+  /* ---------------------------------------------------------------------------
+     Semantic Colors
+     --------------------------------------------------------------------------- */
+  --color-success: #17c765;
+  --color-warning: #ffa21e;
+  --color-error:   #ef4444;
+  --color-info:    #3b82f6;
+
+  /* ---------------------------------------------------------------------------
+     Typography
+     --------------------------------------------------------------------------- */
+  --font-sans: 'Poppins', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  /* ---------------------------------------------------------------------------
+     Spacing (4px base unit)
+     Steps: 1–12, skipping 7, 9, 11
+     --------------------------------------------------------------------------- */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-8:  32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* ---------------------------------------------------------------------------
+     Border Radius
+     --------------------------------------------------------------------------- */
+  --radius-sm:   4px;
+  --radius-md:   8px;
+  --radius-lg:   12px;
+  --radius-xl:   16px;
+  --radius-full: 9999px;
+
+  /* ---------------------------------------------------------------------------
+     Shadows
+     --------------------------------------------------------------------------- */
+  --shadow-sm:         0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-md:         0 4px 12px rgba(0, 0, 0, 0.1);
+  --shadow-lg:         0 8px 24px rgba(0, 0, 0, 0.12);
+  --shadow-primary-sm: 0 0 0 3px rgba(237, 28, 36, 0.15);
+  --shadow-primary-md: 0 4px 15px rgba(237, 28, 36, 0.35);
+  --shadow-dropdown:   0 8px 24px rgba(0, 0, 0, 0.12);
+
+  /* ---------------------------------------------------------------------------
+     Layout
+     --------------------------------------------------------------------------- */
+  --topbar-height:  55px;
+  --sidenav-width:  220px;
+
+  /* ---------------------------------------------------------------------------
+     Motion — Durations
+     --------------------------------------------------------------------------- */
+  --duration-fast:   150ms;
+  --duration-normal: 250ms;
+  --duration-slow:   400ms;
+
+  /* Motion — Easing */
+  --ease-out:    cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}

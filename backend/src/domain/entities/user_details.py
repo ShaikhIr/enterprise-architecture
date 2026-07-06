@@ -20,6 +20,7 @@ class UserDetails(BaseEntity):
     """
 
     user_id: UUID | None = field(default=None)
+    entity_id: UUID | None = field(default=None)
     employee_id: str = field(default="")
     employee_name: str = field(default="")
     first_name: str = field(default="")

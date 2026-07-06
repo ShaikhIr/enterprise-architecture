@@ -8,10 +8,10 @@ import { Button } from 'primereact/button';
 import { InputText } from 'primereact/inputtext';
 import { Password } from 'primereact/password';
 import { Toast } from 'primereact/toast';
-import { Card } from 'primereact/card';
 import { Tag } from 'primereact/tag';
 import { Divider } from 'primereact/divider';
 import { ProgressSpinner } from 'primereact/progressspinner';
+
 import {
   useEmployeeADHealth,
   useValidateCredentials,
@@ -120,9 +120,9 @@ export const EmployeeADServicePage = () => {
       <Toast ref={toast} />
 
       {/* Header */}
-      <div className="flex align-items-center justify-content-between mb-4">
+      <div className="flex align-items-center justify-content-between mb-3">
         <div>
-          <h2 className="text-2xl font-semibold text-900 m-0">Employee AD Service</h2>
+          <h2 className="text-xl font-semibold text-900 m-0">Employee AD Service</h2>
           <p className="text-600 mt-1 mb-0">Verify and test the Darwin Active Directory integration endpoints</p>
         </div>
         <Tag
@@ -133,114 +133,134 @@ export const EmployeeADServicePage = () => {
       </div>
 
       {/* Service Health */}
-      <Card title="Service Health" subTitle="Check connectivity to the Darwin AD service" className="mb-4">
-        {healthLoading ? (
-          <div className="flex align-items-center gap-2">
-            <ProgressSpinner style={{ width: '24px', height: '24px' }} />
-            <span>Checking service status...</span>
-          </div>
-        ) : (
-          <div className="grid">
-            <div className="col-12 md:col-8">
-              <div className="flex flex-column gap-2">
-                <div className="flex align-items-center gap-2">
-                  <span className="font-semibold text-600" style={{ minWidth: '120px' }}>Service:</span>
-                  <span>{healthData?.service || 'Employee AD (Darwin)'}</span>
-                </div>
-                <div className="flex align-items-center gap-2">
-                  <span className="font-semibold text-600" style={{ minWidth: '120px' }}>Status:</span>
-                  <Tag value={healthData?.status || 'unknown'} severity={getStatusSeverity(healthData?.status)} />
-                </div>
-                <div className="flex align-items-center gap-2">
-                  <span className="font-semibold text-600" style={{ minWidth: '120px' }}>Configured:</span>
-                  <Tag value={healthData?.configured ? 'Yes' : 'No'} severity={healthData?.configured ? 'success' : 'warning'} />
-                </div>
-                <div className="flex align-items-center gap-2">
-                  <span className="font-semibold text-600" style={{ minWidth: '120px' }}>Base URL:</span>
-                  <span className="text-sm" style={{ wordBreak: 'break-all' }}>{healthData?.base_url || '-'}</span>
-                </div>
-                {healthData?.status_code && (
+      <div className="surface-card p-3 border-round shadow-1 mb-4">
+        <div className="mb-3 pb-2" style={{ borderBottom: '1px solid var(--color-surface-border)' }}>
+          <div className="font-semibold text-base">Service Health</div>
+          <div className="text-sm text-600">Check connectivity to the Darwin AD service</div>
+        </div>
+          {healthLoading ? (
+            <div className="flex align-items-center gap-2">
+              <ProgressSpinner style={{ width: '24px', height: '24px' }} />
+              <span>Checking service status...</span>
+            </div>
+          ) : (
+            <div className="grid">
+              <div className="col-12 md:col-8">
+                <div className="flex flex-column gap-2">
                   <div className="flex align-items-center gap-2">
-                    <span className="font-semibold text-600" style={{ minWidth: '120px' }}>HTTP Code:</span>
-                    <span>{healthData.status_code}</span>
+                    <span className="font-semibold text-600" style={{ minWidth: '120px' }}>Service:</span>
+                    <span>{healthData?.service || 'Employee AD (Darwin)'}</span>
                   </div>
-                )}
-                {healthData?.error && (
                   <div className="flex align-items-center gap-2">
-                    <span className="font-semibold text-600" style={{ minWidth: '120px' }}>Error:</span>
-                    <span className="text-red-500 text-sm">{healthData.error}</span>
+                    <span className="font-semibold text-600" style={{ minWidth: '120px' }}>Status:</span>
+                    <Tag value={healthData?.status || 'unknown'} severity={getStatusSeverity(healthData?.status)} />
                   </div>
-                )}
+                  <div className="flex align-items-center gap-2">
+                    <span className="font-semibold text-600" style={{ minWidth: '120px' }}>Configured:</span>
+                    <Tag value={healthData?.configured ? 'Yes' : 'No'} severity={healthData?.configured ? 'success' : 'warning'} />
+                  </div>
+                  <div className="flex align-items-center gap-2">
+                    <span className="font-semibold text-600" style={{ minWidth: '120px' }}>Base URL:</span>
+                    <span className="text-sm" style={{ wordBreak: 'break-all' }}>{healthData?.base_url || '-'}</span>
+                  </div>
+                  {healthData?.status_code && (
+                    <div className="flex align-items-center gap-2">
+                      <span className="font-semibold text-600" style={{ minWidth: '120px' }}>HTTP Code:</span>
+                      <span>{healthData.status_code}</span>
+                    </div>
+                  )}
+                  {healthData?.error && (
+                    <div className="flex align-items-center gap-2">
+                      <span className="font-semibold text-600" style={{ minWidth: '120px' }}>Error:</span>
+                      <span className="text-red-500 text-sm">{healthData.error}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="col-12 md:col-4 flex align-items-end justify-content-end">
+                <Button label="Refresh" icon="pi pi-refresh" severity="secondary" outlined onClick={() => refetchHealth()} aria-label="Refresh health" />
               </div>
             </div>
-            <div className="col-12 md:col-4 flex align-items-end justify-content-end">
-              <Button label="Refresh" icon="pi pi-refresh" severity="secondary" outlined onClick={() => refetchHealth()} aria-label="Refresh health" />
-            </div>
-          </div>
-        )}
-      </Card>
+          )}
+      </div>
 
       <Divider />
 
       {/* Validate Credentials */}
-      <Card title="POST /validatecredentials" subTitle="Validate employee AD credentials" className="mb-4">
-        <div className="grid">
-          <div className="col-12 md:col-4">
-            <label htmlFor="emp-id" className="block font-medium mb-2">Employee ID</label>
-            <InputText id="emp-id" value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} placeholder="e.g. 93300040" className="w-full" />
-          </div>
-          <div className="col-12 md:col-4">
-            <label htmlFor="emp-password" className="block font-medium mb-2">Password</label>
-            <Password id="emp-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter password" className="w-full" inputClassName="w-full" feedback={false} toggleMask />
-          </div>
-          <div className="col-12 md:col-4 flex align-items-end">
-            <Button label="Validate" icon="pi pi-check" onClick={handleValidate} loading={validateMutation.isPending} />
-          </div>
+      <div className="surface-card p-3 border-round shadow-1 mb-4">
+        <div className="mb-3 pb-2" style={{ borderBottom: '1px solid var(--color-surface-border)' }}>
+          <div className="font-semibold text-base">POST /validatecredentials</div>
+          <div className="text-sm text-600">Validate employee AD credentials</div>
         </div>
-        {validateMutation.data && (
-          <div className="mt-3 p-3 surface-100 border-round">
-            <div className="flex align-items-center gap-3 mb-2">
-              <Tag value={validateMutation.data.is_valid_user ? 'Valid User' : 'Invalid User'} severity={validateMutation.data.is_valid_user ? 'success' : 'danger'} icon={validateMutation.data.is_valid_user ? 'pi pi-check' : 'pi pi-times'} />
-              <Tag value={validateMutation.data.is_success ? 'Success' : 'Failed'} severity={validateMutation.data.is_success ? 'success' : 'danger'} />
+          <div className="grid">
+            <div className="col-12 md:col-4">
+              <label htmlFor="emp-id" className="block font-medium mb-2">Employee ID</label>
+              <InputText id="emp-id" value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} placeholder="e.g. 93300040" className="w-full" />
             </div>
-            <pre className="text-xs overflow-auto m-0" style={{ maxHeight: '200px' }}>
-              {JSON.stringify(validateMutation.data.raw_response, null, 2)}
-            </pre>
+            <div className="col-12 md:col-4">
+              <label htmlFor="emp-password" className="block font-medium mb-2">Password</label>
+              <Password id="emp-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter password" className="w-full" inputClassName="w-full" feedback={false} toggleMask />
+            </div>
+            <div className="col-12 md:col-4 flex align-items-end">
+              <Button label="Validate" icon="pi pi-check" onClick={handleValidate} loading={validateMutation.isPending} />
+            </div>
           </div>
-        )}
-      </Card>
+          {validateMutation.data && (
+            <div className="mt-3 p-3 surface-100 border-round">
+              <div className="flex align-items-center gap-3 mb-2">
+                <Tag value={validateMutation.data.is_valid_user ? 'Valid User' : 'Invalid User'} severity={validateMutation.data.is_valid_user ? 'success' : 'danger'} icon={validateMutation.data.is_valid_user ? 'pi pi-check' : 'pi pi-times'} />
+                <Tag value={validateMutation.data.is_success ? 'Success' : 'Failed'} severity={validateMutation.data.is_success ? 'success' : 'danger'} />
+              </div>
+              <pre className="text-xs overflow-auto m-0" style={{ maxHeight: '200px' }}>
+                {JSON.stringify(validateMutation.data.raw_response, null, 2)}
+              </pre>
+            </div>
+          )}
+      </div>
 
       <Divider />
 
       {/* Get Selected Employees */}
-      <Card title="POST /getselectedemployees" subTitle="Fetch employees by IDs (comma-separated)" className="mb-4">
-        <div className="grid">
-          <div className="col-12 md:col-8">
-            <label htmlFor="emp-ids" className="block font-medium mb-2">Employee IDs</label>
-            <InputText id="emp-ids" value={employeeIds} onChange={(e) => setEmployeeIds(e.target.value)} placeholder="e.g. 93300040, 93300041" className="w-full" />
-          </div>
-          <div className="col-12 md:col-4 flex align-items-end">
-            <Button label="Fetch Selected" icon="pi pi-search" onClick={handleGetSelected} loading={getSelectedMutation.isPending} />
-          </div>
+      <div className="surface-card p-3 border-round shadow-1 mb-4">
+        <div className="mb-3 pb-2" style={{ borderBottom: '1px solid var(--color-surface-border)' }}>
+          <div className="font-semibold text-base">POST /getselectedemployees</div>
+          <div className="text-sm text-600">Fetch employees by IDs (comma-separated)</div>
         </div>
-        {renderJsonResponse(getSelectedMutation.data, 'Response')}
-      </Card>
+          <div className="grid">
+            <div className="col-12 md:col-8">
+              <label htmlFor="emp-ids" className="block font-medium mb-2">Employee IDs</label>
+              <InputText id="emp-ids" value={employeeIds} onChange={(e) => setEmployeeIds(e.target.value)} placeholder="e.g. 93300040, 93300041" className="w-full" />
+            </div>
+            <div className="col-12 md:col-4 flex align-items-end">
+              <Button label="Fetch Selected" icon="pi pi-search" onClick={handleGetSelected} loading={getSelectedMutation.isPending} />
+            </div>
+          </div>
+          {renderJsonResponse(getSelectedMutation.data, 'Response')}
+      </div>
 
       <Divider />
 
       {/* Get All Employees */}
-      <Card title="GET /getemployees" subTitle="Fetch all employee records" className="mb-4">
-        <Button label="Get All Employees" icon="pi pi-users" onClick={handleGetAllEmployees} loading={getEmployeesMutation.isPending} />
-        {renderJsonResponse(getEmployeesMutation.data, 'Response')}
-      </Card>
+      <div className="surface-card p-3 border-round shadow-1 mb-4">
+        <div className="mb-3 pb-2" style={{ borderBottom: '1px solid var(--color-surface-border)' }}>
+          <div className="font-semibold text-base">GET /getemployees</div>
+          <div className="text-sm text-600">Fetch all employee records</div>
+        </div>
+          <Button label="Get All Employees" icon="pi pi-users" onClick={handleGetAllEmployees} loading={getEmployeesMutation.isPending} />
+          {renderJsonResponse(getEmployeesMutation.data, 'Response')}
+      </div>
 
       <Divider />
 
       {/* Get Hierarchy */}
-      <Card title="GET /getHierarchyData" subTitle="Fetch organizational hierarchy data" className="mb-4">
-        <Button label="Get Hierarchy" icon="pi pi-sitemap" onClick={handleGetHierarchy} loading={getHierarchyMutation.isPending} />
-        {renderJsonResponse(getHierarchyMutation.data, 'Response')}
-      </Card>
+      <div className="surface-card p-3 border-round shadow-1 mb-4">
+        <div className="mb-3 pb-2" style={{ borderBottom: '1px solid var(--color-surface-border)' }}>
+          <div className="font-semibold text-base">GET /getHierarchyData</div>
+          <div className="text-sm text-600">Fetch organizational hierarchy data</div>
+        </div>
+          <Button label="Get Hierarchy" icon="pi pi-sitemap" onClick={handleGetHierarchy} loading={getHierarchyMutation.isPending} />
+          {renderJsonResponse(getHierarchyMutation.data, 'Response')}
+      </div>
     </div>
   );
 };

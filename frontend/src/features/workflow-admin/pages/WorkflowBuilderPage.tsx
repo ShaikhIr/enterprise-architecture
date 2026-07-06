@@ -16,6 +16,7 @@ import { Tag } from 'primereact/tag';
 import { Toast } from 'primereact/toast';
 import { workflowApi, type WorkflowDefinition, type WorkflowStatus, type WorkflowTransition } from '../api/workflowApi';
 
+
 export const WorkflowBuilderPage = () => {
   const { definitionId } = useParams<{ definitionId: string }>();
   const toast = useRef<Toast>(null);
@@ -103,41 +104,37 @@ export const WorkflowBuilderPage = () => {
       <Toast ref={toast} />
 
       <div className="mb-3">
-        <h2 className="text-xl font-semibold text-900 m-0">
-          Workflow Builder: {definition?.name}
-        </h2>
-        <p className="text-600 mt-1 mb-0">
-          {definition?.code} — {definition?.entity_type}
-        </p>
+        <h2 className="text-xl font-semibold text-900 m-0">{`Workflow Builder: ${definition?.name || ''}`}</h2>
+        <p className="text-600 mt-1 mb-0">{`${definition?.code || ''} — ${definition?.entity_type || ''}`}</p>
       </div>
 
       {/* Statuses Section */}
       <div className="surface-card p-3 border-round shadow-1 mb-3">
-        <div className="flex align-items-center justify-content-between mb-3">
-          <h3 className="text-lg font-semibold m-0">Statuses (States)</h3>
-          <Button label="Add Status" icon="pi pi-plus" size="small" onClick={() => setShowStatusDialog(true)} />
-        </div>
-        <DataTable value={statuses} stripedRows emptyMessage="No statuses defined" size="small">
-          <Column field="sequence" header="#" style={{ width: '3rem' }} />
-          <Column field="code" header="Code" />
-          <Column field="name" header="Name" />
-          <Column header="Type" body={statusTypeTemplate} />
-        </DataTable>
+          <div className="flex align-items-center justify-content-between mb-3">
+            <h3 className="text-lg font-semibold m-0">Statuses (States)</h3>
+            <Button label="Add Status" icon="pi pi-plus" size="small" onClick={() => setShowStatusDialog(true)} />
+          </div>
+          <DataTable value={statuses} stripedRows emptyMessage="No statuses defined" size="small">
+            <Column field="sequence" header="#" style={{ width: '3rem' }} />
+            <Column field="code" header="Code" />
+            <Column field="name" header="Name" />
+            <Column header="Type" body={statusTypeTemplate} />
+          </DataTable>
       </div>
 
       {/* Transitions Section */}
       <div className="surface-card p-3 border-round shadow-1">
-        <div className="flex align-items-center justify-content-between mb-3">
-          <h3 className="text-lg font-semibold m-0">Transitions (State Machine)</h3>
-          <Button label="Add Transition" icon="pi pi-plus" size="small" onClick={() => setShowTransitionDialog(true)} disabled={statuses.length < 2} />
-        </div>
-        <DataTable value={transitions} stripedRows emptyMessage="No transitions defined" size="small">
-          <Column header="From" body={(row) => <Tag value={getStatusName(row.from_status_id)} />} />
-          <Column field="action_code" header="Action" />
-          <Column header="To" body={(row) => <Tag value={getStatusName(row.to_status_id)} severity="success" />} />
-          <Column field="requires_comment" header="Comment?" body={(row) => row.requires_comment ? 'Yes' : 'No'} />
-          <Column header="" body={transitionActionsTemplate} style={{ width: '4rem' }} />
-        </DataTable>
+          <div className="flex align-items-center justify-content-between mb-3">
+            <h3 className="text-lg font-semibold m-0">Transitions (State Machine)</h3>
+            <Button label="Add Transition" icon="pi pi-plus" size="small" onClick={() => setShowTransitionDialog(true)} disabled={statuses.length < 2} />
+          </div>
+          <DataTable value={transitions} stripedRows emptyMessage="No transitions defined" size="small">
+            <Column header="From" body={(row) => <Tag value={getStatusName(row.from_status_id)} />} />
+            <Column field="action_code" header="Action" />
+            <Column header="To" body={(row) => <Tag value={getStatusName(row.to_status_id)} severity="success" />} />
+            <Column field="requires_comment" header="Comment?" body={(row) => row.requires_comment ? 'Yes' : 'No'} />
+            <Column header="" body={transitionActionsTemplate} style={{ width: '4rem' }} />
+          </DataTable>
       </div>
 
       {/* Add Status Dialog */}

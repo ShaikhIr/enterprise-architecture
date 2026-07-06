@@ -21,6 +21,12 @@ class UserDetailsModel(BaseModel):
         unique=True,
         nullable=False,
     )
+    entity_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("entities.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     employee_id: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
     employee_name: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     first_name: Mapped[str] = mapped_column(String(255), nullable=False, default="")

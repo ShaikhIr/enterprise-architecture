@@ -1,0 +1,45 @@
+/**
+ * FormControl styles
+ * Applies consistent styling to input, textarea, and select elements.
+ * Uses design-system tokens for all visual values.
+ */
+
+.label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-neutral-700);
+  margin-bottom: 6px;
+}
+
+.formControl {
+  display: block;
+  width: 100%;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--color-neutral-900);
+  background: #fff;
+  border: 1px solid var(--color-neutral-300);
+  border-radius: var(--radius-md);
+  padding: 8px 12px;
+  min-height: 38px;
+  outline: none;
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
+}
+
+.formControl:hover {
+  border-color: var(--color-neutral-400);
+}
+
+.formControl:focus {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-primary-sm);
+}
+
+.formControl:disabled {
+  background: var(--color-neutral-100);
+  color: var(--color-neutral-500);
+  cursor: not-allowed;
+}

@@ -1,0 +1,140 @@
+/**
+ * CustomDropdown styles
+ *
+ * Trigger is styled identically to `.formControl` (FormControl.module.css).
+ * Panel is rendered in a portal so it escapes ancestor overflow:hidden clipping.
+ * All values reference design-system tokens — no hardcoded colors, radii, or shadows.
+ */
+
+/* ---------------------------------------------------------------------------
+   Drop-in keyframe
+   --------------------------------------------------------------------------- */
+@keyframes dropIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Trigger — mimics .formControl appearance
+   --------------------------------------------------------------------------- */
+.trigger {
+  /* Layout */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 12px;
+
+  /* Typography */
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--color-neutral-900);
+  text-align: left;
+
+  /* Decoration */
+  background: #fff;
+  border: 1px solid var(--color-neutral-300);
+  border-radius: var(--radius-md);
+  outline: none;
+  cursor: pointer;
+
+  /* Transitions */
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out),
+    border-radius var(--duration-fast) var(--ease-out);
+}
+
+.trigger:hover:not(:disabled) {
+  border-color: var(--color-neutral-400);
+}
+
+/* Open state — primary border + square bottom corners to connect to the panel */
+.triggerOpen {
+  border-color: var(--color-primary);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  box-shadow: var(--shadow-primary-sm);
+}
+
+/* Disabled state */
+.triggerDisabled {
+  background: var(--color-neutral-100);
+  color: var(--color-neutral-500);
+  cursor: not-allowed;
+}
+
+/* ---------------------------------------------------------------------------
+   Trigger internals
+   --------------------------------------------------------------------------- */
+.triggerLabel {
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Chevron SVG icon */
+.chevron {
+  flex-shrink: 0;
+  margin-left: 8px;
+  color: var(--color-neutral-500);
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+  color: var(--color-primary);
+}
+
+/* ---------------------------------------------------------------------------
+   Dropdown panel (rendered via portal into document.body)
+   --------------------------------------------------------------------------- */
+.panel {
+  /* Positioning is set inline by the component (position: fixed + rect coords) */
+  background: #fff;
+  border: 1px solid var(--color-primary);
+  border-top: none;                            /* Merges flush with the open trigger */
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  box-shadow: var(--shadow-dropdown);
+  z-index: 9999;
+  overflow: hidden;
+
+  /* Entrance animation */
+  animation: dropIn var(--duration-normal) var(--ease-out) both;
+}
+
+/* ---------------------------------------------------------------------------
+   Options
+   --------------------------------------------------------------------------- */
+.option {
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  font-family: var(--font-sans);
+  color: var(--color-neutral-900);
+  transition:
+    background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.option:hover {
+  background: var(--color-primary-50);
+  color: var(--color-primary);
+}
+
+.optionSelected {
+  background: var(--color-primary-100);
+  font-weight: 500;
+}
+
+.optionSelected:hover {
+  background: var(--color-primary-100);
+  color: var(--color-primary);
+}

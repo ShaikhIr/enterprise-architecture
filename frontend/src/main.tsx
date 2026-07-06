@@ -8,7 +8,9 @@ import 'primereact/resources/primereact.min.css';
 import 'primeicons/primeicons.css';
 import 'primeflex/primeflex.css';
 
-// Emcure theme overrides (must come after PrimeReact CSS)
+// Emcure design system styles (tokens → base → overrides)
+import '@assets/styles/tokens.css';
+import '@assets/styles/base.css';
 import '@assets/styles/theme-overrides.css';
 
 createRoot(document.getElementById('root')!).render(

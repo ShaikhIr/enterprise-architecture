@@ -43,7 +43,7 @@ def active_user():
         password_hash=hash_password("ValidPass123!"),
         is_active=True,
         is_blocked=False,
-        role="USER",
+        is_validate_ad=False,
     )
 
 
@@ -91,6 +91,7 @@ class TestLoginInactiveUser:
             password_hash=hash_password("ValidPass123!"),
             is_active=False,
             is_blocked=False,
+            is_validate_ad=False,
         )
         mock_user_repo.get_by_username.return_value = user
 
@@ -108,6 +109,7 @@ class TestLoginBlockedUser:
             password_hash=hash_password("ValidPass123!"),
             is_active=True,
             is_blocked=True,
+            is_validate_ad=False,
         )
         mock_user_repo.get_by_username.return_value = user
 

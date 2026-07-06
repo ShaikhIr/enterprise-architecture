@@ -20,6 +20,9 @@ export interface CurrentUser {
   id: string;
   username: string;
   is_active: boolean;
+  /** Present when the authenticated user is a vendor portal agent */
+  vendor_id?: string | null;
+  email?: string | null;
 }
 
 export interface AuthState {

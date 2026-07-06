@@ -46,7 +46,7 @@ class AzureSsoClient:
         self._client_id = settings.AZURE_CLIENT_ID
         self._client_secret = settings.AZURE_CLIENT_SECRET
         self._tenant_id = settings.AZURE_TENANT_ID
-        self._redirect_uri = settings.AZURE_REDIRECT_URI or "http://localhost:3000/auth/microsoft/callback"
+        self._redirect_uri = settings.AZURE_REDIRECT_URI or "http://localhost:3000/oauth/v2/callback"
 
     @property
     def is_configured(self) -> bool:
@@ -104,7 +104,7 @@ class AzureSsoClient:
         }
 
         try:
-            async with httpx.AsyncClient(timeout=15) as http_client:
+            async with httpx.AsyncClient(timeout=30, verify=False) as http_client:
                 # Step 1: Exchange code for tokens
                 token_resp = await http_client.post(token_url, data=token_data)
                 token_resp.raise_for_status()

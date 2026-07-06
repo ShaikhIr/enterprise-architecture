@@ -1,0 +1,386 @@
+/* =============================================================================
+   MainLayout — CSS Module
+   Styles for MainLayout, Topbar, Sidebar, and FlyoutSubmenu sub-components.
+   All values reference tokens.css custom properties.
+   ============================================================================= */
+
+/* ---------------------------------------------------------------------------
+   bellRing keyframe — wiggle animation for the notification bell on hover
+   Requirement 3.7
+   --------------------------------------------------------------------------- */
+@keyframes bellRing {
+  0%   { transform: rotate(0deg); }
+  15%  { transform: rotate(-15deg); }
+  30%  { transform: rotate(15deg); }
+  45%  { transform: rotate(-10deg); }
+  60%  { transform: rotate(10deg); }
+  75%  { transform: rotate(-5deg); }
+  100% { transform: rotate(0deg); }
+}
+
+/* ---------------------------------------------------------------------------
+   Topbar
+   Requirements: 3.1, 3.4, 3.5, 3.6, 3.7
+   --------------------------------------------------------------------------- */
+
+/**
+ * Fixed topbar shell.
+ * Req 3.1: top: 0; left: 0; right: 0; z-index: 200; height: var(--topbar-height)
+ * Req 3.4: white bg, neutral-200 border-bottom, box-shadow
+ */
+.topbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 200;
+  height: var(--topbar-height);
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-5);
+
+  background: #fff;
+  border-bottom: 1px solid var(--color-neutral-200);
+  box-shadow: 0 2px 10px rgba(33, 35, 38, 0.08);
+}
+
+/**
+ * Brand logo — left side.
+ * Req 3.5: color: var(--color-primary); font-weight: 800; font-size: 20px
+ */
+.topbarBrand {
+  color: var(--color-primary);
+  font-weight: 800;
+  font-size: 20px;
+  letter-spacing: -0.02em;
+  user-select: none;
+}
+
+/**
+ * Right-side actions wrapper — holds bell + avatar.
+ */
+.topbarActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* ---------------------------------------------------------------------------
+   Notification Bell
+   Req 3.6: 34×34px button with positioned badge
+   Req 3.7: bellRing keyframe on hover
+   --------------------------------------------------------------------------- */
+
+/** Wrapper provides the positioning context for the badge dot. */
+.bellWrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/**
+ * Bell button — 34×34px.
+ * Req 3.6
+ */
+.bellButton {
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: transparent;
+  border: 1px solid var(--color-neutral-300);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  padding: 0;
+  color: var(--color-neutral-600);
+  transition:
+    background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.bellButton:hover {
+  background: var(--color-primary-50);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+/**
+ * Bell icon — animated with bellRing on button hover.
+ * Req 3.7
+ */
+.bellButton:hover .bellIcon {
+  animation: bellRing 0.6s var(--ease-out);
+}
+
+.bellIcon {
+  font-size: 15px;
+  display: block;
+  transform-origin: 50% 0%;
+}
+
+/**
+ * Positioned badge dot on the bell.
+ * Req 3.6
+ */
+.bellBadge {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+
+  background: var(--color-primary);
+  color: #fff;
+  border-radius: var(--radius-full);
+  border: 2px solid #fff;
+
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 12px;
+  text-align: center;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------------------
+   User Avatar
+   Req 3.6: 32×32px circle on the right
+   --------------------------------------------------------------------------- */
+
+/**
+ * User avatar button — 32×32px circle.
+ * Req 3.6
+ */
+.userAvatar {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: var(--color-primary);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  padding: 0;
+  font-size: 13px;
+  transition:
+    background var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
+}
+
+.userAvatar:hover {
+  background: var(--color-primary-hover);
+  box-shadow: var(--shadow-primary-sm);
+}
+
+/* ---------------------------------------------------------------------------
+   MainLayout shell
+   Requirements: 3.1, 3.2, 3.3
+   --------------------------------------------------------------------------- */
+
+/** Full-viewport layout root */
+.layout {
+  min-height: 100vh;
+  background: var(--color-neutral-100);
+}
+
+/**
+ * Main content area.
+ * Req 3.3: margin-left: var(--sidenav-width); padding accounts for topbar + 24px
+ */
+.mainContent {
+  margin-left: var(--sidenav-width);
+  padding: calc(var(--topbar-height) + 24px) 24px 24px;
+  min-height: calc(100vh - var(--topbar-height));
+}
+
+/* ---------------------------------------------------------------------------
+   Sidebar
+   Requirements: 3.2, 3.8, 3.9, 3.10
+   Styles for Sidebar.tsx — added here as part of MainLayout.module.css
+   --------------------------------------------------------------------------- */
+
+/**
+ * Sidebar shell — fixed panel below topbar.
+ * Req 3.2: top: var(--topbar-height); left: 0; bottom: 0; width: var(--sidenav-width)
+ * Req 3.8: white bg, neutral-200 right border
+ * Req 3.9: NO overflow:hidden on shell
+ */
+.sidebar {
+  position: fixed;
+  top: var(--topbar-height);
+  left: 0;
+  bottom: 0;
+  width: var(--sidenav-width);
+  z-index: 100;
+
+  background: #fff;
+  border-right: 1px solid var(--color-neutral-200);
+  display: flex;
+  flex-direction: column;
+}
+
+/**
+ * Inner scroll wrapper.
+ * Req 3.10: overflow-y: auto; overflow-x: visible
+ */
+.sidebarScroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: visible;
+  padding: var(--space-3) var(--space-2);
+}
+
+/**
+ * Navigation group label.
+ * Req 3.11: 10px; font-weight 700; uppercase; letter-spacing 0.1em; neutral-500
+ */
+.navGroupLabel {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-neutral-500);
+  padding: var(--space-2) var(--space-2) var(--space-1);
+  margin-top: var(--space-2);
+}
+
+/**
+ * Navigation link item.
+ * Req 3.12: 13px; font-weight 500; default neutral-600; hover primary-50 bg + primary color; active primary bg + white
+ */
+.navLink {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  margin-bottom: 2px;
+
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  color: var(--color-neutral-600);
+  text-align: left;
+  transition:
+    background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.navLink i:first-child {
+  width: 18px;
+  min-width: 18px;
+  text-align: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.navLink:hover {
+  background: var(--color-primary-50);
+  color: var(--color-primary);
+}
+
+.navLinkActive {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.navLinkActive:hover {
+  background: var(--color-primary-hover);
+  color: #fff;
+}
+
+/* ---------------------------------------------------------------------------
+   FlyoutSubmenu
+   Requirements: 3.13, 3.15, 3.16, 3.17
+   --------------------------------------------------------------------------- */
+
+/**
+ * Flyout submenu panel — fixed position, above all content.
+ * Req 3.16: z-index 9999
+ */
+.flyout {
+  position: fixed;
+  z-index: 9999;
+  min-width: 180px;
+
+  background: #fff;
+  border: 1px solid var(--color-neutral-200);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-dropdown);
+  overflow: hidden;
+
+  animation: flyoutIn var(--duration-normal) var(--ease-out) both;
+}
+
+/**
+ * Flyout entrance animation.
+ * Req 3.15: opacity 0→1, translateX(-10px)→translateX(0)
+ */
+@keyframes flyoutIn {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/**
+ * Red gradient left-accent stripe.
+ * Req 3.17
+ */
+.flyout::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 4px;
+  background: linear-gradient(180deg, var(--color-primary) 0%, var(--color-primary-active) 100%);
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+}
+
+/** Flyout items list */
+.flyoutList {
+  list-style: none;
+  margin: 0;
+  padding: var(--space-2) 0;
+}
+
+.flyoutItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4) var(--space-2) var(--space-5);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  color: var(--color-neutral-600);
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.flyoutItem:hover {
+  background: var(--color-primary-50);
+  color: var(--color-primary);
+}

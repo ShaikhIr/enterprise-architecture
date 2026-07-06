@@ -26,7 +26,7 @@ def sample_user() -> User:
         password_hash=hash_password("StrongPass123!"),
         is_active=True,
         is_blocked=False,
-        role="USER",
+        is_validate_ad=False,
         created_by="system",
         created_date=datetime.now(timezone.utc),
         modified_by="system",
@@ -43,7 +43,7 @@ def inactive_user() -> User:
         password_hash=hash_password("StrongPass123!"),
         is_active=False,
         is_blocked=False,
-        role="USER",
+        is_validate_ad=False,
     )
 
 
@@ -56,5 +56,5 @@ def blocked_user() -> User:
         password_hash=hash_password("StrongPass123!"),
         is_active=True,
         is_blocked=True,
-        role="USER",
+        is_validate_ad=False,
     )

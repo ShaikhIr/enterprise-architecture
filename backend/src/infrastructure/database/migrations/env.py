@@ -26,6 +26,20 @@ from src.infrastructure.database.models.role_model import (  # noqa: F401
 )
 from src.infrastructure.database.models.audit_log_model import AuditLogModel  # noqa: F401
 
+# Master models (LACM masters)
+from src.infrastructure.database.models.masters.entity_model import EntityModel  # noqa: F401
+from src.infrastructure.database.models.masters.vendor_model import VendorModel  # noqa: F401
+from src.infrastructure.database.models.masters.customer_model import CustomerModel  # noqa: F401
+from src.infrastructure.database.models.masters.product_model import (  # noqa: F401
+    ProductMasterModel,
+)
+from src.infrastructure.database.models.masters.agreement_model import AgreementModel  # noqa: F401
+from src.infrastructure.database.models.masters.mapping_model import MappingModel  # noqa: F401
+from src.infrastructure.database.models.masters.invoice_model import (  # noqa: F401
+    InvoiceHeaderModel,
+    InvoiceLineModel,
+)
+
 # Alembic Config object
 config = context.config
 

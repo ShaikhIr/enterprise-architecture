@@ -358,3 +358,214 @@ h2 {
 .bg-primary {
   background-color: var(--color-primary) !important;
 }
+
+
+/* ─── Action buttons in DataTable rows — icon-only, clearly styled ─── */
+
+/* Edit button — blue/info tint */
+.p-button.p-button-text.p-button-rounded.p-button-info {
+  background: transparent !important;
+  color: #2563eb !important;
+  border: 1px solid transparent;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+}
+.p-button.p-button-text.p-button-rounded.p-button-info:not(:disabled):hover {
+  background: #eff6ff !important;
+  border-color: #bfdbfe;
+  color: #1d4ed8 !important;
+}
+
+/* Danger/delete/deactivate button — red tint */
+.p-button.p-button-text.p-button-rounded.p-button-danger {
+  background: transparent !important;
+  color: #dc2626 !important;
+  border: 1px solid transparent;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+}
+.p-button.p-button-text.p-button-rounded.p-button-danger:not(:disabled):hover {
+  background: #fef2f2 !important;
+  border-color: #fecaca;
+  color: #b91c1c !important;
+}
+
+/* Success/renew button — green tint */
+.p-button.p-button-text.p-button-rounded.p-button-success {
+  background: transparent !important;
+  color: #16a34a !important;
+  border: 1px solid transparent;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+}
+.p-button.p-button-text.p-button-rounded.p-button-success:not(:disabled):hover {
+  background: #f0fdf4 !important;
+  border-color: #bbf7d0;
+  color: #15803d !important;
+}
+
+/* Secondary/neutral action button */
+.p-button.p-button-text.p-button-rounded.p-button-secondary {
+  background: transparent !important;
+  color: #6b7280 !important;
+  border: 1px solid transparent;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+}
+.p-button.p-button-text.p-button-rounded.p-button-secondary:not(:disabled):hover {
+  background: #f3f4f6 !important;
+  border-color: #d1d5db;
+  color: #374151 !important;
+}
+
+/* Warning button */
+.p-button.p-button-text.p-button-rounded.p-button-warning {
+  background: transparent !important;
+  color: #d97706 !important;
+  border: 1px solid transparent;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+}
+.p-button.p-button-text.p-button-rounded.p-button-warning:not(:disabled):hover {
+  background: #fffbeb !important;
+  border-color: #fde68a;
+  color: #b45309 !important;
+}
+
+/* Ensure icon is always visible and sized correctly in rounded text buttons */
+.p-button.p-button-text.p-button-rounded .p-button-icon {
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+/* Disabled state for all rounded text buttons */
+.p-button.p-button-text.p-button-rounded:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* ─── Fix button icon+label gap ─── */
+.p-button .p-button-icon {
+  margin-right: 0.35rem;
+}
+.p-button .p-button-icon-left {
+  margin-right: 0.35rem;
+}
+
+/* ─── Product Catalog TabView — black tab labels, clean active indicator ─── */
+
+.product-catalog-tabs.p-tabview .p-tabview-nav {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid var(--color-surface-border);
+  padding: 0 0.25rem;
+  gap: 0;
+}
+
+/* Individual tab header link */
+.product-catalog-tabs.p-tabview .p-tabview-nav li .p-tabview-nav-link {
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  padding: 0.75rem 1.25rem;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+  font-size: 0.813rem;
+  border-radius: 0;
+  transition: color 150ms, border-color 150ms, background 150ms;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  text-decoration: none;
+  outline: none;
+  box-shadow: none;
+}
+
+/* Tab icon */
+.product-catalog-tabs.p-tabview .p-tabview-nav li .p-tabview-nav-link .p-tabview-left-icon {
+  color: inherit;
+  font-size: 0.85rem;
+  margin-right: 0.35rem;
+}
+
+/* Hover state — dark text, subtle bg */
+.product-catalog-tabs.p-tabview .p-tabview-nav li:not(.p-highlight) .p-tabview-nav-link:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-hover);
+  border-bottom-color: var(--color-neutral-300);
+}
+
+/* Active tab — solid black text + primary bottom border */
+.product-catalog-tabs.p-tabview .p-tabview-nav li.p-highlight .p-tabview-nav-link {
+  color: #212529;
+  font-weight: 600;
+  border-bottom-color: var(--color-primary);
+  background: transparent;
+  box-shadow: none;
+}
+
+/* Remove PrimeReact's default focus ring on tab links */
+.product-catalog-tabs.p-tabview .p-tabview-nav li .p-tabview-nav-link:focus {
+  box-shadow: none;
+  outline: 2px solid var(--color-primary-100);
+  outline-offset: -2px;
+}
+
+/* Tab panel content area — no extra border/padding from PrimeReact */
+.product-catalog-tabs.p-tabview .p-tabview-panels {
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+
+/* ─── Layout: Paginator rows-per-page dropdown alignment ─── */
+.p-paginator .p-dropdown {
+  display: inline-flex;
+  align-items: center;
+}
+
+.p-paginator .p-dropdown .p-dropdown-label {
+  display: flex;
+  align-items: center;
+  line-height: 1;
+}
+
+.p-paginator .p-dropdown .p-dropdown-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ─── Layout: Dropdown search/filter icon alignment ─── */
+.p-dropdown-filter-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.p-dropdown-filter-container .p-dropdown-filter-icon {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  z-index: 1;
+}
+
+.p-dropdown-filter-container .p-inputtext {
+  padding-right: 2rem;
+}
+
+/* ─── Layout: Profile popup min-width ─── */
+#user-popup-menu.p-menu {
+  min-width: 220px !important;
+}

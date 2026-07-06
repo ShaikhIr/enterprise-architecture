@@ -44,6 +44,11 @@ class IUserRepository(ABC):
         ...
 
     @abstractmethod
+    async def get_by_email(self, email: str) -> User | None:
+        """Retrieve a user by email (from user_details)."""
+        ...
+
+    @abstractmethod
     async def exists_by_username(self, username: str) -> bool:
         """Check if a username already exists."""
         ...
