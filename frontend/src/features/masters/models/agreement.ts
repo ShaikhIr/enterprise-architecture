@@ -7,7 +7,7 @@ export interface Agreement {
   id: string;
   vendor_id: string;
   vendor_name: string;
-  product_detail_id: string;
+  product_master_id: string;
   product_detail_child_code: string;
   product_detail_name: string;
   from_date: string;
@@ -31,7 +31,7 @@ export interface AgreementListResponse extends PaginatedResponse<Agreement> {}
 
 export interface CreateAgreementRequest {
   vendor_id: string;
-  product_detail_id: string;
+  product_master_id: string;
   from_date: string;
   to_date: string;
   slab_in_days: number;

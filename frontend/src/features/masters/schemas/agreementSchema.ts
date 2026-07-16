@@ -16,7 +16,7 @@ const numericField = z.union([z.string(), z.number()]).transform((v) => {
 
 export const agreementCreateSchema = z.object({
   vendor_id: z.string().min(1, 'This field is required'),
-  product_detail_id: z.string().min(1, 'This field is required'),
+  product_master_id: z.string().min(1, 'This field is required'),
   from_date: z.string().min(1, 'This field is required'),
   to_date: z.string().min(1, 'This field is required'),
   slab_in_days: numericField

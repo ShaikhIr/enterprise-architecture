@@ -5,6 +5,7 @@ export const entityCreateSchema = z.object({
   short_code: z.string().max(50).optional().or(z.literal('')),
   company_code: z.string().max(50).optional().or(z.literal('')),
   is_active: z.boolean().optional(),
+  workflow_definition_id: z.string().optional().or(z.literal('')),
 });
 
 export type EntityCreateFormData = z.infer<typeof entityCreateSchema>;

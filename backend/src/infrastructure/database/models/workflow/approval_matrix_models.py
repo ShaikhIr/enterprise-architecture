@@ -13,6 +13,7 @@ class ApprovalMatrixModel(BaseModel):
     code: Mapped[str] = mapped_column(String(100), unique=True, nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     entity_type: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    workflow_definition_id: Mapped[str | None] = mapped_column(UUID(as_uuid=True), nullable=True, index=True)
     priority: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 

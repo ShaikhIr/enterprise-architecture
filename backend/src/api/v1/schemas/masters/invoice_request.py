@@ -36,7 +36,7 @@ class InvoiceLineRequest(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    product_detail_id: UUID = Field(..., description="Referenced Product Detail")
+    product_master_id: UUID = Field(..., description="Referenced Product Detail")
     quantity: Decimal | None = Field(default=None)
     line_amount: Decimal | None = Field(default=None)
     vat_gst_amount: Decimal | None = Field(default=None)
@@ -51,6 +51,7 @@ class CreateInvoiceRequest(BaseModel):
     invoice_date: date = Field(..., description="Invoice Date")
     vendor_id: UUID = Field(..., description="Referenced Vendor")
     customer_id: UUID = Field(..., description="Referenced Customer")
+    entity_id: UUID = Field(..., description="Referenced Company/Entity")
     bill_amount_excl_gst: Decimal = Field(..., description="Required bill amount excl. GST")
     lines: list[InvoiceLineRequest] = Field(
         default_factory=list, description="At least one invoice line is required"

@@ -104,7 +104,7 @@ async def _persist_graph(session: AsyncSession) -> dict[str, tuple[type, uuid.UU
 
     agreement = AgreementModel(
         vendor_id=vendor.id,
-        product_detail_id=product_detail.id,
+        product_master_id=product_detail.id,
         from_date=date(2024, 1, 1),
         to_date=date(2024, 12, 31),
         slab_in_days=30,
@@ -137,7 +137,7 @@ async def _persist_graph(session: AsyncSession) -> dict[str, tuple[type, uuid.UU
 
     line = InvoiceLineModel(
         invoice_header_id=header.id,
-        product_detail_id=product_detail.id,
+        product_master_id=product_detail.id,
         quantity=Decimal("10.000"),
         line_amount=Decimal("800.00"),
     )

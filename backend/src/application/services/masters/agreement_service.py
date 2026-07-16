@@ -121,7 +121,7 @@ class AgreementCreateInput:
     """
 
     vendor_id: UUID | None
-    product_detail_id: UUID | None
+    product_master_id: UUID | None
     from_date: date | None
     to_date: date | None
     slab_in_days: int | None = None
@@ -141,7 +141,7 @@ class AgreementUpdateInput:
     """
 
     vendor_id: UUID | _UnsetType = UNSET
-    product_detail_id: UUID | _UnsetType = UNSET
+    product_master_id: UUID | _UnsetType = UNSET
     from_date: date | _UnsetType = UNSET
     to_date: date | _UnsetType = UNSET
     slab_in_days: int | _UnsetType = UNSET
@@ -156,7 +156,7 @@ class AgreementUpdateInput:
 class AgreementRenewalInput:
     """Payload for the renewal Agreement created from a prior Agreement.
 
-    ``vendor_id`` / ``product_detail_id`` default to ``None`` so the service can
+    ``vendor_id`` / ``product_master_id`` default to ``None`` so the service can
     inherit them from the prior Agreement when the caller omits them.
     """
 
@@ -168,7 +168,7 @@ class AgreementRenewalInput:
     min_commission_percent: Decimal | None = None
     credit_days: int | None = None
     vendor_id: UUID | None = None
-    product_detail_id: UUID | None = None
+    product_master_id: UUID | None = None
     document: AgreementDocumentInput | None = None
 
 
@@ -210,7 +210,7 @@ class AgreementService:
         credit_days = self._coalesce_int(data.credit_days, 0)
 
         vendor_id = await self._validate_vendor(data.vendor_id)
-        detail_id = await self._validate_product_detail(data.product_detail_id)
+        detail_id = await self._validate_product_detail(data.product_master_id)
         from_date, to_date = self._validate_period(data.from_date, data.to_date)
         self._validate_commission_bounds(reduction, max_commission, min_commission)
         self._validate_slab_and_credit(slab, credit_days)
@@ -221,7 +221,7 @@ class AgreementService:
         agreement = AgreementEntity(
             id=uuid4(),
             vendor_id=vendor_id,
-            product_detail_id=detail_id,
+            product_master_id=detail_id,
             from_date=from_date,
             to_date=to_date,
             slab_in_days=slab,
@@ -268,9 +268,9 @@ class AgreementService:
         if not isinstance(patch.vendor_id, _UnsetType):
             agreement.vendor_id = await self._validate_vendor(patch.vendor_id)
 
-        if not isinstance(patch.product_detail_id, _UnsetType):
-            agreement.product_detail_id = await self._validate_product_detail(
-                patch.product_detail_id
+        if not isinstance(patch.product_master_id, _UnsetType):
+            agreement.product_master_id = await self._validate_product_detail(
+                patch.product_master_id
             )
 
         if not isinstance(patch.from_date, _UnsetType):
@@ -317,7 +317,7 @@ class AgreementService:
         if agreement.status == AgreementStatus.Active:
             await self._ensure_no_overlap(
                 agreement.vendor_id,
-                agreement.product_detail_id,
+                agreement.product_master_id,
                 agreement.from_date,
                 agreement.to_date,
                 exclude_id=agreement.id,
@@ -366,9 +366,9 @@ class AgreementService:
             data.vendor_id if data.vendor_id is not None else prior.vendor_id
         )
         detail_id = await self._validate_product_detail(
-            data.product_detail_id
-            if data.product_detail_id is not None
-            else prior.product_detail_id
+            data.product_master_id
+            if data.product_master_id is not None
+            else prior.product_master_id
         )
         from_date, to_date = self._validate_period(data.from_date, data.to_date)
         slab = self._coalesce_int(data.slab_in_days, 0)
@@ -393,7 +393,7 @@ class AgreementService:
         renewal = AgreementEntity(
             id=uuid4(),
             vendor_id=vendor_id,
-            product_detail_id=detail_id,
+            product_master_id=detail_id,
             from_date=from_date,
             to_date=to_date,
             slab_in_days=slab,
@@ -488,17 +488,17 @@ class AgreementService:
         """Product Detail reference: required, valid UUID, must exist (Req 11.2)."""
         if detail_id is None:
             raise MasterValidationError(
-                "product_detail_id",
+                "product_master_id",
                 "Product Detail reference is required and must not be empty",
             )
         if not isinstance(detail_id, UUID):
             raise MasterValidationError(
-                "product_detail_id",
+                "product_master_id",
                 "Product Detail reference must be a valid identifier",
             )
         if await self._product_repo.get_by_id(detail_id) is None:
             raise MasterValidationError(
-                "product_detail_id",
+                "product_master_id",
                 f"Referenced Product Detail '{detail_id}' does not exist",
             )
         return detail_id
@@ -577,7 +577,7 @@ class AgreementService:
     async def _ensure_no_overlap(
         self,
         vendor_id: UUID,
-        product_detail_id: UUID,
+        product_master_id: UUID,
         from_date: date,
         to_date: date,
         exclude_id: UUID | None = None,
@@ -585,7 +585,7 @@ class AgreementService:
         """Reject when the active period overlaps another active one (Req 11.7)."""
         overlapping = await self._agreement_repo.find_overlapping_active(
             vendor_id=vendor_id,
-            product_detail_id=product_detail_id,
+            product_master_id=product_master_id,
             from_date=from_date,
             to_date=to_date,
             exclude_id=exclude_id,

@@ -105,7 +105,9 @@ class FakeMappingService:
 
     async def list_mappings(self, skip, limit, vendor_id, customer_id):  # noqa: ANN001
         self.list_args = (skip, limit, vendor_id, customer_id)
-        return [_mapping(), _mapping()], 2
+        # Return tuples matching controller unpacking: (entity, vendor_name, customer_name)
+        return [(_mapping(), "Vendor A", "Customer A"),
+                (_mapping(), "Vendor B", "Customer B")], 2
 
     async def delete_mapping(self, mapping_id, actor):  # noqa: ANN001
         self.deleted_id = mapping_id

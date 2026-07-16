@@ -78,10 +78,26 @@ class FakeAgreementRepository(IAgreementRepository):
             ]
         )
 
+    async def list_with_names(
+        self, skip: int = 0, limit: int = 20, vendor_id: UUID | None = None
+    ) -> list:
+        """Return (entity, vendor_name, child_code, product_name) tuples."""
+        items = [
+            a for a in self.store.values()
+            if vendor_id is None or a.vendor_id == vendor_id
+        ]
+        return [(a, None, None, None) for a in items[skip: skip + limit]]
+
+    async def count_filtered(self, vendor_id: UUID | None = None, **kwargs) -> int:
+        return len(
+            [a for a in self.store.values()
+             if vendor_id is None or a.vendor_id == vendor_id]
+        )
+
     async def find_overlapping_active(
         self,
         vendor_id: UUID,
-        product_detail_id: UUID,
+        product_master_id: UUID,
         from_date: date,
         to_date: date,
         exclude_id: UUID | None = None,
@@ -90,7 +106,7 @@ class FakeAgreementRepository(IAgreementRepository):
             a
             for a in self.store.values()
             if a.vendor_id == vendor_id
-            and a.product_detail_id == product_detail_id
+            and a.product_master_id == product_master_id
             and a.status == AgreementStatus.Active
             and a.id != exclude_id
             and a.from_date <= to_date
@@ -105,11 +121,11 @@ class FakeAgreementRepository(IAgreementRepository):
         ]
 
     async def exists_expired_for_vendor_and_detail(
-        self, vendor_id: UUID, product_detail_id: UUID, on_date: date
+        self, vendor_id: UUID, product_master_id: UUID, on_date: date
     ) -> bool:
         return any(
             a.vendor_id == vendor_id
-            and a.product_detail_id == product_detail_id
+            and a.product_master_id == product_master_id
             and a.to_date < on_date
             for a in self.store.values()
         )
@@ -137,8 +153,12 @@ class FakeProductRepository:
     def add_detail(self, detail_id: UUID) -> None:
         self.detail_ids.add(detail_id)
 
-    async def get_detail_by_id(self, detail_id: UUID):
+    async def get_by_id(self, detail_id: UUID):
         return object() if detail_id in self.detail_ids else None
+
+    # Legacy alias kept for compatibility
+    async def get_detail_by_id(self, detail_id: UUID):
+        return await self.get_by_id(detail_id)
 
 
 @pytest.fixture
@@ -192,7 +212,7 @@ def service(
 def _create_input(vendor_id: UUID, detail_id: UUID, **overrides) -> AgreementCreateInput:
     defaults = dict(
         vendor_id=vendor_id,
-        product_detail_id=detail_id,
+        product_master_id=detail_id,
         from_date=date(2024, 1, 1),
         to_date=date(2024, 12, 31),
         slab_in_days=30,
@@ -230,7 +250,7 @@ class TestCreateDefaultsAndValidation:
             await service.create_agreement(
                 _create_input(vendor_id, uuid4()), actor
             )
-        assert exc.value.field == "product_detail_id"
+        assert exc.value.field == "product_master_id"
 
     async def test_create_rejects_from_after_to(
         self, service, actor, vendor_id, detail_id
@@ -488,7 +508,7 @@ class TestRenewal:
         assert renewal.prior_agreement_id == prior.id
         # Inherits vendor/detail from the prior agreement.
         assert renewal.vendor_id == vendor_id
-        assert renewal.product_detail_id == detail_id
+        assert renewal.product_master_id == detail_id
 
     async def test_renew_unknown_raises_not_found(self, service, actor):
         with pytest.raises(MasterNotFoundError):
@@ -514,7 +534,8 @@ class TestVendorScopedListing:
         await service.create_agreement(_create_input(v2, d), actor)
         items, total = await service.list_agreements(vendor_id=v1)
         assert total == 1
-        assert all(a.vendor_id == v1 for a in items)
+        # list_agreements returns (entity, vendor_name, child_code, product_name) tuples
+        assert all(a[0].vendor_id == v1 for a in items)
 
     async def test_list_without_filter_returns_all(
         self, service, actor, vendor_repo, product_repo

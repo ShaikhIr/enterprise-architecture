@@ -35,7 +35,7 @@ class AgreementRepositoryImpl(IAgreementRepository):
         model = AgreementModel(
             id=agreement.id,
             vendor_id=agreement.vendor_id,
-            product_detail_id=agreement.product_detail_id,
+            product_master_id=agreement.product_master_id,
             from_date=agreement.from_date,
             to_date=agreement.to_date,
             slab_in_days=agreement.slab_in_days,
@@ -62,7 +62,7 @@ class AgreementRepositoryImpl(IAgreementRepository):
             raise ValueError(f"Agreement with id {agreement.id} not found")
 
         model.vendor_id = agreement.vendor_id
-        model.product_detail_id = agreement.product_detail_id
+        model.product_master_id = agreement.product_master_id
         model.from_date = agreement.from_date
         model.to_date = agreement.to_date
         model.slab_in_days = agreement.slab_in_days
@@ -121,7 +121,7 @@ class AgreementRepositoryImpl(IAgreementRepository):
                 ProductMasterModel.product_name.label("product_name"),
             )
             .outerjoin(VendorModel, AgreementModel.vendor_id == VendorModel.id)
-            .outerjoin(ProductMasterModel, AgreementModel.product_detail_id == ProductMasterModel.id)
+            .outerjoin(ProductMasterModel, AgreementModel.product_master_id == ProductMasterModel.id)
         )
         if vendor_id is not None:
             stmt = stmt.where(AgreementModel.vendor_id == vendor_id)
@@ -140,7 +140,7 @@ class AgreementRepositoryImpl(IAgreementRepository):
     async def find_overlapping_active(
         self,
         vendor_id: UUID,
-        product_detail_id: UUID,
+        product_master_id: UUID,
         from_date: date,
         to_date: date,
         exclude_id: UUID | None = None,
@@ -149,7 +149,7 @@ class AgreementRepositoryImpl(IAgreementRepository):
         # both endpoints) when a.from_date <= b.to_date AND b.from_date <= a.to_date.
         stmt = select(AgreementModel).where(
             AgreementModel.vendor_id == vendor_id,
-            AgreementModel.product_detail_id == product_detail_id,
+            AgreementModel.product_master_id == product_master_id,
             AgreementModel.status == AgreementStatus.Active.value,
             AgreementModel.from_date <= to_date,
             from_date <= AgreementModel.to_date,
@@ -170,7 +170,7 @@ class AgreementRepositoryImpl(IAgreementRepository):
         return [self._to_entity(m) for m in models]
 
     async def exists_expired_for_vendor_and_detail(
-        self, vendor_id: UUID, product_detail_id: UUID, on_date: date
+        self, vendor_id: UUID, product_master_id: UUID, on_date: date
     ) -> bool:
         # Any agreement (regardless of status) for the vendor + product detail
         # whose To Date is strictly before ``on_date`` indicates the invoice
@@ -180,7 +180,7 @@ class AgreementRepositoryImpl(IAgreementRepository):
             .select_from(AgreementModel)
             .where(
                 AgreementModel.vendor_id == vendor_id,
-                AgreementModel.product_detail_id == product_detail_id,
+                AgreementModel.product_master_id == product_master_id,
                 AgreementModel.to_date < on_date,
             )
         )
@@ -193,7 +193,7 @@ class AgreementRepositoryImpl(IAgreementRepository):
         return AgreementEntity(
             id=model.id,
             vendor_id=model.vendor_id,
-            product_detail_id=model.product_detail_id,
+            product_master_id=model.product_master_id,
             from_date=model.from_date,
             to_date=model.to_date,
             slab_in_days=model.slab_in_days,

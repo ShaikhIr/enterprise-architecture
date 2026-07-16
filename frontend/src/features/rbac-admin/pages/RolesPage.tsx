@@ -23,7 +23,13 @@ import type { CreateRoleRequest, Permission, Role } from '../models/rbac-admin.t
 
 /**
  * Build a tree structure from flat permissions, grouped by feature (resource).
- * Structure: Scope → Resource → Permission
+ * Structure: Scope → Feature Group → Resource → Permission
+ * 
+ * For MENU scope, permissions are grouped into logical navigation sections:
+ * - Main navigation items (Dashboard, Commission Claims, etc.) at top level
+ * - Masters sub-items (Entities, Vendors, etc.) nested under a "Masters" folder
+ * 
+ * For API/FIELD scope, permissions are grouped by resource.
  */
 function buildPermissionTree(permissions: Permission[]): TreeNode[] {
   // Group by scope first, then by resource
@@ -31,8 +37,7 @@ function buildPermissionTree(permissions: Permission[]): TreeNode[] {
 
   for (const perm of permissions) {
     const scope = perm.scope;
-    // Use first part of resource as feature group
-    const resource = perm.resource.split('.')[0];
+    const resource = perm.resource;
 
     if (!scopeMap[scope]) scopeMap[scope] = {};
     if (!scopeMap[scope][resource]) scopeMap[scope][resource] = [];
@@ -40,7 +45,7 @@ function buildPermissionTree(permissions: Permission[]): TreeNode[] {
   }
 
   const scopeLabels: Record<string, string> = {
-    MENU: '📋 Menu Access',
+    MENU: '📋 Page Access',
     API: '🔌 API Access',
     FIELD: '🔒 Field-Level Access',
   };
@@ -50,6 +55,39 @@ function buildPermissionTree(permissions: Permission[]): TreeNode[] {
     API: 'pi pi-server',
     FIELD: 'pi pi-eye',
   };
+
+  const resourceLabels: Record<string, string> = {
+    dashboard: 'Dashboard',
+    users: 'Users',
+    roles: 'Roles',
+    audit_logs: 'Audit Logs',
+    services: 'Services',
+    reports: 'Reports',
+    settings: 'Settings',
+    workflows: 'Workflows',
+    claims: 'Commission Claims',
+    claims_mis: 'Claims MIS',
+    entities: 'Entities',
+    vendors: 'Vendors',
+    customers: 'Customers',
+    products: 'Products',
+    product_details: 'Product Details',
+    agreements: 'Agreements',
+    mappings: 'Mappings',
+    invoices: 'Invoices',
+    rbac: 'RBAC Management',
+  };
+
+  // Resources that belong under "Masters" group in MENU scope
+  const mastersResources = new Set([
+    'entities', 'vendors', 'customers', 'products',
+    'product_details', 'agreements', 'mappings', 'invoices',
+  ]);
+
+  // Resources that belong under "Administration" group in MENU scope
+  const adminResources = new Set([
+    'users', 'roles', 'audit_logs', 'services', 'settings', 'workflows',
+  ]);
 
   const tree: TreeNode[] = [];
 
@@ -65,25 +103,80 @@ function buildPermissionTree(permissions: Permission[]): TreeNode[] {
       selectable: true,
     };
 
-    for (const [resource, perms] of Object.entries(resources).sort()) {
-      if (perms.length === 1) {
-        // Single permission under resource — add directly to scope
-        const perm = perms[0];
+    if (scope === 'MENU') {
+      // ─── MENU: Group into logical navigation sections ─────────────────
+      const mainItems: TreeNode[] = [];
+      const mastersItems: TreeNode[] = [];
+      const adminItems: TreeNode[] = [];
+
+      for (const [resource, perms] of Object.entries(resources).sort()) {
+        const displayName = resourceLabels[resource] || resource.charAt(0).toUpperCase() + resource.slice(1).replace(/_/g, ' ');
+
+        const node: TreeNode = perms.length === 1 && perms[0]
+          ? {
+              key: perms[0].id,
+              label: displayName,
+              data: perms[0],
+              icon: 'pi pi-link',
+            }
+          : {
+              key: `resource-${scope}-${resource}`,
+              label: displayName,
+              icon: 'pi pi-folder',
+              children: perms.map((perm) => ({
+                key: perm.id,
+                label: perm.name,
+                data: perm,
+                icon: 'pi pi-link',
+              })),
+              selectable: true,
+            };
+
+        if (mastersResources.has(resource)) {
+          mastersItems.push(node);
+        } else if (adminResources.has(resource)) {
+          adminItems.push(node);
+        } else {
+          mainItems.push(node);
+        }
+      }
+
+      // Add main items directly
+      scopeNode.children!.push(...mainItems);
+
+      // Add Masters group
+      if (mastersItems.length > 0) {
         scopeNode.children!.push({
-          key: perm.id,
-          label: `${perm.name}`,
-          data: perm,
-          icon: 'pi pi-key',
+          key: 'group-menu-masters',
+          label: 'Masters',
+          icon: 'pi pi-database',
+          children: mastersItems,
+          selectable: true,
         });
-      } else {
-        // Multiple permissions — group under resource node
+      }
+
+      // Add Administration group
+      if (adminItems.length > 0) {
+        scopeNode.children!.push({
+          key: 'group-menu-admin',
+          label: 'Administration',
+          icon: 'pi pi-cog',
+          children: adminItems,
+          selectable: true,
+        });
+      }
+    } else {
+      // ─── API / FIELD: Group by resource ────────────────────────────────
+      for (const [resource, perms] of Object.entries(resources).sort()) {
+        const displayName = resourceLabels[resource] || resource.charAt(0).toUpperCase() + resource.slice(1).replace(/_/g, ' ');
+
         const resourceNode: TreeNode = {
           key: `resource-${scope}-${resource}`,
-          label: resource.charAt(0).toUpperCase() + resource.slice(1),
+          label: displayName,
           icon: 'pi pi-folder',
           children: perms.map((perm) => ({
             key: perm.id,
-            label: `${perm.name} (${perm.action})`,
+            label: perms.length === 1 ? perm.name : `${perm.name} (${perm.action})`,
             data: perm,
             icon: 'pi pi-key',
           })),
@@ -482,7 +575,7 @@ export const RolesPage = () => {
             selectionMode="checkbox"
             selectionKeys={selectionKeys}
             onSelectionChange={(e) => setSelectionKeys(e.value as TreeCheckboxSelectionKeys)}
-            className="w-full"
+            className="w-full permission-tree"
             style={{ border: 'none' }}
             filter
             filterPlaceholder="Search permissions..."

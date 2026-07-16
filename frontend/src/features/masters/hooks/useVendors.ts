@@ -5,11 +5,12 @@ import type { PaginatedParams } from '../models/common';
 
 const VENDORS_KEY = ['vendors'];
 
-export const useVendors = (params: PaginatedParams) => {
+export const useVendors = (params: PaginatedParams, options?: { enabled?: boolean }) => {
   return useQuery({
     queryKey: [...VENDORS_KEY, params],
     queryFn: () => vendorApi.list(params),
     staleTime: 30_000,
+    enabled: options?.enabled ?? true,
   });
 };
 

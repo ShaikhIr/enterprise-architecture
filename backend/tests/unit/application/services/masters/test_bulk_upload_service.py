@@ -379,7 +379,7 @@ async def test_agreement_resolves_vendor_and_detail_codes(
     assert report.stored == 1
     created = agreement_service.created[0]
     assert created.vendor_id == vendor_id
-    assert created.product_detail_id == detail_id
+    assert created.product_master_id == detail_id
     assert created.slab_in_days == 30
     assert created.credit_days == 45
 

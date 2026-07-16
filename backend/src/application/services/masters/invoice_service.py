@@ -93,7 +93,7 @@ class InvoiceLineInput:
     supplied they must be non-negative.
     """
 
-    product_detail_id: UUID
+    product_master_id: UUID
     quantity: Decimal | None = None
     line_amount: Decimal | None = None
     vat_gst_amount: Decimal | None = None
@@ -114,6 +114,7 @@ class InvoiceCreateInput:
     vendor_id: UUID
     customer_id: UUID
     bill_amount_excl_gst: Decimal
+    entity_id: UUID | None = None
     lines: list[InvoiceLineInput] = field(default_factory=list)
     bill_amount_incl_tax: Decimal | None = None
     amount_deducted: Decimal | None = None
@@ -218,12 +219,12 @@ class InvoiceService:
             )
         for index, line in enumerate(data.lines):
             if (
-                await self._product_repo.get_by_id(line.product_detail_id)
+                await self._product_repo.get_by_id(line.product_master_id)
                 is None
             ):
                 raise MasterValidationError(
-                    f"lines[{index}].product_detail_id",
-                    f"Product Detail '{line.product_detail_id}' does not exist",
+                    f"lines[{index}].product_master_id",
+                    f"Product Detail '{line.product_master_id}' does not exist",
                 )
 
         # Uniqueness — Invoice Number conflict (Req 16.2).
@@ -247,6 +248,7 @@ class InvoiceService:
             invoice_date=invoice_date,
             vendor_id=data.vendor_id,
             customer_id=data.customer_id,
+            entity_id=data.entity_id,
             bill_amount_excl_gst=bill_amount_excl_gst,
             bill_amount_incl_tax=bill_amount_incl_tax,
             amount_deducted=amount_deducted
@@ -262,7 +264,7 @@ class InvoiceService:
             InvoiceLineEntity(
                 id=uuid4(),
                 invoice_header_id=header_id,
-                product_detail_id=line.product_detail_id,
+                product_master_id=line.product_master_id,
                 quantity=line.quantity,
                 line_amount=line.line_amount,
                 vat_gst_amount=line.vat_gst_amount,
@@ -338,21 +340,27 @@ class InvoiceService:
         invoice_number: str | None = None,
         vendor_name: str | None = None,
         customer_name: str | None = None,
+        invoice_status: str | None = None,
+        vendor_id: str | None = None,
+        entity_id: str | None = None,
     ) -> tuple[list[tuple[InvoiceHeaderEntity, str | None, str | None]], int]:
-        """Return a filtered page of Invoice Headers with vendor/customer names.
-
-        Each item is a tuple ``(entity, vendor_name, customer_name)``.
-        """
+        """Return a filtered page of Invoice Headers with vendor/customer names."""
         items = await self._invoice_repo.list_with_names(
             skip=skip, limit=limit,
             invoice_number=invoice_number,
             vendor_name=vendor_name,
             customer_name=customer_name,
+            invoice_status=invoice_status,
+            vendor_id=vendor_id,
+            entity_id=entity_id,
         )
         total = await self._invoice_repo.count_filtered(
             invoice_number=invoice_number,
             vendor_name=vendor_name,
             customer_name=customer_name,
+            invoice_status=invoice_status,
+            vendor_id=vendor_id,
+            entity_id=entity_id,
         )
         return items, total
 
@@ -452,13 +460,13 @@ class InvoiceService:
 
         seen: set[UUID] = set()
         for line in line_inputs:
-            product_detail_id = line.product_detail_id
-            if product_detail_id in seen:
+            product_master_id = line.product_master_id
+            if product_master_id in seen:
                 continue
-            seen.add(product_detail_id)
+            seen.add(product_master_id)
             agreements = await self._agreement_repo.find_overlapping_active(
                 vendor_id=vendor_id,
-                product_detail_id=product_detail_id,
+                product_master_id=product_master_id,
                 from_date=invoice_date,
                 to_date=invoice_date,
             )

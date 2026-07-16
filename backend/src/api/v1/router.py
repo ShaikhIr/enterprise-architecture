@@ -11,7 +11,9 @@ from src.api.v1.endpoints.health_controller import router as health_router
 from src.api.v1.endpoints.rbac_controller import router as rbac_router
 from src.api.v1.endpoints.user_controller import router as user_router
 from src.api.v1.endpoints.workflow.workflow_controller import router as workflow_router
-from src.api.v1.endpoints.commission_claim.controller import router as claims_router
+from src.api.v1.endpoints.commission_claim.commission_claim_controller import (
+    router as claims_router,
+)
 from src.api.v1.endpoints.masters.entity_controller import router as entity_router
 from src.api.v1.endpoints.masters.vendor_controller import router as vendor_router
 from src.api.v1.endpoints.masters.customer_controller import router as customer_router

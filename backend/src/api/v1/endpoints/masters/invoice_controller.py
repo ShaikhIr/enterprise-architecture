@@ -92,15 +92,15 @@ def _get_invoice_service(
 
 
 async def _build_product_lookup(
-    product_detail_ids: list[UUID],
+    product_master_ids: list[UUID],
     session: AsyncSession,
 ) -> dict:
-    """Return a {product_detail_id: (child_code, product_name)} map for the given IDs."""
-    if not product_detail_ids:
+    """Return a {product_master_id: (child_code, product_name)} map for the given IDs."""
+    if not product_master_ids:
         return {}
     repo = ProductRepositoryImpl(session)
     lookup: dict = {}
-    for pid in set(product_detail_ids):
+    for pid in set(product_master_ids):
         product = await repo.get_by_id(pid)
         if product:
             lookup[pid] = (product.child_code, product.product_name)
@@ -134,10 +134,11 @@ def _to_create_input(request: CreateInvoiceRequest) -> InvoiceCreateInput:
         invoice_date=request.invoice_date,
         vendor_id=request.vendor_id,
         customer_id=request.customer_id,
+        entity_id=request.entity_id,
         bill_amount_excl_gst=request.bill_amount_excl_gst,
         lines=[
             InvoiceLineInput(
-                product_detail_id=line.product_detail_id,
+                product_master_id=line.product_master_id,
                 quantity=line.quantity,
                 line_amount=line.line_amount,
                 vat_gst_amount=line.vat_gst_amount,
@@ -202,7 +203,7 @@ async def create_invoice(
         invoice = await service.create_invoice(
             data=_to_create_input(request), actor=current_user
         )
-        product_ids = [l.product_detail_id for l in invoice.lines if l.product_detail_id]
+        product_ids = [l.product_master_id for l in invoice.lines if l.product_master_id]
         lookup = await _build_product_lookup(product_ids, session)
         return InvoiceResponse.from_entity(invoice, product_lookup=lookup)
     except (MasterValidationError, MasterConflictError, MasterNotFoundError) as exc:
@@ -217,10 +218,13 @@ async def create_invoice(
 )
 async def list_invoices(
     skip: int = Query(0, ge=0),
-    limit: int = Query(20, ge=1, le=100),
+    limit: int = Query(20, ge=1, le=500),
     invoice_number: str | None = Query(default=None),
     vendor_name: str | None = Query(default=None),
     customer_name: str | None = Query(default=None),
+    invoice_status: str | None = Query(default=None, alias="status"),
+    vendor_id: str | None = Query(default=None),
+    entity_id: str | None = Query(default=None),
     service: InvoiceService = Depends(_get_invoice_service),
     session: AsyncSession = Depends(get_db_session),
 ) -> PaginatedResponse[InvoiceResponse]:
@@ -230,13 +234,16 @@ async def list_invoices(
         invoice_number=invoice_number,
         vendor_name=vendor_name,
         customer_name=customer_name,
+        invoice_status=invoice_status,
+        vendor_id=vendor_id,
+        entity_id=entity_id,
     )
     # Collect all unique product IDs across all invoice lines
     all_product_ids = [
-        line.product_detail_id
+        line.product_master_id
         for entity, _, _ in items
         for line in entity.lines
-        if line.product_detail_id
+        if line.product_master_id
     ]
     lookup = await _build_product_lookup(all_product_ids, session)
     return PaginatedResponse[InvoiceResponse](
@@ -264,7 +271,7 @@ async def get_invoice(
     """GET /api/v1/invoices/{invoice_id}"""
     try:
         invoice = await service.get_invoice(invoice_id)
-        product_ids = [l.product_detail_id for l in invoice.lines if l.product_detail_id]
+        product_ids = [l.product_master_id for l in invoice.lines if l.product_master_id]
         lookup = await _build_product_lookup(product_ids, session)
         return InvoiceResponse.from_entity(invoice, product_lookup=lookup)
     except (MasterValidationError, MasterConflictError, MasterNotFoundError) as exc:
@@ -291,7 +298,7 @@ async def update_invoice(
             patch=_to_update_input(request),
             actor=current_user,
         )
-        product_ids = [l.product_detail_id for l in invoice.lines if l.product_detail_id]
+        product_ids = [l.product_master_id for l in invoice.lines if l.product_master_id]
         lookup = await _build_product_lookup(product_ids, session)
         return InvoiceResponse.from_entity(invoice, product_lookup=lookup)
     except (MasterValidationError, MasterConflictError, MasterNotFoundError) as exc:
@@ -341,7 +348,7 @@ async def record_sap_payment(
             ),
             actor=current_user,
         )
-        product_ids = [l.product_detail_id for l in invoice.lines if l.product_detail_id]
+        product_ids = [l.product_master_id for l in invoice.lines if l.product_master_id]
         lookup = await _build_product_lookup(product_ids, session)
         return InvoiceResponse.from_entity(invoice, product_lookup=lookup)
     except (MasterValidationError, MasterConflictError, MasterNotFoundError) as exc:
@@ -363,7 +370,7 @@ async def mark_settled(
     """POST /api/v1/invoices/{invoice_id}/settle — sets Status Settled (Req 17.2)."""
     try:
         invoice = await service.mark_settled(invoice_id, actor=current_user)
-        product_ids = [l.product_detail_id for l in invoice.lines if l.product_detail_id]
+        product_ids = [l.product_master_id for l in invoice.lines if l.product_master_id]
         lookup = await _build_product_lookup(product_ids, session)
         return InvoiceResponse.from_entity(invoice, product_lookup=lookup)
     except (MasterValidationError, MasterConflictError, MasterNotFoundError) as exc:

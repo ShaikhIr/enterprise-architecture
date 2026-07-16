@@ -35,7 +35,7 @@ describe('mapBackendErrors', () => {
       response: {
         data: {
           detail: [
-            { loc: ['body', 'lines', '0', 'product_detail_id'], msg: 'Required field' },
+            { loc: ['body', 'lines', '0', 'product_master_id'], msg: 'Required field' },
           ],
         },
       },
@@ -43,7 +43,7 @@ describe('mapBackendErrors', () => {
 
     mapBackendErrors(error, setError);
 
-    expect(setError).toHaveBeenCalledWith('product_detail_id', { type: 'server', message: 'Required field' });
+    expect(setError).toHaveBeenCalledWith('product_master_id', { type: 'server', message: 'Required field' });
   });
 
   it('does nothing when detail is not an array', () => {

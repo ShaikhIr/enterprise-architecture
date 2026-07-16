@@ -76,8 +76,18 @@ class FakeInvoiceRepository:
         ordered = sorted(self._store.values(), key=lambda h: h.invoice_number)
         return ordered[skip : skip + limit]
 
+    async def count_filtered(self, **kwargs) -> int:
+        return len(self._store)
+
     async def count(self) -> int:
         return len(self._store)
+
+    async def list_with_names(
+        self, skip: int = 0, limit: int = 20, **kwargs
+    ) -> list:
+        """Return (entity, None, None) tuples for each stored invoice."""
+        ordered = sorted(self._store.values(), key=lambda h: h.invoice_number)
+        return [(h, None, None) for h in ordered[skip: skip + limit]]
 
     async def get_lines_by_ids(
         self, line_ids: list[UUID]
@@ -132,8 +142,12 @@ class FakeProductRepository:
     def __init__(self) -> None:
         self.existing: set[UUID] = set()
 
-    async def get_detail_by_id(self, detail_id: UUID):
+    async def get_by_id(self, detail_id: UUID):
         return object() if detail_id in self.existing else None
+
+    # Legacy alias
+    async def get_detail_by_id(self, detail_id: UUID):
+        return await self.get_by_id(detail_id)
 
 
 class FakeAgreementRepository:
@@ -148,7 +162,7 @@ class FakeAgreementRepository:
     async def find_overlapping_active(
         self,
         vendor_id: UUID,
-        product_detail_id: UUID,
+        product_master_id: UUID,
         from_date: date,
         to_date: date,
         exclude_id: UUID | None = None,
@@ -157,7 +171,7 @@ class FakeAgreementRepository:
             a
             for a in self._agreements
             if a.vendor_id == vendor_id
-            and a.product_detail_id == product_detail_id
+            and a.product_master_id == product_master_id
             and a.status == AgreementStatus.Active
             and a.from_date is not None
             and a.to_date is not None
@@ -232,7 +246,7 @@ def customer_id(customer_repo: FakeCustomerRepository) -> UUID:
 
 
 @pytest.fixture
-def product_detail_id(product_repo: FakeProductRepository) -> UUID:
+def product_master_id(product_repo: FakeProductRepository) -> UUID:
     pid = uuid4()
     product_repo.existing.add(pid)
     return pid
@@ -241,7 +255,7 @@ def product_detail_id(product_repo: FakeProductRepository) -> UUID:
 def _valid_input(
     vendor_id: UUID,
     customer_id: UUID,
-    product_detail_id: UUID,
+    product_master_id: UUID,
     **overrides: object,
 ) -> InvoiceCreateInput:
     base: dict[str, object] = {
@@ -250,7 +264,7 @@ def _valid_input(
         "vendor_id": vendor_id,
         "customer_id": customer_id,
         "bill_amount_excl_gst": Decimal("100.00"),
-        "lines": [InvoiceLineInput(product_detail_id=product_detail_id)],
+        "lines": [InvoiceLineInput(product_master_id=product_master_id)],
     }
     base.update(overrides)
     return InvoiceCreateInput(**base)  # type: ignore[arg-type]
@@ -264,10 +278,10 @@ async def test_create_applies_defaults(
     actor: User,
     vendor_id: UUID,
     customer_id: UUID,
-    product_detail_id: UUID,
+    product_master_id: UUID,
 ) -> None:
     created = await service.create_invoice(
-        _valid_input(vendor_id, customer_id, product_detail_id), actor
+        _valid_input(vendor_id, customer_id, product_master_id), actor
     )
     assert created.amount_deducted == Decimal("0")
     assert created.tds_value == Decimal("0")
@@ -281,13 +295,13 @@ async def test_create_persists_lines_linked_to_header(
     actor: User,
     vendor_id: UUID,
     customer_id: UUID,
-    product_detail_id: UUID,
+    product_master_id: UUID,
 ) -> None:
     created = await service.create_invoice(
-        _valid_input(vendor_id, customer_id, product_detail_id), actor
+        _valid_input(vendor_id, customer_id, product_master_id), actor
     )
     assert created.lines[0].invoice_header_id == created.id
-    assert created.lines[0].product_detail_id == product_detail_id
+    assert created.lines[0].product_master_id == product_master_id
 
 
 # ─── Create: uniqueness (Req 16.2) ───
@@ -298,14 +312,14 @@ async def test_create_rejects_duplicate_invoice_number(
     actor: User,
     vendor_id: UUID,
     customer_id: UUID,
-    product_detail_id: UUID,
+    product_master_id: UUID,
 ) -> None:
     await service.create_invoice(
-        _valid_input(vendor_id, customer_id, product_detail_id), actor
+        _valid_input(vendor_id, customer_id, product_master_id), actor
     )
     with pytest.raises(MasterConflictError):
         await service.create_invoice(
-            _valid_input(vendor_id, customer_id, product_detail_id), actor
+            _valid_input(vendor_id, customer_id, product_master_id), actor
         )
 
 
@@ -315,14 +329,14 @@ async def test_duplicate_invoice_number_persists_nothing(
     actor: User,
     vendor_id: UUID,
     customer_id: UUID,
-    product_detail_id: UUID,
+    product_master_id: UUID,
 ) -> None:
     await service.create_invoice(
-        _valid_input(vendor_id, customer_id, product_detail_id), actor
+        _valid_input(vendor_id, customer_id, product_master_id), actor
     )
     with pytest.raises(MasterConflictError):
         await service.create_invoice(
-            _valid_input(vendor_id, customer_id, product_detail_id), actor
+            _valid_input(vendor_id, customer_id, product_master_id), actor
         )
     assert await invoice_repo.count() == 1
 
@@ -334,11 +348,11 @@ async def test_create_rejects_missing_vendor(
     service: InvoiceService,
     actor: User,
     customer_id: UUID,
-    product_detail_id: UUID,
+    product_master_id: UUID,
 ) -> None:
     with pytest.raises(MasterValidationError) as exc:
         await service.create_invoice(
-            _valid_input(uuid4(), customer_id, product_detail_id), actor
+            _valid_input(uuid4(), customer_id, product_master_id), actor
         )
     assert exc.value.field == "vendor_id"
 
@@ -347,11 +361,11 @@ async def test_create_rejects_missing_customer(
     service: InvoiceService,
     actor: User,
     vendor_id: UUID,
-    product_detail_id: UUID,
+    product_master_id: UUID,
 ) -> None:
     with pytest.raises(MasterValidationError) as exc:
         await service.create_invoice(
-            _valid_input(vendor_id, uuid4(), product_detail_id), actor
+            _valid_input(vendor_id, uuid4(), product_master_id), actor
         )
     assert exc.value.field == "customer_id"
 
@@ -366,7 +380,7 @@ async def test_create_rejects_missing_product_detail(
         await service.create_invoice(
             _valid_input(vendor_id, customer_id, uuid4()), actor
         )
-    assert "product_detail_id" in exc.value.field
+    assert "product_master_id" in exc.value.field
 
 
 async def test_create_missing_reference_persists_nothing(
@@ -374,11 +388,11 @@ async def test_create_missing_reference_persists_nothing(
     invoice_repo: FakeInvoiceRepository,
     actor: User,
     customer_id: UUID,
-    product_detail_id: UUID,
+    product_master_id: UUID,
 ) -> None:
     with pytest.raises(MasterValidationError):
         await service.create_invoice(
-            _valid_input(uuid4(), customer_id, product_detail_id), actor
+            _valid_input(uuid4(), customer_id, product_master_id), actor
         )
     assert await invoice_repo.count() == 0
 
@@ -391,12 +405,12 @@ async def test_create_rejects_empty_invoice_number(
     actor: User,
     vendor_id: UUID,
     customer_id: UUID,
-    product_detail_id: UUID,
+    product_master_id: UUID,
 ) -> None:
     with pytest.raises(MasterValidationError) as exc:
         await service.create_invoice(
             _valid_input(
-                vendor_id, customer_id, product_detail_id, invoice_number="  "
+                vendor_id, customer_id, product_master_id, invoice_number="  "
             ),
             actor,
         )
@@ -429,14 +443,14 @@ async def test_create_rejects_negative_amount(
     actor: User,
     vendor_id: UUID,
     customer_id: UUID,
-    product_detail_id: UUID,
+    product_master_id: UUID,
 ) -> None:
     with pytest.raises(MasterValidationError) as exc:
         await service.create_invoice(
             _valid_input(
                 vendor_id,
                 customer_id,
-                product_detail_id,
+                product_master_id,
                 bill_amount_excl_gst=Decimal("-1"),
             ),
             actor,
@@ -452,12 +466,12 @@ async def test_due_date_uses_supplied_value(
     actor: User,
     vendor_id: UUID,
     customer_id: UUID,
-    product_detail_id: UUID,
+    product_master_id: UUID,
 ) -> None:
     supplied = date(2024, 3, 1)
     created = await service.create_invoice(
         _valid_input(
-            vendor_id, customer_id, product_detail_id, due_date=supplied
+            vendor_id, customer_id, product_master_id, due_date=supplied
         ),
         actor,
     )
@@ -470,14 +484,14 @@ async def test_due_date_computed_from_agreement_credit_days(
     actor: User,
     vendor_id: UUID,
     customer_id: UUID,
-    product_detail_id: UUID,
+    product_master_id: UUID,
 ) -> None:
     invoice_date = date(2024, 1, 10)
     agreement_repo.add(
         AgreementEntity(
             id=uuid4(),
             vendor_id=vendor_id,
-            product_detail_id=product_detail_id,
+            product_master_id=product_master_id,
             from_date=date(2024, 1, 1),
             to_date=date(2024, 12, 31),
             credit_days=30,
@@ -488,7 +502,7 @@ async def test_due_date_computed_from_agreement_credit_days(
         _valid_input(
             vendor_id,
             customer_id,
-            product_detail_id,
+            product_master_id,
             invoice_date=invoice_date,
         ),
         actor,
@@ -501,10 +515,10 @@ async def test_due_date_unset_when_no_agreement(
     actor: User,
     vendor_id: UUID,
     customer_id: UUID,
-    product_detail_id: UUID,
+    product_master_id: UUID,
 ) -> None:
     created = await service.create_invoice(
-        _valid_input(vendor_id, customer_id, product_detail_id), actor
+        _valid_input(vendor_id, customer_id, product_master_id), actor
     )
     assert created.due_date is None
 
@@ -515,13 +529,13 @@ async def test_supplied_due_date_overrides_agreement(
     actor: User,
     vendor_id: UUID,
     customer_id: UUID,
-    product_detail_id: UUID,
+    product_master_id: UUID,
 ) -> None:
     agreement_repo.add(
         AgreementEntity(
             id=uuid4(),
             vendor_id=vendor_id,
-            product_detail_id=product_detail_id,
+            product_master_id=product_master_id,
             from_date=date(2024, 1, 1),
             to_date=date(2024, 12, 31),
             credit_days=30,
@@ -531,7 +545,7 @@ async def test_supplied_due_date_overrides_agreement(
     supplied = date(2024, 2, 2)
     created = await service.create_invoice(
         _valid_input(
-            vendor_id, customer_id, product_detail_id, due_date=supplied
+            vendor_id, customer_id, product_master_id, due_date=supplied
         ),
         actor,
     )
@@ -555,10 +569,10 @@ async def test_delete_removes_header(
     actor: User,
     vendor_id: UUID,
     customer_id: UUID,
-    product_detail_id: UUID,
+    product_master_id: UUID,
 ) -> None:
     created = await service.create_invoice(
-        _valid_input(vendor_id, customer_id, product_detail_id), actor
+        _valid_input(vendor_id, customer_id, product_master_id), actor
     )
     await service.delete_invoice(created.id, actor)
     assert await invoice_repo.get_by_id(created.id) is None
@@ -579,10 +593,10 @@ async def test_record_sap_payment_sets_payment_cleared(
     actor: User,
     vendor_id: UUID,
     customer_id: UUID,
-    product_detail_id: UUID,
+    product_master_id: UUID,
 ) -> None:
     created = await service.create_invoice(
-        _valid_input(vendor_id, customer_id, product_detail_id), actor
+        _valid_input(vendor_id, customer_id, product_master_id), actor
     )
     clearing_date = date(2024, 2, 15)
     updated = await service.record_sap_payment(
@@ -603,10 +617,10 @@ async def test_record_sap_payment_by_invoice_number(
     actor: User,
     vendor_id: UUID,
     customer_id: UUID,
-    product_detail_id: UUID,
+    product_master_id: UUID,
 ) -> None:
     await service.create_invoice(
-        _valid_input(vendor_id, customer_id, product_detail_id), actor
+        _valid_input(vendor_id, customer_id, product_master_id), actor
     )
     updated = await service.record_sap_payment(
         SapPaymentInput(
@@ -638,10 +652,10 @@ async def test_mark_settled_sets_status(
     actor: User,
     vendor_id: UUID,
     customer_id: UUID,
-    product_detail_id: UUID,
+    product_master_id: UUID,
 ) -> None:
     created = await service.create_invoice(
-        _valid_input(vendor_id, customer_id, product_detail_id), actor
+        _valid_input(vendor_id, customer_id, product_master_id), actor
     )
     updated = await service.mark_settled(created.id, actor)
     assert updated.invoice_status == InvoiceStatus.Settled
@@ -662,14 +676,14 @@ async def test_list_returns_slice_and_total(
     actor: User,
     vendor_id: UUID,
     customer_id: UUID,
-    product_detail_id: UUID,
+    product_master_id: UUID,
 ) -> None:
     for i in range(5):
         await service.create_invoice(
             _valid_input(
                 vendor_id,
                 customer_id,
-                product_detail_id,
+                product_master_id,
                 invoice_number=f"INV-{i:03d}",
             ),
             actor,
@@ -677,7 +691,8 @@ async def test_list_returns_slice_and_total(
     items, total = await service.list_invoices(skip=1, limit=2)
     assert total == 5
     assert len(items) == 2
-    assert [h.invoice_number for h in items] == ["INV-001", "INV-002"]
+    # list_invoices returns (entity, vendor_name, customer_name) tuples
+    assert [h[0].invoice_number for h in items] == ["INV-001", "INV-002"]
 
 
 # ─── Update (partial header) ───
@@ -688,10 +703,10 @@ async def test_update_due_date_overrides_stored(
     actor: User,
     vendor_id: UUID,
     customer_id: UUID,
-    product_detail_id: UUID,
+    product_master_id: UUID,
 ) -> None:
     created = await service.create_invoice(
-        _valid_input(vendor_id, customer_id, product_detail_id), actor
+        _valid_input(vendor_id, customer_id, product_master_id), actor
     )
     new_due = date(2024, 5, 5)
     updated = await service.update_invoice(

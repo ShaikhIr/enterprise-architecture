@@ -114,7 +114,21 @@ class _EmptyMappingRepo:
     ) -> list[MappingEntity]:
         return []
 
+    async def list_mappings_with_names(
+        self,
+        skip: int = 0,
+        limit: int = 20,
+        vendor_id: UUID | None = None,
+        customer_id: UUID | None = None,
+    ) -> list:
+        return []
+
     async def count(
+        self, vendor_id: UUID | None = None, customer_id: UUID | None = None
+    ) -> int:
+        return 0
+
+    async def count_filtered(
         self, vendor_id: UUID | None = None, customer_id: UUID | None = None
     ) -> int:
         return 0
@@ -163,6 +177,9 @@ class _ExistsRepo:
 
 
 class _FakeProductRepo:
+    async def get_by_id(self, _id: UUID) -> object:
+        return object()
+
     async def get_detail_by_id(self, _id: UUID) -> object:
         return object()
 
@@ -193,7 +210,7 @@ async def test_invoice_due_date_unset_when_no_agreement(actor: User) -> None:
             vendor_id=uuid4(),
             customer_id=uuid4(),
             bill_amount_excl_gst=Decimal("100.00"),
-            lines=[InvoiceLineInput(product_detail_id=uuid4())],
+            lines=[InvoiceLineInput(product_master_id=uuid4())],
             due_date=None,  # not supplied
         ),
         actor,

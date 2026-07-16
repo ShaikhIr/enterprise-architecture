@@ -37,6 +37,7 @@ class EntityRepositoryImpl(IEntityRepository):
             short_code=entity.short_code,
             company_code=entity.company_code,
             is_active=entity.is_active,
+            workflow_definition_id=entity.workflow_definition_id,
             created_by=entity.created_by,
             modified_by=entity.modified_by,
         )
@@ -55,6 +56,7 @@ class EntityRepositoryImpl(IEntityRepository):
         model.short_code = entity.short_code
         model.company_code = entity.company_code
         model.is_active = entity.is_active
+        model.workflow_definition_id = entity.workflow_definition_id
         model.modified_by = entity.modified_by
         model.modified_date = entity.modified_date
 
@@ -166,6 +168,7 @@ class EntityRepositoryImpl(IEntityRepository):
             short_code=model.short_code,
             company_code=model.company_code,
             is_active=model.is_active,
+            workflow_definition_id=model.workflow_definition_id,
             created_by=model.created_by,
             created_date=model.created_date,
             modified_by=model.modified_by,

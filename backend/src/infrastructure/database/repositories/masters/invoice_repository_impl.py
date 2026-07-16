@@ -44,6 +44,7 @@ class InvoiceRepositoryImpl(IInvoiceRepository):
             invoice_date=header.invoice_date,
             vendor_id=header.vendor_id,
             customer_id=header.customer_id,
+            entity_id=header.entity_id,
             bill_amount_excl_gst=header.bill_amount_excl_gst,
             bill_amount_incl_tax=header.bill_amount_incl_tax,
             amount_deducted=header.amount_deducted,
@@ -59,7 +60,7 @@ class InvoiceRepositoryImpl(IInvoiceRepository):
             InvoiceLineModel(
                 id=line.id,
                 invoice_header_id=header.id,
-                product_detail_id=line.product_detail_id,
+                product_master_id=line.product_master_id,
                 quantity=line.quantity,
                 line_amount=line.line_amount,
                 vat_gst_amount=line.vat_gst_amount,
@@ -110,6 +111,7 @@ class InvoiceRepositoryImpl(IInvoiceRepository):
         model.invoice_date = header.invoice_date
         model.vendor_id = header.vendor_id
         model.customer_id = header.customer_id
+        model.entity_id = header.entity_id
         model.bill_amount_excl_gst = header.bill_amount_excl_gst
         model.bill_amount_incl_tax = header.bill_amount_incl_tax
         model.amount_deducted = header.amount_deducted
@@ -154,13 +156,11 @@ class InvoiceRepositoryImpl(IInvoiceRepository):
         invoice_number: str | None = None,
         vendor_name: str | None = None,
         customer_name: str | None = None,
+        invoice_status: str | None = None,
+        vendor_id: str | None = None,
+        entity_id: str | None = None,
     ) -> list[tuple[InvoiceHeaderEntity, str | None, str | None]]:
-        """Return invoice headers with denormalized vendor_name / customer_name.
-
-        Each tuple is ``(entity, vendor_name, customer_name)``.
-        Supports case-insensitive ILIKE filtering on invoice_number,
-        vendor_name, and customer_name.
-        """
+        """Return invoice headers with denormalized vendor_name / customer_name."""
         stmt = (
             select(
                 InvoiceHeaderModel,
@@ -183,6 +183,18 @@ class InvoiceRepositoryImpl(IInvoiceRepository):
             stmt = stmt.where(
                 CustomerModel.customer_name.ilike(f"%{customer_name}%")
             )
+        if invoice_status:
+            stmt = stmt.where(
+                InvoiceHeaderModel.invoice_status == invoice_status
+            )
+        if vendor_id:
+            stmt = stmt.where(
+                InvoiceHeaderModel.vendor_id == vendor_id
+            )
+        if entity_id:
+            stmt = stmt.where(
+                InvoiceHeaderModel.entity_id == entity_id
+            )
         stmt = stmt.order_by(
             InvoiceHeaderModel.created_date.desc(), InvoiceHeaderModel.id
         ).offset(skip).limit(limit)
@@ -204,6 +216,9 @@ class InvoiceRepositoryImpl(IInvoiceRepository):
         invoice_number: str | None = None,
         vendor_name: str | None = None,
         customer_name: str | None = None,
+        invoice_status: str | None = None,
+        vendor_id: str | None = None,
+        entity_id: str | None = None,
     ) -> int:
         """Count invoice headers matching the given filters."""
         stmt = (
@@ -223,6 +238,18 @@ class InvoiceRepositoryImpl(IInvoiceRepository):
         if customer_name:
             stmt = stmt.where(
                 CustomerModel.customer_name.ilike(f"%{customer_name}%")
+            )
+        if invoice_status:
+            stmt = stmt.where(
+                InvoiceHeaderModel.invoice_status == invoice_status
+            )
+        if vendor_id:
+            stmt = stmt.where(
+                InvoiceHeaderModel.vendor_id == vendor_id
+            )
+        if entity_id:
+            stmt = stmt.where(
+                InvoiceHeaderModel.entity_id == entity_id
             )
         result = await self._session.execute(stmt)
         return int(result.scalar_one())
@@ -279,6 +306,7 @@ class InvoiceRepositoryImpl(IInvoiceRepository):
             invoice_date=model.invoice_date,
             vendor_id=model.vendor_id,
             customer_id=model.customer_id,
+            entity_id=model.entity_id,
             bill_amount_excl_gst=model.bill_amount_excl_gst,
             bill_amount_incl_tax=model.bill_amount_incl_tax,
             amount_deducted=model.amount_deducted,
@@ -302,7 +330,7 @@ class InvoiceRepositoryImpl(IInvoiceRepository):
         return InvoiceLineEntity(
             id=model.id,
             invoice_header_id=model.invoice_header_id,
-            product_detail_id=model.product_detail_id,
+            product_master_id=model.product_master_id,
             quantity=model.quantity,
             line_amount=model.line_amount,
             vat_gst_amount=model.vat_gst_amount,

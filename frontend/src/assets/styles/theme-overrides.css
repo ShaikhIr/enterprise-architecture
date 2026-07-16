@@ -569,3 +569,52 @@ h2 {
 #user-popup-menu.p-menu {
   min-width: 220px !important;
 }
+
+/* ─── Permission Tree — improved indentation for sub-items ─── */
+
+/* Increase indentation per nesting level for clearer hierarchy */
+.permission-tree .p-tree-container .p-treenode-children {
+  padding-left: 1.5rem;
+}
+
+/* Scope-level nodes (Page Access, API Access) — bold, larger */
+.permission-tree .p-tree-container > .p-treenode > .p-treenode-content .p-treenode-label {
+  font-weight: 700;
+  font-size: 0.875rem;
+}
+
+/* Second-level group nodes (Masters, Administration, Commission Claims) — semi-bold */
+.permission-tree .p-tree-container > .p-treenode > .p-treenode-children > .p-treenode > .p-treenode-content .p-treenode-label {
+  font-weight: 600;
+  font-size: 0.813rem;
+}
+
+/* Leaf permission nodes — normal weight, slightly smaller */
+.permission-tree .p-tree-container .p-treenode-children .p-treenode-children .p-treenode-content .p-treenode-label {
+  font-weight: 400;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
+/* Add a subtle left border for nested groups to show hierarchy */
+.permission-tree .p-treenode-children {
+  border-left: 1px solid var(--color-surface-border);
+  margin-left: 0.75rem;
+}
+
+/* Remove the border from the top-level children (scope nodes don't need it) */
+.permission-tree .p-tree-container > .p-treenode > .p-treenode-children {
+  border-left: none;
+  margin-left: 0;
+}
+
+/* ─── Dropdown clear icon alignment fix ─── */
+.p-dropdown .p-dropdown-clear-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  right: 2.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+}

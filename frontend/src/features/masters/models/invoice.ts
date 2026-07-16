@@ -4,7 +4,7 @@ export type InvoiceStatus = 'Open' | 'Payment Cleared' | 'Settled';
 
 export interface InvoiceLine {
   id: string;
-  product_detail_id: string;
+  product_master_id: string;
   product_child_code: string | null;
   product_name: string | null;
   quantity: number | null;
@@ -20,6 +20,7 @@ export interface Invoice {
   vendor_name: string;
   customer_id: string | null;
   customer_name: string | null;
+  entity_id: string | null;
   bill_amount_excl_gst: number;
   bill_amount_incl_tax: number | null;
   amount_deducted: number;
@@ -41,7 +42,7 @@ export interface Invoice {
 export interface InvoiceListResponse extends PaginatedResponse<Invoice> {}
 
 export interface CreateInvoiceLineRequest {
-  product_detail_id: string;
+  product_master_id: string;
   quantity?: number;
   line_amount?: number;
   vat_gst_amount?: number;
@@ -52,6 +53,7 @@ export interface CreateInvoiceRequest {
   invoice_date: string;
   vendor_id: string;
   customer_id: string;
+  entity_id: string;
   bill_amount_excl_gst: number;
   bill_amount_incl_tax?: number;
   amount_deducted?: number;

@@ -55,7 +55,7 @@ export const AgreementFormDialog = ({
     resolver: zodResolver(agreementCreateSchema),
     defaultValues: {
       vendor_id: '',
-      product_detail_id: '',
+      product_master_id: '',
       from_date: '',
       to_date: '',
       slab_in_days: 1,
@@ -87,7 +87,7 @@ export const AgreementFormDialog = ({
       if (agreement) {
         reset({
           vendor_id: agreement.vendor_id,
-          product_detail_id: agreement.product_detail_id,
+          product_master_id: agreement.product_master_id,
           from_date: agreement.from_date,
           to_date: agreement.to_date,
           slab_in_days: agreement.slab_in_days,
@@ -100,7 +100,7 @@ export const AgreementFormDialog = ({
       } else {
         reset({
           vendor_id: '',
-          product_detail_id: '',
+          product_master_id: '',
           from_date: '',
           to_date: '',
           slab_in_days: 1,
@@ -220,15 +220,15 @@ export const AgreementFormDialog = ({
 
         {/* Product Detail (required dropdown) */}
         <div className="flex flex-column gap-2">
-          <label htmlFor="product_detail_id" className="font-medium">
+          <label htmlFor="product_master_id" className="font-medium">
             Product Detail <span className="text-red-500">*</span>
           </label>
           <Controller
-            name="product_detail_id"
+            name="product_master_id"
             control={control}
             render={({ field }) => (
               <Dropdown
-                id="product_detail_id"
+                id="product_master_id"
                 value={field.value}
                 onChange={(e) => field.onChange(e.value)}
                 options={productDetailOptions}
@@ -236,15 +236,15 @@ export const AgreementFormDialog = ({
                 optionValue="value"
                 placeholder="Select Product Detail"
                 filter
-                className={errors.product_detail_id ? 'p-invalid w-full' : 'w-full'}
-                aria-invalid={!!errors.product_detail_id}
-                aria-describedby="product_detail_id-error"
+                className={errors.product_master_id ? 'p-invalid w-full' : 'w-full'}
+                aria-invalid={!!errors.product_master_id}
+                aria-describedby="product_master_id-error"
               />
             )}
           />
-          {errors.product_detail_id && (
-            <small id="product_detail_id-error" className="p-error">
-              {errors.product_detail_id.message}
+          {errors.product_master_id && (
+            <small id="product_master_id-error" className="p-error">
+              {errors.product_master_id.message}
             </small>
           )}
         </div>

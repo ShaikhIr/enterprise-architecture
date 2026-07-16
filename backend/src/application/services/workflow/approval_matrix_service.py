@@ -21,9 +21,13 @@ class ApprovalMatrixService:
         self._session = session
         self._rule_evaluator = RuleEvaluator()
 
-    async def resolve_approvers(self, entity_type: str, entity_data: dict) -> list[dict]:
+    async def resolve_approvers(self, entity_type: str, entity_data: dict, workflow_definition_id: str | None = None) -> list[dict]:
         """
         Find matching approval matrix and return ordered list of approvers.
+
+        When workflow_definition_id is provided, only matrices linked to that
+        specific workflow are considered. This ensures entity-specific workflow
+        routing.
 
         Returns list of dicts: [{"level": 1, "assignment_type": "ROLE", "role_id": ..., "user_id": ...}]
         """
@@ -33,15 +37,26 @@ class ApprovalMatrixService:
             ApprovalAssignmentModel,
         )
 
-        # Find all active matrices for this entity type
+        # Find all active matrices — filtered by workflow_definition_id when provided
         stmt = (
             select(ApprovalMatrixModel)
             .where(
-                ApprovalMatrixModel.entity_type == entity_type,
                 ApprovalMatrixModel.is_active == True,
             )
             .order_by(ApprovalMatrixModel.priority)
         )
+
+        # Filter by workflow_definition_id (entity-specific workflow routing)
+        if workflow_definition_id:
+            stmt = stmt.where(
+                ApprovalMatrixModel.workflow_definition_id == workflow_definition_id
+            )
+        else:
+            # Fallback: filter by entity_type if no workflow_definition_id
+            stmt = stmt.where(
+                ApprovalMatrixModel.entity_type == entity_type,
+            )
+
         result = await self._session.execute(stmt)
         matrices = result.scalars().all()
 

@@ -11,10 +11,10 @@ import { EmployeeADServicePage } from '@features/service-menu/pages/EmployeeADSe
 import { RolesPage } from '@features/rbac-admin/pages/RolesPage';
 import { AuditLogsPage } from '@features/rbac-admin/pages/AuditLogsPage';
 import { WorkflowDefinitionsPage, WorkflowBuilderPage, ApprovalMatrixPage } from '@features/workflow-admin';
-import { CommissionClaimsPage } from '@features/commission-claims';
 import { MainLayout } from '@app/layouts/MainLayout';
 import { PrivateRoute } from './PrivateRoute';
 import { renderMastersRoutes } from '@features/masters/routes/mastersRoutes';
+import { renderClaimRoutes } from '@features/commission-claims/routes/claimRoutes';
 
 export const AppRouter = () => {
   return (
@@ -115,14 +115,10 @@ export const AppRouter = () => {
               </PrivateRoute>
             }
           />
-          <Route
-            path="claims"
-            element={
-              <PrivateRoute menuKey="dashboard">
-                <CommissionClaimsPage />
-              </PrivateRoute>
-            }
-          />
+          {/* Commission Claims routes */}
+          <Route path="claims">
+            {renderClaimRoutes()}
+          </Route>
 
           {/* Masters routes */}
           <Route path="masters">

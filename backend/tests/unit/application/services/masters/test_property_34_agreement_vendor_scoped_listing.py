@@ -92,7 +92,7 @@ class _InMemoryAgreementRepository(IAgreementRepository):
     async def find_overlapping_active(
         self,
         vendor_id: UUID,
-        product_detail_id: UUID,
+        product_master_id: UUID,
         from_date: date,
         to_date: date,
         exclude_id: UUID | None = None,
@@ -103,7 +103,7 @@ class _InMemoryAgreementRepository(IAgreementRepository):
         raise NotImplementedError(_NOT_USED)
 
     async def exists_expired_for_vendor_and_detail(
-        self, vendor_id: UUID, product_detail_id: UUID, on_date: date
+        self, vendor_id: UUID, product_master_id: UUID, on_date: date
     ) -> bool:
         raise NotImplementedError(_NOT_USED)
 
@@ -116,7 +116,7 @@ def _make_agreement(vendor_id: UUID) -> AgreementEntity:
     """
     return AgreementEntity(
         vendor_id=vendor_id,
-        product_detail_id=uuid4(),
+        product_master_id=uuid4(),
         from_date=date(2024, 1, 1),
         to_date=date(2024, 12, 31),
         slab_in_days=30,

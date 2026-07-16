@@ -114,7 +114,7 @@ const aboveHundredPercent = () => fc.double({ min: 100.01, max: 500, noNaN: true
  */
 const buildValidData = (overrides: Record<string, unknown> = {}) => ({
   vendor_id: 'vendor-001',
-  product_detail_id: 'product-detail-001',
+  product_master_id: 'product-detail-001',
   from_date: '2024-01-01',
   to_date: '2024-12-31',
   slab_in_days: 30,
@@ -146,7 +146,7 @@ describe('Property 6: Agreement schema validation — cross-field date and commi
         (vendorId, productDetailId, dates, commissions, slabInDays, reductionPercent, creditDays) => {
           const data = {
             vendor_id: vendorId,
-            product_detail_id: productDetailId,
+            product_master_id: productDetailId,
             from_date: dates.from_date,
             to_date: dates.to_date,
             slab_in_days: slabInDays,
@@ -353,7 +353,7 @@ describe('Property 6: Agreement schema validation — cross-field date and commi
       fc.property(isoDateString(), validPercent(), (date, commission) => {
         const data = {
           vendor_id: 'vendor-001',
-          product_detail_id: 'product-001',
+          product_master_id: 'product-001',
           from_date: date,
           to_date: date, // same date
           slab_in_days: 1, // minimum valid

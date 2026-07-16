@@ -35,6 +35,10 @@ class CreateEntityRequest(BaseModel):
         default=None,
         description="Active flag; defaults to true when omitted",
     )
+    workflow_definition_id: UUID | None = Field(
+        default=None,
+        description="Workflow definition to use for claim approvals under this entity",
+    )
 
 
 class UpdateEntityRequest(BaseModel):
@@ -49,6 +53,7 @@ class UpdateEntityRequest(BaseModel):
     short_code: str | None = Field(default=None)
     company_code: str | None = Field(default=None)
     is_active: bool | None = Field(default=None)
+    workflow_definition_id: UUID | None = Field(default=None)
 
 
 class EntityResponse(BaseModel):
@@ -61,6 +66,7 @@ class EntityResponse(BaseModel):
     short_code: str | None = None
     company_code: str | None = None
     is_active: bool
+    workflow_definition_id: UUID | None = None
     created_by: str
     created_date: datetime
     modified_by: str
@@ -75,6 +81,7 @@ class EntityResponse(BaseModel):
             short_code=entity.short_code,
             company_code=entity.company_code,
             is_active=entity.is_active,
+            workflow_definition_id=entity.workflow_definition_id,
             created_by=entity.created_by,
             created_date=entity.created_date,
             modified_by=entity.modified_by,

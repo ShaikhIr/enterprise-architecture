@@ -38,7 +38,7 @@ class AgreementEntity(BaseEntity):
     """
 
     vendor_id: UUID | None = field(default=None)
-    product_detail_id: UUID | None = field(default=None)
+    product_master_id: UUID | None = field(default=None)
     from_date: date | None = field(default=None)
     to_date: date | None = field(default=None)
     slab_in_days: int = field(default=0)

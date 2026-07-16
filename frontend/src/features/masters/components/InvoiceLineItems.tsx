@@ -37,7 +37,7 @@ export const InvoiceLineItems = ({ control, errors }: InvoiceLineItemsProps) => 
   }));
 
   const handleAddLine = () => {
-    append({ product_detail_id: '', quantity: undefined, line_amount: undefined, vat_gst_amount: undefined });
+    append({ product_master_id: '', quantity: undefined, line_amount: undefined, vat_gst_amount: undefined });
   };
 
   return (
@@ -80,7 +80,7 @@ export const InvoiceLineItems = ({ control, errors }: InvoiceLineItemsProps) => 
               Product Detail <span className="text-red-500">*</span>
             </label>
             <Controller
-              name={`lines.${index}.product_detail_id`}
+              name={`lines.${index}.product_master_id`}
               control={control}
               render={({ field: f }) => (
                 <Dropdown
@@ -92,13 +92,13 @@ export const InvoiceLineItems = ({ control, errors }: InvoiceLineItemsProps) => 
                   filter
                   filterPlaceholder="Search products..."
                   loading={loadingProducts}
-                  className={classNames('w-full', { 'p-invalid': errors.lines?.[index]?.product_detail_id })}
+                  className={classNames('w-full', { 'p-invalid': errors.lines?.[index]?.product_master_id })}
                   aria-label={`Line ${index + 1} Product Detail`}
                 />
               )}
             />
-            {errors.lines?.[index]?.product_detail_id && (
-              <small className="p-error">{errors.lines[index]?.product_detail_id?.message}</small>
+            {errors.lines?.[index]?.product_master_id && (
+              <small className="p-error">{errors.lines[index]?.product_master_id?.message}</small>
             )}
           </div>
 

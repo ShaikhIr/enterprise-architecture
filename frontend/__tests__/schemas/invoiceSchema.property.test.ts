@@ -8,7 +8,7 @@
  * - vendor_id must be provided
  * - customer_id must be provided
  * - bill_amount_excl_gst must be a positive number
- * - lines must have at least 1 item with product_detail_id specified
+ * - lines must have at least 1 item with product_master_id specified
  *
  * **Validates: Requirements 9.5**
  */
@@ -33,10 +33,10 @@ const positiveNumber = () =>
 const nonPositiveNumber = () =>
   fc.double({ min: -999999999, max: 0, noNaN: true, noDefaultInfinity: true });
 
-// Valid invoice line with product_detail_id specified
+// Valid invoice line with product_master_id specified
 const validInvoiceLine = () =>
   fc.record({
-    product_detail_id: nonEmptyString(36),
+    product_master_id: nonEmptyString(36),
     quantity: fc.option(fc.nat({ max: 10000 }), { nil: undefined }),
     line_amount: fc.option(fc.double({ min: 0, max: 999999, noNaN: true, noDefaultInfinity: true }), { nil: undefined }),
     vat_gst_amount: fc.option(fc.double({ min: 0, max: 999999, noNaN: true, noDefaultInfinity: true }), { nil: undefined }),
@@ -62,7 +62,7 @@ describe('Property 8: Invoice schema validation — positive amounts and non-emp
    *
    * For any generated data with non-empty invoice_number, invoice_date, vendor_id,
    * customer_id, positive bill_amount_excl_gst, and at least 1 line item with
-   * product_detail_id, the schema must accept.
+   * product_master_id, the schema must accept.
    */
   it('accepts valid invoice form data with all required fields', () => {
     fc.assert(
@@ -244,9 +244,9 @@ describe('Property 8: Invoice schema validation — positive amounts and non-emp
   });
 
   /**
-   * Sub-property 8h: Schema rejects when line item has empty product_detail_id
+   * Sub-property 8h: Schema rejects when line item has empty product_master_id
    */
-  it('rejects when a line item has empty product_detail_id', () => {
+  it('rejects when a line item has empty product_master_id', () => {
     fc.assert(
       fc.property(
         nonEmptyString(100),
@@ -261,7 +261,7 @@ describe('Property 8: Invoice schema validation — positive amounts and non-emp
             vendor_id: vendorId,
             customer_id: customerId,
             bill_amount_excl_gst: amount,
-            lines: [{ product_detail_id: '' }],
+            lines: [{ product_master_id: '' }],
           };
           const result = invoiceCreateSchema.safeParse(data);
           expect(result.success).toBe(false);
@@ -292,7 +292,7 @@ describe('Property 8: Invoice schema validation — positive amounts and non-emp
           tds_value: fc.double({ min: 0, max: 999999, noNaN: true, noDefaultInfinity: true }),
           lines: fc.array(
             fc.record({
-              product_detail_id: nonEmptyString(36),
+              product_master_id: nonEmptyString(36),
               quantity: fc.nat({ max: 10000 }),
               line_amount: fc.double({ min: 0, max: 999999, noNaN: true, noDefaultInfinity: true }),
               vat_gst_amount: fc.double({ min: 0, max: 999999, noNaN: true, noDefaultInfinity: true }),

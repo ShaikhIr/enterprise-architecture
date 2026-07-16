@@ -6,15 +6,17 @@
  * Requirements: 2.4, 2.5, 2.6, 2.7, 2.8, 2.10, 14.5, 14.6
  */
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Dialog } from 'primereact/dialog';
 import { Button } from 'primereact/button';
 import { InputText } from 'primereact/inputtext';
+import { Dropdown } from 'primereact/dropdown';
 import { RadioButton } from 'primereact/radiobutton';
 import { entityCreateSchema, type EntityCreateFormData } from '../schemas/entitySchema';
 import { mapBackendErrors } from '../utils/errorUtils';
+import { workflowApi, type WorkflowDefinition } from '@features/workflow-admin/api/workflowApi';
 import type { Entity } from '../models/entity';
 
 interface EntityFormDialogProps {
@@ -34,6 +36,17 @@ export const EntityFormDialog = ({
 }: EntityFormDialogProps) => {
   const isEditMode = entity !== null;
 
+  const [workflowOptions, setWorkflowOptions] = useState<{ label: string; value: string }[]>([]);
+
+  useEffect(() => {
+    workflowApi.listDefinitions().then((res) => {
+      const defs = res.definitions || [];
+      setWorkflowOptions(
+        defs.filter((d) => d.is_active).map((d) => ({ label: `${d.name} (${d.code})`, value: d.id }))
+      );
+    }).catch(() => {});
+  }, []);
+
   const {
     register,
     handleSubmit,
@@ -48,6 +61,7 @@ export const EntityFormDialog = ({
       short_code: '',
       company_code: '',
       is_active: true,
+      workflow_definition_id: '',
     },
   });
 
@@ -60,6 +74,7 @@ export const EntityFormDialog = ({
           short_code: entity.short_code ?? '',
           company_code: entity.company_code ?? '',
           is_active: entity.is_active,
+          workflow_definition_id: entity.workflow_definition_id ?? '',
         });
       } else {
         reset({
@@ -67,6 +82,7 @@ export const EntityFormDialog = ({
           short_code: '',
           company_code: '',
           is_active: true,
+          workflow_definition_id: '',
         });
       }
     }
@@ -174,6 +190,30 @@ export const EntityFormDialog = ({
               {errors.company_code.message}
             </small>
           )}
+        </div>
+
+        {/* Approval Workflow */}
+        <div className="flex flex-column gap-2">
+          <label htmlFor="workflow_definition_id" className="font-medium">
+            Approval Workflow
+          </label>
+          <Controller
+            name="workflow_definition_id"
+            control={control}
+            render={({ field }) => (
+              <Dropdown
+                id="workflow_definition_id"
+                value={field.value}
+                options={workflowOptions}
+                onChange={(e) => field.onChange(e.value)}
+                placeholder="Select approval workflow..."
+                filter
+                showClear
+                className="w-full"
+                aria-label="Approval Workflow"
+              />
+            )}
+          />
         </div>
 
         {/* Status — Active / Inactive radio buttons (edit mode only) */}

@@ -111,7 +111,7 @@ class _FakeAgreementRepository:
     async def find_overlapping_active(
         self,
         vendor_id: UUID,
-        product_detail_id: UUID,
+        product_master_id: UUID,
         from_date: date,
         to_date: date,
         exclude_id: UUID | None = None,
@@ -155,10 +155,10 @@ async def _seed_invoice(
     """Create a fresh Open invoice to transition."""
     vendor_id = uuid4()
     customer_id = uuid4()
-    product_detail_id = uuid4()
+    product_master_id = uuid4()
     service._vendor_repo.existing.add(vendor_id)  # type: ignore[attr-defined]
     service._customer_repo.existing.add(customer_id)  # type: ignore[attr-defined]
-    service._product_repo.existing.add(product_detail_id)  # type: ignore[attr-defined]
+    service._product_repo.existing.add(product_master_id)  # type: ignore[attr-defined]
     return await service.create_invoice(
         InvoiceCreateInput(
             invoice_number="INV-001",
@@ -166,7 +166,7 @@ async def _seed_invoice(
             vendor_id=vendor_id,
             customer_id=customer_id,
             bill_amount_excl_gst=Decimal("100.00"),
-            lines=[InvoiceLineInput(product_detail_id=product_detail_id)],
+            lines=[InvoiceLineInput(product_master_id=product_master_id)],
         ),
         actor,
     )

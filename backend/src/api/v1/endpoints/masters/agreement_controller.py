@@ -175,7 +175,7 @@ async def create_agreement(
         agreement = await service.create_agreement(
             AgreementCreateInput(
                 vendor_id=request.vendor_id,
-                product_detail_id=request.product_detail_id,
+                product_master_id=request.product_master_id,
                 from_date=request.from_date,
                 to_date=request.to_date,
                 slab_in_days=request.slab_in_days,
@@ -257,7 +257,7 @@ async def renew_agreement(
                 from_date=request.from_date,
                 to_date=request.to_date,
                 vendor_id=request.vendor_id,
-                product_detail_id=request.product_detail_id,
+                product_master_id=request.product_master_id,
                 slab_in_days=request.slab_in_days,
                 reduction_percent=request.reduction_percent,
                 max_commission_percent=request.max_commission_percent,
@@ -309,7 +309,7 @@ def _to_update_input(
 
     return AgreementUpdateInput(
         vendor_id=or_unset(request.vendor_id),
-        product_detail_id=or_unset(request.product_detail_id),
+        product_master_id=or_unset(request.product_master_id),
         from_date=or_unset(request.from_date),
         to_date=or_unset(request.to_date),
         slab_in_days=or_unset(request.slab_in_days),

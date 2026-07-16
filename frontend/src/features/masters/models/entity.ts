@@ -6,6 +6,7 @@ export interface Entity {
   short_code: string | null;
   company_code: string | null;
   is_active: boolean;
+  workflow_definition_id: string | null;
   created_at: string;
   updated_at: string;
   created_by: string | null;
@@ -18,6 +19,7 @@ export interface CreateEntityRequest {
   entity_name: string;
   short_code?: string;
   company_code?: string;
+  workflow_definition_id?: string | null;
 }
 
 export interface UpdateEntityRequest {
@@ -25,9 +27,10 @@ export interface UpdateEntityRequest {
   short_code?: string;
   company_code?: string;
   is_active?: boolean;
+  workflow_definition_id?: string | null;
 }
 
 export interface EntityDropdownItem {
   id: string;
-  label: string; // "{Short Code} - {Entity Name}"
+  label: string; // "{Company Code} - {Entity Name}"
 }

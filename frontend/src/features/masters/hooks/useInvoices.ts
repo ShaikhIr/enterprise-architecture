@@ -5,11 +5,12 @@ import type { PaginatedParams } from '../models/common';
 
 const INVOICES_KEY = ['invoices'];
 
-export const useInvoices = (params: PaginatedParams) => {
+export const useInvoices = (params: PaginatedParams, options?: { enabled?: boolean }) => {
   return useQuery({
     queryKey: [...INVOICES_KEY, params],
     queryFn: () => invoiceApi.list(params),
     staleTime: 30_000,
+    enabled: options?.enabled ?? true,
   });
 };
 

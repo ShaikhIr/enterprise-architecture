@@ -13,7 +13,6 @@ import { InputNumber } from 'primereact/inputnumber';
 import { MultiSelect } from 'primereact/multiselect';
 import { Tag } from 'primereact/tag';
 import { Toast } from 'primereact/toast';
-import { Toolbar } from 'primereact/toolbar';
 import { apiClient } from '@shared/services/apiClient';
 import { workflowApi, type ApprovalMatrix } from '../api/workflowApi';
 
@@ -55,17 +54,26 @@ export const ApprovalMatrixPage = () => {
   // Roles and Users for dropdowns
   const [roleOptions, setRoleOptions] = useState<SelectOption[]>([]);
   const [userOptions, setUserOptions] = useState<SelectOption[]>([]);
+  const [workflowOptions, setWorkflowOptions] = useState<SelectOption[]>([]);
+  const [workflowEntityTypeMap, setWorkflowEntityTypeMap] = useState<Record<string, string>>({});
 
   useEffect(() => { loadData(); loadRolesAndUsers(); }, []);
 
   const loadRolesAndUsers = async () => {
     try {
-      const [rolesRes, usersRes] = await Promise.all([
+      const [rolesRes, usersRes, wfRes] = await Promise.all([
         apiClient.get<{ roles: { id: string; code: string; name: string }[] }>('/rbac/roles'),
         apiClient.get<{ users: { id: string; username: string }[] }>('/users?limit=500'),
+        workflowApi.listDefinitions(),
       ]);
       setRoleOptions(rolesRes.data.roles.map((r) => ({ label: `${r.name} (${r.code})`, value: r.id })));
       setUserOptions(usersRes.data.users.map((u) => ({ label: u.username, value: u.id })));
+      // Workflow definitions → dropdown options + entity_type lookup
+      const defs = wfRes.definitions || [];
+      setWorkflowOptions(defs.map((d) => ({ label: `${d.name} (${d.code})`, value: d.entity_type })));
+      const entityMap: Record<string, string> = {};
+      defs.forEach((d) => { entityMap[d.entity_type] = d.name; });
+      setWorkflowEntityTypeMap(entityMap);
     } catch {
       // Fallback — empty options
     }
@@ -168,17 +176,15 @@ export const ApprovalMatrixPage = () => {
       </div>
 
       <div className="surface-card p-3 border-round shadow-1">
-          <Toolbar className="mb-3" start={() => (
-            <div className="flex gap-2">
-              <Button label="New Matrix" icon="pi pi-plus" onClick={openCreate} />
-              <Button label="Refresh" icon="pi pi-refresh" severity="secondary" outlined onClick={loadData} />
-            </div>
-          )} />
+          <div className="flex gap-2 mb-3">
+            <Button label="New Matrix" icon="pi pi-plus" onClick={openCreate} />
+            <Button label="Refresh" icon="pi pi-refresh" severity="secondary" outlined onClick={loadData} />
+          </div>
 
           <DataTable value={matrices} loading={loading} stripedRows paginator rows={10} emptyMessage="No approval matrices defined">
             <Column field="code" header="Code" sortable />
             <Column field="name" header="Name" sortable />
-            <Column field="entity_type" header="Entity Type" />
+            <Column field="entity_type" header="Workflow" body={(row) => workflowEntityTypeMap[row.entity_type] ? `${workflowEntityTypeMap[row.entity_type]}` : row.entity_type} />
             <Column field="priority" header="Priority" />
             <Column header="Rules" body={rulesTemplate} />
             <Column header="Levels" body={levelsTemplate} />
@@ -211,8 +217,16 @@ export const ApprovalMatrixPage = () => {
               <InputText value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Amount Based Approval" />
             </div>
             <div className="col-6 flex flex-column gap-2">
-              <label className="font-medium">Entity Type</label>
-              <InputText value={form.entity_type} onChange={(e) => setForm({ ...form, entity_type: e.target.value })} placeholder="commission_claim" />
+              <label className="font-medium">Workflow</label>
+              <Dropdown
+                value={form.entity_type}
+                options={workflowOptions}
+                onChange={(e) => setForm({ ...form, entity_type: e.value })}
+                placeholder="Select a workflow"
+                filter
+                className="w-full"
+                disabled={isEditMode}
+              />
             </div>
             <div className="col-6 flex flex-column gap-2">
               <label className="font-medium">Priority</label>
@@ -228,10 +242,10 @@ export const ApprovalMatrixPage = () => {
             </div>
             {rules.map((rule, idx) => (
               <div key={idx} className="flex gap-2 mb-2 align-items-center">
-                <InputText value={rule.field} onChange={(e) => { const r = [...rules]; r[idx].field = e.target.value; setRules(r); }} placeholder="Field (e.g. amount)" className="flex-1" />
-                <Dropdown value={rule.operator} options={OPERATORS} onChange={(e) => { const r = [...rules]; r[idx].operator = e.value; setRules(r); }} className="w-8rem" />
-                <InputText value={rule.value} onChange={(e) => { const r = [...rules]; r[idx].value = e.target.value; setRules(r); }} placeholder="Value" className="flex-1" />
-                <Dropdown value={rule.data_type} options={DATA_TYPES} onChange={(e) => { const r = [...rules]; r[idx].data_type = e.value; setRules(r); }} className="w-7rem" />
+                <InputText value={rule.field} onChange={(e) => { const r = [...rules]; if (r[idx]) r[idx].field = e.target.value; setRules(r); }} placeholder="Field (e.g. amount)" className="flex-1" />
+                <Dropdown value={rule.operator} options={OPERATORS} onChange={(e) => { const r = [...rules]; if (r[idx]) r[idx].operator = e.value; setRules(r); }} className="w-8rem" />
+                <InputText value={rule.value} onChange={(e) => { const r = [...rules]; if (r[idx]) r[idx].value = e.target.value; setRules(r); }} placeholder="Value" className="flex-1" />
+                <Dropdown value={rule.data_type} options={DATA_TYPES} onChange={(e) => { const r = [...rules]; if (r[idx]) r[idx].data_type = e.value; setRules(r); }} className="w-7rem" />
                 <Button icon="pi pi-trash" rounded outlined severity="danger" size="small" onClick={() => removeRule(idx)} />
               </div>
             ))}
@@ -247,12 +261,12 @@ export const ApprovalMatrixPage = () => {
             {assignments.map((assign, idx) => (
               <div key={idx} className="flex gap-2 mb-2 align-items-center">
                 <Tag value={`L${assign.level}`} severity="info" />
-                <Dropdown value={assign.assignment_type} options={[{ label: 'Role', value: 'ROLE' }, { label: 'User', value: 'USER' }]} onChange={(e) => { const a = [...assignments]; a[idx].assignment_type = e.value; a[idx].user_ids = []; a[idx].role_ids = []; setAssignments(a); }} className="w-7rem" />
+                <Dropdown value={assign.assignment_type} options={[{ label: 'Role', value: 'ROLE' }, { label: 'User', value: 'USER' }]} onChange={(e) => { const a = [...assignments]; if (a[idx]) { a[idx].assignment_type = e.value; a[idx].user_ids = []; a[idx].role_ids = []; } setAssignments(a); }} className="w-7rem" />
                 {assign.assignment_type === 'ROLE' ? (
                   <MultiSelect
                     value={assign.role_ids}
                     options={roleOptions}
-                    onChange={(e) => { const a = [...assignments]; a[idx].role_ids = e.value; setAssignments(a); }}
+                    onChange={(e) => { const a = [...assignments]; if (a[idx]) a[idx].role_ids = e.value; setAssignments(a); }}
                     placeholder="Select roles"
                     display="chip"
                     filter
@@ -262,7 +276,7 @@ export const ApprovalMatrixPage = () => {
                   <MultiSelect
                     value={assign.user_ids}
                     options={userOptions}
-                    onChange={(e) => { const a = [...assignments]; a[idx].user_ids = e.value; setAssignments(a); }}
+                    onChange={(e) => { const a = [...assignments]; if (a[idx]) a[idx].user_ids = e.value; setAssignments(a); }}
                     placeholder="Select users"
                     display="chip"
                     filter

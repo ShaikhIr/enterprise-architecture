@@ -50,7 +50,7 @@ export const AgreementRenewalDialog = ({
     resolver: zodResolver(agreementCreateSchema),
     defaultValues: {
       vendor_id: '',
-      product_detail_id: '',
+      product_master_id: '',
       from_date: '',
       to_date: '',
       slab_in_days: 1,
@@ -67,7 +67,7 @@ export const AgreementRenewalDialog = ({
     if (visible && agreement) {
       reset({
         vendor_id: agreement.vendor_id,
-        product_detail_id: agreement.product_detail_id,
+        product_master_id: agreement.product_master_id,
         from_date: '',
         to_date: '',
         slab_in_days: agreement.slab_in_days,

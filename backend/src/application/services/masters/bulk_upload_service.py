@@ -374,7 +374,7 @@ class BulkUploadService:
         await self._agreement_service.create_agreement(
             AgreementCreateInput(
                 vendor_id=vendor_id,
-                product_detail_id=detail_id,
+                product_master_id=detail_id,
                 from_date=_parse_date("from_date", row.get("from_date")),
                 to_date=_parse_date("to_date", row.get("to_date")),
                 slab_in_days=_parse_int("slab_in_days", row.get("slab_in_days")),

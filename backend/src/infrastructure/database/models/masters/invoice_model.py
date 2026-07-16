@@ -40,6 +40,12 @@ class InvoiceHeaderModel(BaseModel):
         nullable=True,
         index=True,
     )
+    entity_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("entities.id"),
+        nullable=True,
+        index=True,
+    )
     bill_amount_excl_gst: Mapped[Decimal] = mapped_column(
         Numeric(14, 2), nullable=False
     )
@@ -81,7 +87,7 @@ class InvoiceLineModel(BaseModel):
         nullable=False,
         index=True,
     )
-    product_detail_id: Mapped[str] = mapped_column(
+    product_master_id: Mapped[str] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("product_master.id"),
         nullable=False,

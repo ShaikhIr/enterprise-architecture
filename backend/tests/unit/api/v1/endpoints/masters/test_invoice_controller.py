@@ -1,4 +1,4 @@
-"""
+﻿"""
 Unit tests for the Invoice Master controller.
 
 The controller is intentionally thin, so these tests exercise its real
@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timezone
 from decimal import Decimal
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
@@ -45,11 +46,21 @@ from src.domain.enums.masters import InvoiceStatus
 pytestmark = pytest.mark.asyncio
 
 
+def _mock_session():
+    """Return an AsyncMock session that returns no results for product lookup."""
+    session = AsyncMock()
+    # _build_product_lookup calls session.execute then scalar_one_or_none per product
+    result_mock = MagicMock()
+    result_mock.scalar_one_or_none.return_value = None  # product not found → skip
+    session.execute = AsyncMock(return_value=result_mock)
+    return session
+
+
 def _line(**overrides) -> InvoiceLineEntity:
     defaults = dict(
         id=uuid4(),
         invoice_header_id=uuid4(),
-        product_detail_id=uuid4(),
+        product_master_id=uuid4(),
         quantity=Decimal("2"),
         line_amount=Decimal("100.00"),
         vat_gst_amount=Decimal("18.00"),
@@ -127,9 +138,11 @@ class FakeInvoiceService:
         self.update_patch = patch
         return _invoice(id=invoice_id)
 
-    async def list_invoices(self, skip, limit):  # noqa: ANN001
+    async def list_invoices(self, skip, limit, **kwargs):  # noqa: ANN001
         self.list_args = (skip, limit)
-        return [_invoice(), _invoice(invoice_number="INV-002")], 2
+        # Return tuples matching controller: (entity, vendor_name, customer_name)
+        return [(_invoice(), "Vendor A", "Customer A"),
+                (_invoice(invoice_number="INV-002"), "Vendor B", "Customer B")], 2
 
     async def delete_invoice(self, invoice_id, actor):  # noqa: ANN001
         self.deleted_id = invoice_id
@@ -150,7 +163,7 @@ class FakeInvoiceService:
 
 async def test_list_maps_items_and_echoes_pagination() -> None:
     service = FakeInvoiceService()
-    result = await ctrl.list_invoices(skip=5, limit=10, service=service)
+    result = await ctrl.list_invoices(skip=5, limit=10, service=service, session=_mock_session())
     assert result.total == 2
     assert result.skip == 5
     assert result.limit == 10
@@ -174,18 +187,18 @@ async def test_create_maps_request_with_lines_to_input_and_response(
         bill_amount_excl_gst=Decimal("100.00"),
         lines=[
             InvoiceLineRequest(
-                product_detail_id=detail_id,
+                product_master_id=detail_id,
                 quantity=Decimal("2"),
                 line_amount=Decimal("100.00"),
             )
         ],
     )
     response = await ctrl.create_invoice(
-        request=request, current_user=actor, service=service
+        request=request, current_user=actor, service=service, session=_mock_session()
     )
     assert service.created_input.invoice_number == "INV-001"
     assert len(service.created_input.lines) == 1
-    assert service.created_input.lines[0].product_detail_id == detail_id
+    assert service.created_input.lines[0].product_master_id == detail_id
     # amount_deducted/tds default to None at the boundary; service applies 0.
     assert service.created_input.amount_deducted is None
     assert response.invoice_number == "INV-001"
@@ -202,7 +215,7 @@ async def test_create_duplicate_number_maps_to_409(actor: User) -> None:
         vendor_id=uuid4(),
         customer_id=uuid4(),
         bill_amount_excl_gst=Decimal("100.00"),
-        lines=[InvoiceLineRequest(product_detail_id=uuid4())],
+        lines=[InvoiceLineRequest(product_master_id=uuid4())],
     )
     with pytest.raises(HTTPException) as exc:
         await ctrl.create_invoice(
@@ -222,7 +235,7 @@ async def test_create_unknown_reference_maps_to_422(actor: User) -> None:
         vendor_id=uuid4(),
         customer_id=uuid4(),
         bill_amount_excl_gst=Decimal("100.00"),
-        lines=[InvoiceLineRequest(product_detail_id=uuid4())],
+        lines=[InvoiceLineRequest(product_master_id=uuid4())],
     )
     with pytest.raises(HTTPException) as exc:
         await ctrl.create_invoice(
@@ -251,6 +264,7 @@ async def test_update_translates_unset_for_omitted_fields(actor: User) -> None:
     request = UpdateInvoiceRequest(amount_deducted=Decimal("5.00"))
     await ctrl.update_invoice(
         invoice_id=uuid4(), request=request, current_user=actor, service=service
+    , session=_mock_session()
     )
     patch = service.update_patch
     assert patch.amount_deducted == Decimal("5.00")
@@ -267,6 +281,7 @@ async def test_update_preserves_explicit_null_for_nullable_due_date(
     request = UpdateInvoiceRequest(due_date=None)
     await ctrl.update_invoice(
         invoice_id=uuid4(), request=request, current_user=actor, service=service
+    , session=_mock_session()
     )
     patch = service.update_patch
     # Explicit null is preserved (not UNSET) so the service can clear the field.
@@ -282,6 +297,7 @@ async def test_update_explicit_null_required_field_treated_as_unset(
     request = UpdateInvoiceRequest(bill_amount_excl_gst=None)
     await ctrl.update_invoice(
         invoice_id=uuid4(), request=request, current_user=actor, service=service
+    , session=_mock_session()
     )
     assert service.update_patch.bill_amount_excl_gst is UNSET
 
@@ -313,6 +329,7 @@ async def test_sap_payment_forwards_path_id_and_returns_cleared(
     )
     response = await ctrl.record_sap_payment(
         invoice_id=iid, request=request, current_user=actor, service=service
+    , session=_mock_session()
     )
     assert service.sap_input.invoice_id == iid
     assert service.sap_input.sap_clearing_document_no == "SAP-123"
@@ -328,8 +345,9 @@ async def test_sap_payment_unknown_maps_to_404(actor: User) -> None:
     )
     with pytest.raises(HTTPException) as exc:
         await ctrl.record_sap_payment(
-            invoice_id=uuid4(), request=request, current_user=actor, service=service
-        )
+        invoice_id=uuid4(), request=request, current_user=actor, service=service
+        , session=_mock_session()
+    )
     assert exc.value.status_code == status.HTTP_404_NOT_FOUND
 
 
@@ -341,6 +359,7 @@ async def test_settle_returns_settled(actor: User) -> None:
     iid = uuid4()
     response = await ctrl.mark_settled(
         invoice_id=iid, current_user=actor, service=service
+    , session=_mock_session()
     )
     assert service.settled_id == iid
     assert response.invoice_status == "Settled"

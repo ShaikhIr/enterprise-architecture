@@ -17,6 +17,8 @@ from src.application.services.auth_service import AuthService
 from src.common.decorators.log_execution import log_execution
 from src.domain.entities.user import User
 from src.domain.repositories.user_repository import IUserRepository
+from sqlalchemy import select
+from src.infrastructure.database.models.masters.vendor_model import VendorModel
 from src.infrastructure.database.session import get_db_session
 from src.infrastructure.security.auth_manager import (
     AuthManager,
@@ -143,12 +145,22 @@ async def refresh_token(
     summary="Get current user info",
     description="Returns the authenticated user's profile (no password hash).",
 )
-async def get_me(current_user: User = Depends(get_current_active_user)) -> dict:
+async def get_me(
+    current_user: User = Depends(get_current_active_user),
+    session: AsyncSession = Depends(get_db_session),
+) -> dict:
     """GET /api/v1/auth/me"""
+    # Look up whether this user is linked to a vendor via portal_user_id
+    result = await session.execute(
+        select(VendorModel).where(VendorModel.portal_user_id == str(current_user.id))
+    )
+    vendor = result.scalar_one_or_none()
+
     return {
         "id": str(current_user.id),
         "username": current_user.username,
         "is_active": current_user.is_active,
+        "vendor_id": str(vendor.id) if vendor else None,
     }
 
 

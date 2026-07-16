@@ -192,7 +192,7 @@ class ClaimValidationService:
 
         active = await self._agreement_repo.find_overlapping_active(
             vendor_id=header.vendor_id,
-            product_detail_id=line.product_detail_id,
+            product_master_id=line.product_master_id,
             from_date=header.invoice_date,
             to_date=header.invoice_date,
         )
@@ -201,7 +201,7 @@ class ClaimValidationService:
 
         expired = await self._agreement_repo.exists_expired_for_vendor_and_detail(
             vendor_id=header.vendor_id,
-            product_detail_id=line.product_detail_id,
+            product_master_id=line.product_master_id,
             on_date=header.invoice_date,
         )
         if expired:

@@ -88,7 +88,7 @@ class _FakeAgreementRepository:
     async def find_overlapping_active(
         self,
         vendor_id: UUID,
-        product_detail_id: UUID,
+        product_master_id: UUID,
         from_date: date,
         to_date: date,
         exclude_id: UUID | None = None,
@@ -97,7 +97,7 @@ class _FakeAgreementRepository:
             a
             for a in self._agreements
             if a.vendor_id == vendor_id
-            and a.product_detail_id == product_detail_id
+            and a.product_master_id == product_master_id
             and a.status == AgreementStatus.Active
             and a.from_date is not None
             and a.to_date is not None
@@ -106,11 +106,11 @@ class _FakeAgreementRepository:
         ]
 
     async def exists_expired_for_vendor_and_detail(
-        self, vendor_id: UUID, product_detail_id: UUID, on_date: date
+        self, vendor_id: UUID, product_master_id: UUID, on_date: date
     ) -> bool:
         return any(
             a.vendor_id == vendor_id
-            and a.product_detail_id == product_detail_id
+            and a.product_master_id == product_master_id
             and a.to_date is not None
             and a.to_date < on_date
             for a in self._agreements
@@ -167,7 +167,7 @@ def _build_line(
     """Wire up one invoice line with each triangle check toggled and return its id."""
     vendor_id = uuid4()
     customer_id = uuid4()
-    product_detail_id = uuid4()
+    product_master_id = uuid4()
     header_id = uuid4()
     line_id = uuid4()
 
@@ -186,7 +186,7 @@ def _build_line(
     line = InvoiceLineEntity(
         id=line_id,
         invoice_header_id=header_id,
-        product_detail_id=product_detail_id,
+        product_master_id=product_master_id,
     )
     invoice_repo.add_header(
         InvoiceHeaderEntity(
@@ -205,7 +205,7 @@ def _build_line(
             AgreementEntity(
                 id=uuid4(),
                 vendor_id=vendor_id,
-                product_detail_id=product_detail_id,
+                product_master_id=product_master_id,
                 from_date=date(2024, 1, 1),
                 to_date=date(2024, 12, 31),
                 status=AgreementStatus.Active,

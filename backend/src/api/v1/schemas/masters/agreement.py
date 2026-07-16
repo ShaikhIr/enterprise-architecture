@@ -46,7 +46,7 @@ class AgreementCreateRequest(BaseModel):
     """
 
     vendor_id: UUID
-    product_detail_id: UUID
+    product_master_id: UUID
     from_date: date
     to_date: date
     slab_in_days: int | None = None
@@ -59,7 +59,7 @@ class AgreementCreateRequest(BaseModel):
     def as_form(
         cls,
         vendor_id: UUID = Form(...),
-        product_detail_id: UUID = Form(...),
+        product_master_id: UUID = Form(...),
         from_date: date = Form(...),
         to_date: date = Form(...),
         slab_in_days: int | None = Form(default=None),
@@ -71,7 +71,7 @@ class AgreementCreateRequest(BaseModel):
         """Bind ``multipart/form-data`` fields into an create request."""
         return cls(
             vendor_id=vendor_id,
-            product_detail_id=product_detail_id,
+            product_master_id=product_master_id,
             from_date=from_date,
             to_date=to_date,
             slab_in_days=slab_in_days,
@@ -92,7 +92,7 @@ class AgreementUpdateRequest(BaseModel):
     """
 
     vendor_id: UUID | None = None
-    product_detail_id: UUID | None = None
+    product_master_id: UUID | None = None
     from_date: date | None = None
     to_date: date | None = None
     slab_in_days: int | None = None
@@ -105,7 +105,7 @@ class AgreementUpdateRequest(BaseModel):
     def as_form(
         cls,
         vendor_id: UUID | None = Form(default=None),
-        product_detail_id: UUID | None = Form(default=None),
+        product_master_id: UUID | None = Form(default=None),
         from_date: date | None = Form(default=None),
         to_date: date | None = Form(default=None),
         slab_in_days: int | None = Form(default=None),
@@ -117,7 +117,7 @@ class AgreementUpdateRequest(BaseModel):
         """Bind ``multipart/form-data`` fields into an update request."""
         return cls(
             vendor_id=vendor_id,
-            product_detail_id=product_detail_id,
+            product_master_id=product_master_id,
             from_date=from_date,
             to_date=to_date,
             slab_in_days=slab_in_days,
@@ -131,7 +131,7 @@ class AgreementUpdateRequest(BaseModel):
 class AgreementRenewRequest(BaseModel):
     """Request body for renewing an Agreement (``multipart/form-data``).
 
-    ``vendor_id`` / ``product_detail_id`` are optional; when omitted the service
+    ``vendor_id`` / ``product_master_id`` are optional; when omitted the service
     inherits them from the prior Agreement. The renewal period (From/To) is
     required and the renewal record is validated like a create.
     """
@@ -139,7 +139,7 @@ class AgreementRenewRequest(BaseModel):
     from_date: date
     to_date: date
     vendor_id: UUID | None = None
-    product_detail_id: UUID | None = None
+    product_master_id: UUID | None = None
     slab_in_days: int | None = None
     reduction_percent: Decimal | None = None
     max_commission_percent: Decimal | None = None
@@ -152,7 +152,7 @@ class AgreementRenewRequest(BaseModel):
         from_date: date = Form(...),
         to_date: date = Form(...),
         vendor_id: UUID | None = Form(default=None),
-        product_detail_id: UUID | None = Form(default=None),
+        product_master_id: UUID | None = Form(default=None),
         slab_in_days: int | None = Form(default=None),
         reduction_percent: Decimal | None = Form(default=None),
         max_commission_percent: Decimal | None = Form(default=None),
@@ -164,7 +164,7 @@ class AgreementRenewRequest(BaseModel):
             from_date=from_date,
             to_date=to_date,
             vendor_id=vendor_id,
-            product_detail_id=product_detail_id,
+            product_master_id=product_master_id,
             slab_in_days=slab_in_days,
             reduction_percent=reduction_percent,
             max_commission_percent=max_commission_percent,
@@ -181,7 +181,7 @@ class AgreementResponse(BaseModel):
     id: UUID
     vendor_id: UUID | None
     vendor_name: str | None = None
-    product_detail_id: UUID | None
+    product_master_id: UUID | None
     product_detail_child_code: str | None = None
     product_detail_name: str | None = None
     from_date: date | None

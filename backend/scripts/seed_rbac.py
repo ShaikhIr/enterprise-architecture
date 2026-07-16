@@ -37,6 +37,13 @@ DEFAULT_PERMISSIONS = [
     {"code": "menu.settings", "name": "Settings Menu", "scope": "MENU", "resource": "settings", "action": "READ"},
     {"code": "menu.workflows", "name": "Workflows Menu", "scope": "MENU", "resource": "workflows", "action": "READ"},
 
+    # Commission Claim menu permissions
+    {"code": "menu.claims", "name": "Claims Menu", "scope": "MENU", "resource": "claims", "action": "READ"},
+    {"code": "menu.claims_draft", "name": "Claims Draft Tab", "scope": "MENU", "resource": "claims", "action": "READ"},
+    {"code": "menu.claims_pending", "name": "Claims Pending Tab", "scope": "MENU", "resource": "claims", "action": "READ"},
+    {"code": "menu.claims_closed", "name": "Claims Closed Tab", "scope": "MENU", "resource": "claims", "action": "READ"},
+    {"code": "menu.claims_mis", "name": "Claims MIS Menu", "scope": "MENU", "resource": "claims_mis", "action": "READ"},
+
     # Masters menu permissions — control visibility of masters sub-items
     {"code": "menu.entities", "name": "Entities Menu", "scope": "MENU", "resource": "entities", "action": "READ"},
     {"code": "menu.vendors", "name": "Vendors Menu", "scope": "MENU", "resource": "vendors", "action": "READ"},
@@ -80,6 +87,16 @@ DEFAULT_PERMISSIONS = [
     {"code": "invoice.create", "name": "Create Invoice", "scope": "API", "resource": "invoices", "action": "CREATE"},
     {"code": "invoice.update_payment", "name": "Update Invoice Payment", "scope": "API", "resource": "invoices", "action": "UPDATE"},
     {"code": "invoice.settle", "name": "Settle Invoice", "scope": "API", "resource": "invoices", "action": "EXECUTE"},
+
+    # Commission Claim API permissions
+    {"code": "claims.create", "name": "Create Claim", "scope": "API", "resource": "claims", "action": "CREATE"},
+    {"code": "claims.list", "name": "List Claims", "scope": "API", "resource": "claims", "action": "READ"},
+    {"code": "claims.view", "name": "View Claim Detail", "scope": "API", "resource": "claims", "action": "READ"},
+    {"code": "claims.submit", "name": "Submit Claim", "scope": "API", "resource": "claims", "action": "EXECUTE"},
+    {"code": "claims.approve", "name": "Approve Claim", "scope": "API", "resource": "claims", "action": "EXECUTE"},
+    {"code": "claims.reject", "name": "Reject Claim", "scope": "API", "resource": "claims", "action": "EXECUTE"},
+    {"code": "claims.refer_back", "name": "Refer Back Claim", "scope": "API", "resource": "claims", "action": "EXECUTE"},
+    {"code": "claims.export", "name": "Export Claims MIS", "scope": "API", "resource": "claims", "action": "EXPORT"},
 
     # API permissions — control endpoint access
     {"code": "users.list", "name": "List Users", "scope": "API", "resource": "users", "action": "READ"},
@@ -137,6 +154,10 @@ ROLE_PERMISSIONS = {
         "agreement.read", "agreement.create", "agreement.update", "agreement.bulk_upload",
         "mapping.read", "mapping.create", "mapping.update", "mapping.delete", "mapping.bulk_upload",
         "invoice.read", "invoice.create", "invoice.update_payment", "invoice.settle",
+        # Commission Claim permissions
+        "menu.claims", "menu.claims_mis",
+        "claims.create", "claims.list", "claims.view", "claims.submit",
+        "claims.approve", "claims.reject", "claims.refer_back", "claims.export",
     ],
     "MANAGER": [
         "menu.dashboard", "menu.users", "menu.reports", "menu.services",

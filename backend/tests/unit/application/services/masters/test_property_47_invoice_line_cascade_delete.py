@@ -208,7 +208,7 @@ def test_deleting_invoice_header_removes_its_lines(scenario: _Scenario) -> None:
                     customer_id=customer,
                     bill_amount_excl_gst=Decimal("100.00"),
                     lines=[
-                        InvoiceLineInput(product_detail_id=product)
+                        InvoiceLineInput(product_master_id=product)
                         for _ in range(n_lines)
                     ],
                 ),

@@ -20,6 +20,7 @@ import { classNames } from 'primereact/utils';
 import { invoiceCreateSchema, type InvoiceCreateFormData } from '../schemas/invoiceSchema';
 import { useVendors } from '../hooks/useVendors';
 import { useCustomers } from '../hooks/useCustomers';
+import { useEntityDropdown } from '../hooks/useEntities';
 import { InvoiceLineItems } from './InvoiceLineItems';
 
 interface InvoiceFormProps {
@@ -47,17 +48,19 @@ export const InvoiceForm = ({
       invoice_date: '',
       vendor_id: '',
       customer_id: '',
+      entity_id: '',
       bill_amount_excl_gst: undefined as unknown as number,
       bill_amount_incl_tax: undefined,
       amount_deducted: 0,
       tds_value: 0,
-      lines: [{ product_detail_id: '', quantity: undefined, line_amount: undefined, vat_gst_amount: undefined }],
+      lines: [{ product_master_id: '', quantity: undefined, line_amount: undefined, vat_gst_amount: undefined }],
     },
   });
 
   // Fetch vendors and customers for dropdowns
   const { data: vendorData, isLoading: loadingVendors } = useVendors({ skip: 0, limit: 500 });
   const { data: customerData, isLoading: loadingCustomers } = useCustomers({ skip: 0, limit: 500 });
+  const { data: entityDropdown, isLoading: loadingEntities } = useEntityDropdown();
 
   const vendorOptions = (vendorData?.items ?? []).map((v) => ({
     label: `${v.vendor_code} - ${v.vendor_name}`,
@@ -69,6 +72,11 @@ export const InvoiceForm = ({
     value: c.id,
   }));
 
+  const entityOptions = (entityDropdown ?? []).map((item) => ({
+    label: item.label,
+    value: item.id,
+  }));
+
   useEffect(() => {
     if (visible) {
       reset({
@@ -76,11 +84,12 @@ export const InvoiceForm = ({
         invoice_date: '',
         vendor_id: '',
         customer_id: '',
+        entity_id: '',
         bill_amount_excl_gst: undefined as unknown as number,
         bill_amount_incl_tax: undefined,
         amount_deducted: 0,
         tds_value: 0,
-        lines: [{ product_detail_id: '', quantity: undefined, line_amount: undefined, vat_gst_amount: undefined }],
+        lines: [{ product_master_id: '', quantity: undefined, line_amount: undefined, vat_gst_amount: undefined }],
       });
     }
   }, [visible, reset]);
@@ -225,6 +234,34 @@ export const InvoiceForm = ({
             />
             {errors.customer_id && (
               <small className="p-error">{errors.customer_id.message}</small>
+            )}
+          </div>
+
+          {/* Company / Entity */}
+          <div className="col-12 md:col-6 flex flex-column gap-1">
+            <label htmlFor="entity_id" className="font-medium">
+              Company <span className="text-red-500">*</span>
+            </label>
+            <Controller
+              name="entity_id"
+              control={control}
+              render={({ field }) => (
+                <Dropdown
+                  id="entity_id"
+                  value={field.value}
+                  onChange={(e) => field.onChange(e.value)}
+                  options={entityOptions}
+                  placeholder={loadingEntities ? 'Loading...' : 'Select company...'}
+                  filter
+                  filterPlaceholder="Search companies..."
+                  loading={loadingEntities}
+                  className={classNames('w-full', { 'p-invalid': errors.entity_id })}
+                  aria-label="Company"
+                />
+              )}
+            />
+            {errors.entity_id && (
+              <small className="p-error">{errors.entity_id.message}</small>
             )}
           </div>
 

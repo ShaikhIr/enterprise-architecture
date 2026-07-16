@@ -167,7 +167,7 @@ export const AgreementListPage = () => {
   const handleRenewalSubmit = useCallback(async (formData: AgreementCreateFormData) => {
     if (!renewingAgreement) return;
     try {
-      const { vendor_id, product_detail_id, ...renewalData } = formData;
+      const { vendor_id, product_master_id, ...renewalData } = formData;
       await renewAgreement.mutateAsync({
         id: renewingAgreement.id,
         request: renewalData,

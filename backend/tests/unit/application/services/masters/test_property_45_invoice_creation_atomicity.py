@@ -203,7 +203,7 @@ def test_invoice_creation_is_atomic_and_validated(req: _Request) -> None:
         )
         lines = [
             InvoiceLineInput(
-                product_detail_id=product if exists else uuid4()
+                product_master_id=product if exists else uuid4()
             )
             for exists in req.line_products_exist
         ]
@@ -260,6 +260,6 @@ def test_invoice_creation_is_atomic_and_validated(req: _Request) -> None:
             assert raised.field == "customer_id"
         elif not all(req.line_products_exist):
             assert isinstance(raised, MasterValidationError)
-            assert "product_detail_id" in raised.field
+            assert "product_master_id" in raised.field
         else:  # duplicate_number
             assert isinstance(raised, MasterConflictError)

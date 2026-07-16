@@ -23,13 +23,13 @@ class InvoiceLineEntity(BaseEntity):
 
     Business Rules:
     - Must belong to an existing Invoice Header (``invoice_header_id``).
-    - Must reference an existing Product Detail (``product_detail_id``).
+    - Must reference an existing Product Detail (``product_master_id``).
     - Quantity and amounts, when supplied, are non-negative (validated at the
       service level).
     """
 
     invoice_header_id: UUID | None = field(default=None)
-    product_detail_id: UUID | None = field(default=None)
+    product_master_id: UUID | None = field(default=None)
     quantity: Decimal | None = field(default=None)
     line_amount: Decimal | None = field(default=None)
     vat_gst_amount: Decimal | None = field(default=None)
@@ -54,6 +54,7 @@ class InvoiceHeaderEntity(BaseEntity):
     invoice_date: date | None = field(default=None)
     vendor_id: UUID | None = field(default=None)
     customer_id: UUID | None = field(default=None)
+    entity_id: UUID | None = field(default=None)
     bill_amount_excl_gst: Decimal = field(default=Decimal("0"))
     bill_amount_incl_tax: Decimal | None = field(default=None)
     amount_deducted: Decimal = field(default=Decimal("0"))

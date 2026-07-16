@@ -59,7 +59,7 @@ class FakeAgreementRepository(IAgreementRepository):
     async def find_overlapping_active(
         self,
         vendor_id: UUID,
-        product_detail_id: UUID,
+        product_master_id: UUID,
         from_date: date,
         to_date: date,
         exclude_id: UUID | None = None,
@@ -76,7 +76,7 @@ class FakeAgreementRepository(IAgreementRepository):
         ]
 
     async def exists_expired_for_vendor_and_detail(
-        self, vendor_id: UUID, product_detail_id: UUID, on_date: date
+        self, vendor_id: UUID, product_master_id: UUID, on_date: date
     ) -> bool:
         return False
 
@@ -105,7 +105,7 @@ def _make_agreement(to_date: date, status: AgreementStatus) -> AgreementEntity:
     return AgreementEntity(
         id=uuid4(),
         vendor_id=uuid4(),
-        product_detail_id=uuid4(),
+        product_master_id=uuid4(),
         from_date=date(2024, 1, 1),
         to_date=to_date,
         agreement_type=AgreementType.Original,

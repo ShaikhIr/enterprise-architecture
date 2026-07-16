@@ -26,7 +26,7 @@ class InvoiceLineResponse(BaseModel):
 
     id: UUID
     invoice_header_id: UUID | None = None
-    product_detail_id: UUID | None = None
+    product_master_id: UUID | None = None
     product_child_code: str | None = None
     product_name: str | None = None
     quantity: Decimal | None = None
@@ -48,7 +48,7 @@ class InvoiceLineResponse(BaseModel):
         return cls(
             id=entity.id,
             invoice_header_id=entity.invoice_header_id,
-            product_detail_id=entity.product_detail_id,
+            product_master_id=entity.product_master_id,
             product_child_code=product_child_code,
             product_name=product_name,
             quantity=entity.quantity,
@@ -71,6 +71,7 @@ class InvoiceResponse(BaseModel):
     vendor_name: str | None = None
     customer_id: UUID | None = None
     customer_name: str | None = None
+    entity_id: UUID | None = None
     bill_amount_excl_gst: Decimal
     bill_amount_incl_tax: Decimal | None = None
     amount_deducted: Decimal
@@ -97,7 +98,7 @@ class InvoiceResponse(BaseModel):
     ) -> "InvoiceResponse":
         """Build a response DTO from a domain :class:`InvoiceHeaderEntity`.
 
-        ``product_lookup`` maps product_detail_id (UUID) →
+        ``product_lookup`` maps product_master_id (UUID) →
         ``(child_code, product_name)`` tuple for denormalising line items.
         """
         status_value = entity.invoice_status.value
@@ -110,6 +111,7 @@ class InvoiceResponse(BaseModel):
             vendor_name=vendor_name,
             customer_id=entity.customer_id,
             customer_name=customer_name,
+            entity_id=entity.entity_id,
             bill_amount_excl_gst=entity.bill_amount_excl_gst,
             bill_amount_incl_tax=entity.bill_amount_incl_tax,
             amount_deducted=entity.amount_deducted,
@@ -122,8 +124,8 @@ class InvoiceResponse(BaseModel):
             lines=[
                 InvoiceLineResponse.from_entity(
                     line,
-                    product_child_code=lookup.get(line.product_detail_id, (None, None))[0],
-                    product_name=lookup.get(line.product_detail_id, (None, None))[1],
+                    product_child_code=lookup.get(line.product_master_id, (None, None))[0],
+                    product_name=lookup.get(line.product_master_id, (None, None))[1],
                 )
                 for line in entity.lines
             ],

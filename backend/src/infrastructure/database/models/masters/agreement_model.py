@@ -30,7 +30,7 @@ class AgreementModel(BaseModel):
         nullable=False,
         index=True,
     )
-    product_detail_id: Mapped[str] = mapped_column(
+    product_master_id: Mapped[str] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("product_master.id"),
         nullable=False,
@@ -67,7 +67,7 @@ class AgreementModel(BaseModel):
         Index(
             "ix_agreements_vendor_detail_status",
             "vendor_id",
-            "product_detail_id",
+            "product_master_id",
             "status",
         ),
     )

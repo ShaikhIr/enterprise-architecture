@@ -93,8 +93,60 @@ export const WorkflowBuilderPage = () => {
     return <Tag value="Normal" severity="success" />;
   };
 
+  // Edit transition
+  const [editingTransition, setEditingTransition] = useState<WorkflowTransition | null>(null);
+  const [showEditTransitionDialog, setShowEditTransitionDialog] = useState(false);
+  const [editTransitionForm, setEditTransitionForm] = useState({ from_status_id: '', to_status_id: '', action_code: '', requires_comment: false });
+
+  const openEditTransition = (t: WorkflowTransition) => {
+    setEditingTransition(t);
+    setEditTransitionForm({
+      from_status_id: t.from_status_id,
+      to_status_id: t.to_status_id,
+      action_code: t.action_code,
+      requires_comment: t.requires_comment,
+    });
+    setShowEditTransitionDialog(true);
+  };
+
+  const handleEditTransition = async () => {
+    if (!editingTransition) return;
+    try {
+      // Delete old and create new (no PATCH endpoint for transitions)
+      await workflowApi.deleteTransition(editingTransition.id);
+      await workflowApi.createTransition(definitionId!, editTransitionForm);
+      setShowEditTransitionDialog(false);
+      setEditingTransition(null);
+      toast.current?.show({ severity: 'success', summary: 'Updated', detail: 'Transition updated', life: 3000 });
+      loadData();
+    } catch (e: any) {
+      toast.current?.show({ severity: 'error', summary: 'Error', detail: e.response?.data?.detail || 'Failed', life: 5000 });
+    }
+  };
+
   const transitionActionsTemplate = (row: WorkflowTransition) => (
-    <Button icon="pi pi-trash" rounded outlined severity="danger" size="small" onClick={() => handleDeleteTransition(row.id)} tooltip="Delete" />
+    <div className="flex gap-2">
+      <Button
+        icon="pi pi-pencil"
+        rounded
+        text
+        severity="info"
+        size="small"
+        onClick={() => openEditTransition(row)}
+        tooltip="Edit"
+        tooltipOptions={{ position: 'top' }}
+      />
+      <Button
+        icon="pi pi-trash"
+        rounded
+        text
+        severity="danger"
+        size="small"
+        onClick={() => handleDeleteTransition(row.id)}
+        tooltip="Delete"
+        tooltipOptions={{ position: 'top' }}
+      />
+    </div>
   );
 
   if (loading) return <div className="p-3"><i className="pi pi-spin pi-spinner" /> Loading...</div>;
@@ -133,7 +185,7 @@ export const WorkflowBuilderPage = () => {
             <Column field="action_code" header="Action" />
             <Column header="To" body={(row) => <Tag value={getStatusName(row.to_status_id)} severity="success" />} />
             <Column field="requires_comment" header="Comment?" body={(row) => row.requires_comment ? 'Yes' : 'No'} />
-            <Column header="" body={transitionActionsTemplate} style={{ width: '4rem' }} />
+            <Column header="" body={transitionActionsTemplate} style={{ width: '6rem' }} />
           </DataTable>
       </div>
 
@@ -190,6 +242,33 @@ export const WorkflowBuilderPage = () => {
           </div>
           <div className="flex align-items-center gap-3">
             <InputSwitch checked={transitionForm.requires_comment} onChange={(e) => setTransitionForm({ ...transitionForm, requires_comment: e.value ?? false })} />
+            <label className="font-medium">Requires Comment</label>
+          </div>
+        </div>
+      </Dialog>
+
+      {/* Edit Transition Dialog */}
+      <Dialog header="Edit Transition" visible={showEditTransitionDialog} onHide={() => setShowEditTransitionDialog(false)} style={{ width: '450px' }} modal
+        footer={<div className="flex justify-content-end gap-2">
+          <Button label="Cancel" severity="secondary" text onClick={() => setShowEditTransitionDialog(false)} />
+          <Button label="Save" icon="pi pi-check" onClick={handleEditTransition} disabled={!editTransitionForm.from_status_id || !editTransitionForm.to_status_id || !editTransitionForm.action_code} />
+        </div>}
+      >
+        <div className="flex flex-column gap-3 mt-2">
+          <div className="flex flex-column gap-2">
+            <label className="font-medium">From Status</label>
+            <Dropdown value={editTransitionForm.from_status_id} options={statusOptions} onChange={(e) => setEditTransitionForm({ ...editTransitionForm, from_status_id: e.value })} placeholder="Select source state" className="w-full" />
+          </div>
+          <div className="flex flex-column gap-2">
+            <label className="font-medium">Action Code</label>
+            <InputText value={editTransitionForm.action_code} onChange={(e) => setEditTransitionForm({ ...editTransitionForm, action_code: e.target.value.toUpperCase().replace(/\s/g, '_') })} placeholder="e.g. APPROVE, REJECT" />
+          </div>
+          <div className="flex flex-column gap-2">
+            <label className="font-medium">To Status</label>
+            <Dropdown value={editTransitionForm.to_status_id} options={statusOptions} onChange={(e) => setEditTransitionForm({ ...editTransitionForm, to_status_id: e.value })} placeholder="Select target state" className="w-full" />
+          </div>
+          <div className="flex align-items-center gap-3">
+            <InputSwitch checked={editTransitionForm.requires_comment} onChange={(e) => setEditTransitionForm({ ...editTransitionForm, requires_comment: e.value ?? false })} />
             <label className="font-medium">Requires Comment</label>
           </div>
         </div>

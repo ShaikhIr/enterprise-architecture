@@ -44,7 +44,7 @@ def _agreement(**overrides) -> AgreementEntity:
     defaults = dict(
         id=uuid4(),
         vendor_id=uuid4(),
-        product_detail_id=uuid4(),
+        product_master_id=uuid4(),
         from_date=date(2025, 1, 1),
         to_date=date(2025, 12, 31),
         slab_in_days=30,
@@ -103,7 +103,7 @@ class FakeAgreementService:
         self.created_input = data
         return _agreement(
             vendor_id=data.vendor_id,
-            product_detail_id=data.product_detail_id,
+            product_master_id=data.product_master_id,
             agreement_document_ref=(
                 data.document.storage_ref if data.document else None
             ),
@@ -130,7 +130,9 @@ class FakeAgreementService:
 
     async def list_agreements(self, skip, limit, vendor_id=None):  # noqa: ANN001
         self.list_args = (skip, limit, vendor_id)
-        return [_agreement(), _agreement()], 2
+        # Return tuples matching controller unpacking: (entity, vendor_name, child_code, product_name)
+        return [(_agreement(), "Vendor A", "CHILD-1", "Product A"),
+                (_agreement(), "Vendor B", "CHILD-2", "Product B")], 2
 
     async def delete_agreement(self, agreement_id, actor):  # noqa: ANN001
         if self.raise_on_delete is not None:
@@ -141,7 +143,7 @@ class FakeAgreementService:
 def _create_request(**overrides) -> AgreementCreateRequest:
     defaults = dict(
         vendor_id=uuid4(),
-        product_detail_id=uuid4(),
+        product_master_id=uuid4(),
         from_date=date(2025, 1, 1),
         to_date=date(2025, 12, 31),
         slab_in_days=30,
@@ -186,7 +188,7 @@ async def test_create_maps_request_to_input_and_response(actor: User) -> None:
         request=request, document=None, current_user=actor, service=service
     )
     assert service.created_input.vendor_id == request.vendor_id
-    assert service.created_input.product_detail_id == request.product_detail_id
+    assert service.created_input.product_master_id == request.product_master_id
     assert service.created_input.document is None
     assert response.vendor_id == request.vendor_id
     assert response.status == AgreementStatus.Active
@@ -260,7 +262,7 @@ async def test_update_translates_unset_for_omitted_fields(actor: User) -> None:
     patch = service.update_patch
     assert patch.credit_days == 20
     assert patch.vendor_id is UNSET
-    assert patch.product_detail_id is UNSET
+    assert patch.product_master_id is UNSET
     assert patch.from_date is UNSET
     assert patch.to_date is UNSET
     assert patch.document is UNSET

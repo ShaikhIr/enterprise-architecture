@@ -88,6 +88,7 @@ class EntityCreateInput:
     short_code: str | None = None
     company_code: str | None = None
     is_active: bool | None = None
+    workflow_definition_id: UUID | None = None
 
 
 @dataclass(frozen=True)
@@ -104,6 +105,7 @@ class EntityUpdateInput:
     short_code: str | None | _UnsetType = UNSET
     company_code: str | None | _UnsetType = UNSET
     is_active: bool | _UnsetType = UNSET
+    workflow_definition_id: UUID | None | _UnsetType = UNSET
 
 
 @dataclass(frozen=True)
@@ -156,6 +158,7 @@ class EntityService:
             short_code=data.short_code,
             company_code=data.company_code,
             is_active=True if data.is_active is None else data.is_active,
+            workflow_definition_id=data.workflow_definition_id,
             created_by=actor.username,
             modified_by=actor.username,
         )
@@ -215,6 +218,9 @@ class EntityService:
 
         if not isinstance(patch.is_active, _UnsetType):
             entity.is_active = patch.is_active
+
+        if not isinstance(patch.workflow_definition_id, _UnsetType):
+            entity.workflow_definition_id = patch.workflow_definition_id
 
         entity.mark_modified(actor.username)
         return await self._entity_repo.update(entity)
@@ -296,9 +302,9 @@ class EntityService:
     @staticmethod
     def _format_label(entity: EntityEntity) -> str:
         """Build the dropdown label with ``Unknown`` substitution (Req 2.3, 2.4)."""
-        short = (
-            entity.short_code
-            if EntityService._has_value(entity.short_code)
+        code = (
+            entity.company_code
+            if EntityService._has_value(entity.company_code)
             else _UNKNOWN
         )
         name = (
@@ -306,4 +312,4 @@ class EntityService:
             if EntityService._has_value(entity.entity_name)
             else _UNKNOWN
         )
-        return f"{short}{_DROPDOWN_SEPARATOR}{name}"
+        return f"{code}{_DROPDOWN_SEPARATOR}{name}"

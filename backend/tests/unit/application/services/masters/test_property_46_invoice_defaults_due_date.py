@@ -107,7 +107,7 @@ class _FakeAgreementRepository:
     async def find_overlapping_active(
         self,
         vendor_id: UUID,
-        product_detail_id: UUID,
+        product_master_id: UUID,
         from_date: date,
         to_date: date,
         exclude_id: UUID | None = None,
@@ -116,7 +116,7 @@ class _FakeAgreementRepository:
             a
             for a in self._agreements
             if a.vendor_id == vendor_id
-            and a.product_detail_id == product_detail_id
+            and a.product_master_id == product_master_id
             and a.status == AgreementStatus.Active
             and a.from_date is not None
             and a.to_date is not None
@@ -190,8 +190,8 @@ def test_invoice_creation_defaults_and_due_date(scenario: _Scenario) -> None:
         vendor_repo.existing.add(vendor_id)
         customer_repo.existing.add(customer_id)
 
-        product_detail_ids = [uuid4() for _ in range(scenario.line_count)]
-        for pid in product_detail_ids:
+        product_master_ids = [uuid4() for _ in range(scenario.line_count)]
+        for pid in product_master_ids:
             product_repo.existing.add(pid)
 
         # An applicable agreement covers the first line's product detail and a
@@ -201,7 +201,7 @@ def test_invoice_creation_defaults_and_due_date(scenario: _Scenario) -> None:
                 AgreementEntity(
                     id=uuid4(),
                     vendor_id=vendor_id,
-                    product_detail_id=product_detail_ids[0],
+                    product_master_id=product_master_ids[0],
                     from_date=scenario.invoice_date - timedelta(days=1),
                     to_date=scenario.invoice_date + timedelta(days=1),
                     credit_days=scenario.applicable_credit_days,
@@ -227,8 +227,8 @@ def test_invoice_creation_defaults_and_due_date(scenario: _Scenario) -> None:
                 customer_id=customer_id,
                 bill_amount_excl_gst=scenario.bill_amount_excl_gst,
                 lines=[
-                    InvoiceLineInput(product_detail_id=pid)
-                    for pid in product_detail_ids
+                    InvoiceLineInput(product_master_id=pid)
+                    for pid in product_master_ids
                 ],
                 due_date=scenario.supplied_due_date,
                 # amount_deducted / tds_value intentionally omitted to exercise

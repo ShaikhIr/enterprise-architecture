@@ -3,7 +3,8 @@ SQLAlchemy ORM model for the Entity (legal company) master.
 Maps the ``EntityEntity`` domain entity to the 'entities' database table.
 """
 
-from sqlalchemy import Boolean, Index, String, func
+from sqlalchemy import Boolean, ForeignKey, Index, String, func
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.infrastructure.database.models.base_model import BaseModel
@@ -18,6 +19,11 @@ class EntityModel(BaseModel):
     short_code: Mapped[str | None] = mapped_column(String(50), nullable=True)
     company_code: Mapped[str | None] = mapped_column(String(50), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    workflow_definition_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("workflow_definitions.id"),
+        nullable=True,
+    )
 
     __table_args__ = (
         # Trimmed, case-insensitive uniqueness on entity_name.

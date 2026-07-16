@@ -53,7 +53,7 @@ class IAgreementRepository(ABC):
     async def find_overlapping_active(
         self,
         vendor_id: UUID,
-        product_detail_id: UUID,
+        product_master_id: UUID,
         from_date: date,
         to_date: date,
         exclude_id: UUID | None = None,
@@ -76,7 +76,7 @@ class IAgreementRepository(ABC):
 
     @abstractmethod
     async def exists_expired_for_vendor_and_detail(
-        self, vendor_id: UUID, product_detail_id: UUID, on_date: date
+        self, vendor_id: UUID, product_master_id: UUID, on_date: date
     ) -> bool:
         """
         Return ``True`` when an Agreement for the given Vendor and Product Detail

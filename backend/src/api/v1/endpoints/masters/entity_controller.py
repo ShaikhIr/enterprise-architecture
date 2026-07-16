@@ -128,6 +128,7 @@ async def create_entity(
                 short_code=request.short_code,
                 company_code=request.company_code,
                 is_active=request.is_active,
+                workflow_definition_id=request.workflow_definition_id,
             ),
             actor=current_user,
         )
@@ -173,6 +174,7 @@ async def update_entity(
         short_code=request.short_code if "short_code" in fields_set else UNSET,
         company_code=request.company_code if "company_code" in fields_set else UNSET,
         is_active=request.is_active if "is_active" in fields_set else UNSET,
+        workflow_definition_id=request.workflow_definition_id if "workflow_definition_id" in fields_set else UNSET,
     )
     try:
         entity = await service.update_entity(

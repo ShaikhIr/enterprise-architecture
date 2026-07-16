@@ -99,7 +99,7 @@ class FakeAgreementRepository(IAgreementRepository):
     async def find_overlapping_active(
         self,
         vendor_id: UUID,
-        product_detail_id: UUID,
+        product_master_id: UUID,
         from_date: date,
         to_date: date,
         exclude_id: UUID | None = None,
@@ -108,7 +108,7 @@ class FakeAgreementRepository(IAgreementRepository):
             a
             for a in self.store.values()
             if a.vendor_id == vendor_id
-            and a.product_detail_id == product_detail_id
+            and a.product_master_id == product_master_id
             and a.status == AgreementStatus.Active
             and a.id != exclude_id
             and a.from_date <= to_date
@@ -123,11 +123,11 @@ class FakeAgreementRepository(IAgreementRepository):
         ]
 
     async def exists_expired_for_vendor_and_detail(
-        self, vendor_id: UUID, product_detail_id: UUID, on_date: date
+        self, vendor_id: UUID, product_master_id: UUID, on_date: date
     ) -> bool:
         return any(
             a.vendor_id == vendor_id
-            and a.product_detail_id == product_detail_id
+            and a.product_master_id == product_master_id
             and a.to_date < on_date
             for a in self.store.values()
         )
@@ -190,7 +190,7 @@ def _valid_overrides(vendor_id: UUID, detail_id: UUID) -> dict[str, object]:
     """A fully valid create payload as a kwargs dict."""
     return dict(
         vendor_id=vendor_id,
-        product_detail_id=detail_id,
+        product_master_id=detail_id,
         from_date=_FROM,
         to_date=_TO,
         slab_in_days=30,
@@ -265,9 +265,9 @@ def _invalid_cases(draw: st.DrawFn) -> InvalidCase:
     if rule == "nonexistent_vendor":
         return InvalidCase(rule, "vendor_id", {"vendor_id": uuid4()})
     if rule == "missing_detail":
-        return InvalidCase(rule, "product_detail_id", {"product_detail_id": None})
+        return InvalidCase(rule, "product_master_id", {"product_master_id": None})
     if rule == "nonexistent_detail":
-        return InvalidCase(rule, "product_detail_id", {"product_detail_id": uuid4()})
+        return InvalidCase(rule, "product_master_id", {"product_master_id": uuid4()})
     if rule == "from_after_to":
         # Draw a strictly-decreasing (from > to) pair.
         to_d = draw(st.dates(min_value=date(2000, 1, 2), max_value=date(2099, 12, 30)))
@@ -380,7 +380,7 @@ async def _assert_update_rejected(case: InvalidCase) -> None:
     # The stored record is unchanged (no partial mutation persisted).
     stored = repo.store[seeded.id]
     assert stored.vendor_id == before.vendor_id
-    assert stored.product_detail_id == before.product_detail_id
+    assert stored.product_master_id == before.product_master_id
     assert stored.from_date == before.from_date
     assert stored.to_date == before.to_date
     assert stored.slab_in_days == before.slab_in_days
