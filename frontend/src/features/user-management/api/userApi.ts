@@ -4,6 +4,8 @@
  */
 
 import { apiClient } from '@shared/services/apiClient';
+import { fetchAllPages } from '@shared/utils/fetchAllPages';
+
 import type {
   CreateUserRequest,
   ImportEmployeesResponse,
@@ -20,6 +22,19 @@ export const userApi = {
     });
     return data;
   },
+
+  /**
+   * The whole directory, for resolving ids to names.
+   *
+   * There are more users than the endpoint's 500-row page, so a lookup built from a
+   * single request would fail to name anyone past the first page — and would do it
+   * silently, showing an empty dropdown rather than an error.
+   */
+  listAllUsers: async (): Promise<User[]> =>
+    fetchAllPages<User>(async (skip, limit) => {
+      const page = await userApi.listUsers(skip, limit);
+      return { items: page.users, total: page.total };
+    }),
 
   getUserById: async (userId: string): Promise<User> => {
     const { data } = await apiClient.get<User>(`/users/${userId}`);
@@ -42,10 +57,9 @@ export const userApi = {
   },
 
   importEmployees: async (employeeIds: string[]): Promise<ImportEmployeesResponse> => {
-    const { data } = await apiClient.post<ImportEmployeesResponse>(
-      '/users/import-employees',
-      { employee_ids: employeeIds }
-    );
+    const { data } = await apiClient.post<ImportEmployeesResponse>('/users/import-employees', {
+      employee_ids: employeeIds,
+    });
     return data;
   },
 };

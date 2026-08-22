@@ -3,11 +3,12 @@
  * Wraps the app with all necessary providers.
  */
 
-import { Provider } from 'react-redux';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { PrimeReactProvider } from 'primereact/api';
-import { store } from '@app/store';
+import { Provider } from 'react-redux';
+
 import { AppRouter } from '@app/router/AppRouter';
+import { store } from '@app/store';
 
 // TanStack Query client
 const queryClient = new QueryClient({

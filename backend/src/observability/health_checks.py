@@ -1,1 +1,1 @@
-﻿# Health check endpoints (liveness, readiness, startup)
+# Health check endpoints (liveness, readiness, startup)

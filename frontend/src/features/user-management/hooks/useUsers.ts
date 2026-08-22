@@ -4,6 +4,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
 import { userApi } from '../api/userApi';
 import type { CreateUserRequest, UpdateUserRequest } from '../models/User';
 
@@ -16,6 +17,19 @@ export const useUsers = (skip = 0, limit = 100) => {
     staleTime: 30_000, // 30 seconds
   });
 };
+
+/**
+ * The whole directory, for turning user ids into names.
+ *
+ * Separate from `useUsers` so the paged table and the name lookup do not share a
+ * cache entry: the table wants one page, a lookup wants all of them.
+ */
+export const useAllUsers = () =>
+  useQuery({
+    queryKey: [...USERS_QUERY_KEY, 'all'],
+    queryFn: () => userApi.listAllUsers(),
+    staleTime: 30_000,
+  });
 
 export const useUser = (userId: string) => {
   return useQuery({

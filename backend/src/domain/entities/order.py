@@ -1,1 +1,0 @@
-﻿# Order entity - aggregate root

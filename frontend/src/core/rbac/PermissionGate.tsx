@@ -4,7 +4,9 @@
  */
 
 import React from 'react';
-import { useMenuPermission, useHasPermission, useFieldPermissions } from './usePermissions';
+
+import type { PermissionAction } from './types';
+import { useCan, useMenuPermission, useHasPermission, useFieldPermissions } from './usePermissions';
 
 interface PermissionGateProps {
   /** The permission code required to render children */
@@ -32,6 +34,38 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
   return <>{hasPermission ? children : fallback}</>;
 };
 
+interface ActionGateProps {
+  /** Resource name as the backend authorises it, e.g. "countries" */
+  resource: string;
+  /** Required action on that resource */
+  action: PermissionAction;
+  children: React.ReactNode;
+  fallback?: React.ReactNode;
+}
+
+/**
+ * Renders children only if the user holds an API permission for the
+ * (resource, action) pair — the same pair `require_api_permission` checks.
+ *
+ * Preferred over `PermissionGate` for create/edit/delete controls: it matches how
+ * the endpoint authorises, instead of assuming the permission code is named
+ * `resource.action`.
+ *
+ * @example
+ * <ActionGate resource="countries" action="CREATE">
+ *   <Button label="New Country" />
+ * </ActionGate>
+ */
+export const ActionGate: React.FC<ActionGateProps> = ({
+  resource,
+  action,
+  children,
+  fallback = null,
+}) => {
+  const allowed = useCan(resource, action);
+  return <>{allowed ? children : fallback}</>;
+};
+
 interface MenuGateProps {
   /** The menu key required to render children */
   menuKey: string;
@@ -47,11 +81,7 @@ interface MenuGateProps {
  *   <NavItem to="/users" label="Users" />
  * </MenuGate>
  */
-export const MenuGate: React.FC<MenuGateProps> = ({
-  menuKey,
-  children,
-  fallback = null,
-}) => {
+export const MenuGate: React.FC<MenuGateProps> = ({ menuKey, children, fallback = null }) => {
   const { canAccess, isLoaded } = useMenuPermission(menuKey);
 
   if (!isLoaded) return null; // Loading state

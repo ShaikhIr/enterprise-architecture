@@ -1,9 +1,10 @@
-﻿"""
+"""
 JWT token creation, validation, and decoding.
 Handles access tokens and refresh tokens with configurable expiry.
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
+from typing import Any
 from uuid import UUID
 
 import jwt
@@ -40,7 +41,7 @@ class JWTProvider:
 
     def create_access_token(self, username: str, user_id: UUID) -> str:
         """Generate an access token with short-lived expiry."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         payload = {
             "sub": username,
             "user_id": str(user_id),
@@ -52,7 +53,7 @@ class JWTProvider:
 
     def create_refresh_token(self, username: str, user_id: UUID) -> str:
         """Generate a refresh token with longer expiry."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         payload = {
             "sub": username,
             "user_id": str(user_id),
@@ -92,12 +93,15 @@ class JWTProvider:
             sub=payload["sub"],
             user_id=payload["user_id"],
             token_type=payload["token_type"],
-            iat=datetime.fromtimestamp(payload["iat"], tz=timezone.utc),
-            exp=datetime.fromtimestamp(payload["exp"], tz=timezone.utc),
+            iat=datetime.fromtimestamp(payload["iat"], tz=UTC),
+            exp=datetime.fromtimestamp(payload["exp"], tz=UTC),
         )
 
-    def decode_token(self, token: str) -> dict:
+    def decode_token(self, token: str) -> dict[str, Any]:
         """Decode a token without type validation. Returns raw payload dict."""
-        return jwt.decode(
+        # jwt.decode is typed as returning Any; bind it so the declared return
+        # type is actually enforced rather than silently widened.
+        payload: dict[str, Any] = jwt.decode(
             token, self._secret_key, algorithms=[self._algorithm]
         )
+        return payload

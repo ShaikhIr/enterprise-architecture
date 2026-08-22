@@ -12,19 +12,19 @@ from src.observability.correlation import (
 class TestCorrelationId:
     """Correlation ID context management tests."""
 
-    def test_generate_correlation_id_is_uuid(self):
+    def test_generate_correlation_id_is_uuid(self) -> None:
         """Generated correlation ID should be a valid UUID string."""
         cid = generate_correlation_id()
         assert isinstance(cid, str)
         assert len(cid) == 36  # UUID format: 8-4-4-4-12
 
-    def test_set_and_get_correlation_id(self):
+    def test_set_and_get_correlation_id(self) -> None:
         """Setting a correlation ID should be retrievable."""
         test_id = "test-correlation-123"
         set_correlation_id(test_id)
         assert get_correlation_id() == test_id
 
-    def test_correlation_id_propagation(self):
+    def test_correlation_id_propagation(self) -> None:
         """Correlation ID should persist within the same context."""
         cid = generate_correlation_id()
         set_correlation_id(cid)
@@ -33,7 +33,7 @@ class TestCorrelationId:
         retrieved = get_correlation_id()
         assert retrieved == cid
 
-    def test_different_generations_are_unique(self):
+    def test_different_generations_are_unique(self) -> None:
         """Each generated ID should be unique."""
         id1 = generate_correlation_id()
         id2 = generate_correlation_id()

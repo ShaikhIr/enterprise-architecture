@@ -1,11 +1,13 @@
-﻿"""
+"""
 SQLAlchemy ORM model for the UserDetails entity.
 Maps to the 'user_details' table. One-to-one with users table.
 """
 
+import uuid
+
 from sqlalchemy import ForeignKey, String
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column
 
 from src.infrastructure.database.models.base_model import BaseModel
 
@@ -15,7 +17,7 @@ class UserDetailsModel(BaseModel):
 
     __tablename__ = "user_details"
 
-    user_id: Mapped[str] = mapped_column(
+    user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="CASCADE"),
         unique=True,

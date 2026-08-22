@@ -1,5 +1,5 @@
 ---
-inclusion: auto
+inclusion: always
 ---
 
 # Frontend UI Standard — Sakai + PrimeReact + Emcure Theme

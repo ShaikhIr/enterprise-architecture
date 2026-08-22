@@ -1,4 +1,4 @@
-﻿"""Azure AD / Microsoft SSO integration adapter."""
+"""Azure AD / Microsoft SSO integration adapter."""
 
 from src.infrastructure.external.azure_sso.azure_client import (
     AzureAuthError,

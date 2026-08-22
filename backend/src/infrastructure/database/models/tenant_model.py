@@ -1,4 +1,4 @@
-﻿"""
+"""
 SQLAlchemy ORM model for the Tenant entity.
 """
 

@@ -9,21 +9,18 @@ Usage:
 import asyncio
 from uuid import uuid4
 
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from src.infrastructure.database.models.user_model import UserModel
-from src.infrastructure.database.session import async_session_factory
+from src.infrastructure.database.unit_of_work import UnitOfWork
 from src.infrastructure.security.password_encoder import hash_password
 
 
 async def seed_admin_user() -> None:
     """Create default admin user if not exists."""
-    async with async_session_factory() as session:
-        # Check if admin exists
-        from sqlalchemy import select
-
+    async with UnitOfWork() as uow:
         stmt = select(UserModel).where(UserModel.username == "admin")
-        result = await session.execute(stmt)
+        result = await uow.session.execute(stmt)
         existing = result.scalar_one_or_none()
 
         if existing:
@@ -37,12 +34,11 @@ async def seed_admin_user() -> None:
             is_active=True,
             is_blocked=False,
             is_validate_ad=False,
-            role="ADMIN",
             created_by="seed_script",
             modified_by="seed_script",
         )
-        session.add(admin)
-        await session.commit()
+        uow.session.add(admin)
+        await uow.commit()
         print(f"Admin user created: username=admin, id={admin.id}")
 
 

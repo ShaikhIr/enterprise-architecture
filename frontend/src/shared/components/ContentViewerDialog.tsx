@@ -14,8 +14,9 @@
  */
 
 import React, { useMemo } from 'react';
-import { Dialog } from 'primereact/dialog';
+
 import { Button } from 'primereact/button';
+import { Dialog } from 'primereact/dialog';
 
 export type ContentType = 'json' | 'text' | 'pdf' | 'html';
 
@@ -158,17 +159,19 @@ interface JsonViewerProps {
 const JsonViewer: React.FC<JsonViewerProps> = ({ content }) => {
   // Simple syntax highlighting for JSON
   const highlighted = useMemo(() => {
-    return content
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      // Strings (keys and values)
-      .replace(/"([^"]+)"(?=\s*:)/g, '<span style="color:#9C27B0">"$1"</span>')  // keys
-      .replace(/:\s*"([^"]*)"/g, ': <span style="color:#2E7D32">"$1"</span>')     // string values
-      // Numbers
-      .replace(/:\s*(\d+\.?\d*)/g, ': <span style="color:#1565C0">$1</span>')
-      // Booleans & null
-      .replace(/:\s*(true|false|null)/g, ': <span style="color:#E65100">$1</span>');
+    return (
+      content
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        // Strings (keys and values)
+        .replace(/"([^"]+)"(?=\s*:)/g, '<span style="color:#9C27B0">"$1"</span>') // keys
+        .replace(/:\s*"([^"]*)"/g, ': <span style="color:#2E7D32">"$1"</span>') // string values
+        // Numbers
+        .replace(/:\s*(\d+\.?\d*)/g, ': <span style="color:#1565C0">$1</span>')
+        // Booleans & null
+        .replace(/:\s*(true|false|null)/g, ': <span style="color:#E65100">$1</span>')
+    );
   }, [content]);
 
   return (

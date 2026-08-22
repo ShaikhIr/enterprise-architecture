@@ -1,4 +1,4 @@
-﻿"""
+"""
 OAuth2/OIDC provider integration (Azure AD).
 
 This module re-exports the Azure SSO client for convenience.

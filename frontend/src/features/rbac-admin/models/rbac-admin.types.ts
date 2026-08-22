@@ -59,6 +59,25 @@ export interface PermissionGrantRequest {
   permission_id: string;
 }
 
+/** One user-to-role grant. Mirrors the backend's RoleAssignmentResponse. */
+export interface RoleAssignment {
+  id: string;
+  user_id: string;
+  role_id: string;
+  tenant_id: string | null;
+  is_active: boolean;
+  created_date: string;
+}
+
+/**
+ * The acknowledgement the grant and revoke endpoints return.
+ *
+ * They answer with a loose dictionary rather than a schema — the operation either
+ * succeeded or raised — so this stays deliberately open. Callers act on the absence of a
+ * thrown error, not on the body.
+ */
+export type RbacAck = Record<string, unknown>;
+
 export interface AuditLogEntry {
   id: string;
   actor_id: string | null;

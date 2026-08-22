@@ -1,10 +1,9 @@
-﻿"""
+"""
 User domain entity.
 Contains business logic and invariants for user management.
 """
 
 from dataclasses import dataclass, field
-from uuid import UUID
 
 from src.domain.entities.base_entity import BaseEntity
 

@@ -1,121 +1,176 @@
 /**
- * Workflow Definitions list page.
- * Create and view workflow definitions.
+ * Workflow definitions list.
+ * Create and manage workflows; the builder for a single workflow lives on its own
+ * route so the state machine has room to breathe.
  */
-import { useEffect, useRef, useState } from 'react';
+
+import { useRef, useState } from 'react';
+
 import { Button } from 'primereact/button';
-import { Column } from 'primereact/column';
-import { DataTable } from 'primereact/datatable';
-import { Dialog } from 'primereact/dialog';
-import { InputText } from 'primereact/inputtext';
-import { InputTextarea } from 'primereact/inputtextarea';
-import { Tag } from 'primereact/tag';
+import { ConfirmDialog, confirmDialog } from 'primereact/confirmdialog';
 import { Toast } from 'primereact/toast';
-import { Toolbar } from 'primereact/toolbar';
 import { useNavigate } from 'react-router-dom';
-import { workflowApi, type WorkflowDefinition } from '../api/workflowApi';
+
+import { useCan } from '@core/rbac';
+
+import { extractApiError } from '@shared/utils/apiError';
+
+import { WorkflowDefinitionForm } from '../components/WorkflowDefinitionForm';
+import { WorkflowDefinitionTable } from '../components/WorkflowDefinitionTable';
+import {
+  useCreateWorkflowDefinition,
+  useDeleteWorkflowDefinition,
+  useUpdateWorkflowDefinition,
+  useWorkflowDefinitions,
+} from '../hooks/useWorkflows';
+import type { CreateWorkflowDefinitionRequest, WorkflowDefinition } from '../models/Workflow';
 
 export const WorkflowDefinitionsPage = () => {
-  const toast = useRef<Toast>(null);
   const navigate = useNavigate();
-  const [definitions, setDefinitions] = useState<WorkflowDefinition[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showCreate, setShowCreate] = useState(false);
-  const [form, setForm] = useState({ code: '', name: '', description: '', entity_type: '' });
+  const toast = useRef<Toast>(null);
+  const [showDialog, setShowDialog] = useState(false);
+  const [editing, setEditing] = useState<WorkflowDefinition | null>(null);
 
-  useEffect(() => { loadData(); }, []);
+  // Designing a workflow is a different grant from running one, so the buttons are
+  // gated on the same (resource, action) pairs the endpoints authorise on.
+  const canCreate = useCan('workflows', 'CREATE');
+  const canUpdate = useCan('workflows', 'UPDATE');
+  const canDelete = useCan('workflows', 'DELETE');
+  const canViewMatrices = useCan('approval_matrices', 'READ');
 
-  const loadData = async () => {
-    setLoading(true);
+  const { data, isLoading, refetch, isRefetching } = useWorkflowDefinitions();
+  const createMutation = useCreateWorkflowDefinition();
+  const updateMutation = useUpdateWorkflowDefinition();
+  const deleteMutation = useDeleteWorkflowDefinition();
+
+  const notifyError = (error: unknown, fallback: string) => {
+    toast.current?.show({
+      severity: 'error',
+      summary: 'Error',
+      detail: extractApiError(error, fallback),
+      life: 6000,
+    });
+  };
+
+  const notifySuccess = (summary: string, detail: string) => {
+    toast.current?.show({ severity: 'success', summary, detail, life: 3000 });
+  };
+
+  const openCreate = () => {
+    setEditing(null);
+    setShowDialog(true);
+  };
+
+  const openEdit = (definition: WorkflowDefinition) => {
+    setEditing(definition);
+    setShowDialog(true);
+  };
+
+  const handleSubmit = async (formData: CreateWorkflowDefinitionRequest) => {
     try {
-      const data = await workflowApi.listDefinitions();
-      setDefinitions(data.definitions);
-    } catch (e: any) {
-      toast.current?.show({ severity: 'error', summary: 'Error', detail: e.response?.data?.detail || 'Failed to load', life: 5000 });
-    } finally {
-      setLoading(false);
+      if (editing) {
+        // `code` is immutable after creation, so it is not sent on update.
+        const { code: _code, ...changes } = formData;
+        await updateMutation.mutateAsync({
+          definitionId: editing.id,
+          request: changes,
+        });
+        notifySuccess('Updated', `Workflow '${editing.code}' updated`);
+      } else {
+        await createMutation.mutateAsync(formData);
+        notifySuccess('Created', `Workflow '${formData.code}' created`);
+      }
+      setShowDialog(false);
+      setEditing(null);
+    } catch (error) {
+      notifyError(error, 'Failed to save the workflow');
     }
   };
 
-  const handleCreate = async () => {
-    try {
-      await workflowApi.createDefinition(form);
-      setShowCreate(false);
-      setForm({ code: '', name: '', description: '', entity_type: '' });
-      toast.current?.show({ severity: 'success', summary: 'Created', detail: `Workflow '${form.code}' created`, life: 3000 });
-      loadData();
-    } catch (e: any) {
-      toast.current?.show({ severity: 'error', summary: 'Error', detail: e.response?.data?.detail || 'Failed', life: 5000 });
-    }
+  const handleDelete = (definition: WorkflowDefinition) => {
+    confirmDialog({
+      header: 'Delete workflow',
+      message: `Delete '${definition.name}'? Its states and transitions go with it. Workflows with instances cannot be deleted — deactivate them instead.`,
+      icon: 'pi pi-exclamation-triangle',
+      acceptLabel: 'Delete',
+      acceptClassName: 'p-button-danger',
+      rejectLabel: 'Cancel',
+      accept: async () => {
+        try {
+          await deleteMutation.mutateAsync(definition.id);
+          notifySuccess('Deleted', `Workflow '${definition.code}' deleted`);
+        } catch (error) {
+          notifyError(error, 'Failed to delete the workflow');
+        }
+      },
+    });
   };
-
-  const statusTemplate = (row: WorkflowDefinition) => (
-    <Tag value={row.is_active ? 'Active' : 'Inactive'} severity={row.is_active ? 'success' : 'danger'} />
-  );
-
-  const actionsTemplate = (row: WorkflowDefinition) => (
-    <Button
-      icon="pi pi-cog"
-      rounded
-      outlined
-      severity="info"
-      size="small"
-      tooltip="Configure"
-      onClick={() => navigate(`/workflow-builder/${row.id}`)}
-    />
-  );
 
   return (
-    <div className="p-3">
+    <div className="p-4">
       <Toast ref={toast} />
-      <div className="mb-3">
-        <h2 className="text-xl font-semibold text-900 m-0">Workflow Definitions</h2>
-        <p className="text-600 mt-1 mb-0">Define and manage approval workflows</p>
-      </div>
+      <ConfirmDialog />
 
-      <div className="surface-card p-3 border-round shadow-1">
-        <Toolbar className="mb-3" start={() => (
-          <div className="flex gap-2">
-            <Button label="New Workflow" icon="pi pi-plus" onClick={() => setShowCreate(true)} />
-            <Button label="Refresh" icon="pi pi-refresh" severity="secondary" outlined onClick={loadData} />
-          </div>
-        )} />
-
-        <DataTable value={definitions} loading={loading} stripedRows paginator rows={10} emptyMessage="No workflows defined">
-          <Column field="code" header="Code" sortable />
-          <Column field="name" header="Name" sortable />
-          <Column field="entity_type" header="Entity Type" sortable />
-          <Column field="version" header="Version" />
-          <Column header="Status" body={statusTemplate} />
-          <Column header="Actions" body={actionsTemplate} style={{ width: '5rem' }} />
-        </DataTable>
-      </div>
-
-      <Dialog header="Create Workflow" visible={showCreate} onHide={() => setShowCreate(false)} style={{ width: '450px' }} modal
-        footer={<div className="flex justify-content-end gap-2">
-          <Button label="Cancel" severity="secondary" text onClick={() => setShowCreate(false)} />
-          <Button label="Create" icon="pi pi-check" onClick={handleCreate} disabled={!form.code || !form.name || !form.entity_type} />
-        </div>}
-      >
-        <div className="flex flex-column gap-3 mt-2">
-          <div className="flex flex-column gap-2">
-            <label className="font-medium">Code</label>
-            <InputText value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase().replace(/\s/g, '_') })} placeholder="e.g. COMMISSION_CLAIM" />
-          </div>
-          <div className="flex flex-column gap-2">
-            <label className="font-medium">Name</label>
-            <InputText value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Commission Claim Approval" />
-          </div>
-          <div className="flex flex-column gap-2">
-            <label className="font-medium">Entity Type</label>
-            <InputText value={form.entity_type} onChange={(e) => setForm({ ...form, entity_type: e.target.value })} placeholder="e.g. commission_claim" />
-          </div>
-          <div className="flex flex-column gap-2">
-            <label className="font-medium">Description</label>
-            <InputTextarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} />
-          </div>
+      <div className="flex align-items-center justify-content-between mb-4 flex-wrap gap-3">
+        <div>
+          <h2 className="text-2xl font-semibold text-900 m-0">Workflows</h2>
+          <p className="text-600 mt-1 mb-0">
+            Define the approval flows that govern compliance records
+          </p>
         </div>
-      </Dialog>
+        <div className="flex gap-2">
+          {canViewMatrices && (
+            <Button
+              label="Approval Matrix"
+              icon="pi pi-check-square"
+              severity="secondary"
+              outlined
+              onClick={() => navigate('/approval-matrix')}
+              aria-label="Go to approval matrix"
+            />
+          )}
+          <Button
+            label="Refresh"
+            icon="pi pi-refresh"
+            severity="secondary"
+            outlined
+            loading={isRefetching}
+            onClick={() => refetch()}
+            aria-label="Refresh workflows"
+          />
+          {canCreate && (
+            <Button
+              label="New Workflow"
+              icon="pi pi-plus"
+              onClick={openCreate}
+              aria-label="Create new workflow"
+            />
+          )}
+        </div>
+      </div>
+
+      <div className="surface-card p-4 border-round shadow-1">
+        <WorkflowDefinitionTable
+          definitions={data?.definitions ?? []}
+          loading={isLoading}
+          canUpdate={canUpdate}
+          canDelete={canDelete}
+          onConfigure={(definition) => navigate(`/workflows/${definition.id}`)}
+          onEdit={openEdit}
+          onDelete={handleDelete}
+        />
+      </div>
+
+      <WorkflowDefinitionForm
+        visible={showDialog}
+        definition={editing}
+        loading={createMutation.isPending || updateMutation.isPending}
+        onHide={() => {
+          setShowDialog(false);
+          setEditing(null);
+        }}
+        onSubmit={handleSubmit}
+      />
     </div>
   );
 };

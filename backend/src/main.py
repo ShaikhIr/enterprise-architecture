@@ -1,13 +1,15 @@
-﻿"""
+"""
 FastAPI application entry point.
 Configures middleware, routers, CORS, and OpenAPI documentation.
 """
 
-from contextlib import asynccontextmanager
 from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
+from typing import Any
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.utils import get_openapi
 
 from src.api.middleware.audit_context_middleware import AuditContextMiddleware
 from src.api.middleware.correlation_id import CorrelationIdMiddleware
@@ -32,17 +34,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
-    description="Enterprise-grade FastAPI application with Clean Architecture",
+    description=(
+        "Enterprise Architecture API — enterprise-grade "
+        "FastAPI with Clean Architecture"
+    ),
     docs_url="/docs",
     redoc_url="/redoc",
     lifespan=lifespan,
 )
 
 # ─── OpenAPI Security Scheme (enables Swagger Authorize button) ───
-from fastapi.openapi.utils import get_openapi
 
 
-def custom_openapi():
+def custom_openapi() -> dict[str, Any]:
     if app.openapi_schema:
         return app.openapi_schema
     openapi_schema = get_openapi(
@@ -68,7 +72,9 @@ def custom_openapi():
     return app.openapi_schema
 
 
-app.openapi = custom_openapi
+# Overriding the bound method is the documented way to customise FastAPI's
+# schema; mypy flags method assignment, so the override is narrowly silenced.
+app.openapi = custom_openapi  # type: ignore[method-assign]
 
 # ─── Middleware (order matters: outermost first) ───
 app.add_middleware(ExceptionHandlerMiddleware)
@@ -88,7 +94,7 @@ app.include_router(api_v1_router)
 
 
 @app.get("/", tags=["Root"])
-async def root() -> dict:
+async def root() -> dict[str, Any]:
     """Root endpoint - application info."""
     return {
         "app": settings.APP_NAME,

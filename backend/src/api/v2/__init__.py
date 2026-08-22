@@ -1,1 +1,1 @@
-﻿# API v2 - future version placeholder
+# API v2 - future version placeholder

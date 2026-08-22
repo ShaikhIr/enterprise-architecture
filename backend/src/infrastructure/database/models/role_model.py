@@ -1,6 +1,8 @@
-﻿"""
+"""
 SQLAlchemy ORM models for Role, Permission, and their associations.
 """
+
+import uuid
 
 from sqlalchemy import Boolean, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import UUID
@@ -43,13 +45,13 @@ class RoleModel(BaseModel):
     description: Mapped[str] = mapped_column(Text, default="", nullable=False)
     is_system: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    tenant_id: Mapped[str | None] = mapped_column(
+    tenant_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("tenants.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
     )
-    parent_role_id: Mapped[str | None] = mapped_column(
+    parent_role_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("roles.id", ondelete="SET NULL"),
         nullable=True,
@@ -69,13 +71,13 @@ class RolePermissionModel(BaseModel):
 
     __tablename__ = "role_permissions"
 
-    role_id: Mapped[str] = mapped_column(
+    role_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("roles.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
-    permission_id: Mapped[str] = mapped_column(
+    permission_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("permissions.id", ondelete="CASCADE"),
         nullable=False,
@@ -88,19 +90,19 @@ class RoleAssignmentModel(BaseModel):
 
     __tablename__ = "role_assignments"
 
-    user_id: Mapped[str] = mapped_column(
+    user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
-    role_id: Mapped[str] = mapped_column(
+    role_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("roles.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
-    tenant_id: Mapped[str | None] = mapped_column(
+    tenant_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("tenants.id", ondelete="SET NULL"),
         nullable=True,

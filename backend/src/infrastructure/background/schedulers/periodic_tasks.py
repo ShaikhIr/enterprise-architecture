@@ -1,1 +1,1 @@
-﻿# Celery Beat periodic task scheduling
+# Celery Beat periodic task scheduling

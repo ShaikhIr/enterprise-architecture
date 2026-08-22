@@ -1,1 +1,0 @@
-﻿# Specifications - composable business rules

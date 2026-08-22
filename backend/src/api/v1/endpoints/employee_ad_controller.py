@@ -1,4 +1,4 @@
-﻿"""
+"""
 Employee AD Service endpoints.
 Proxies requests to the Darwin AD integrator service.
 
@@ -12,13 +12,15 @@ Endpoints (matching Darwin OpenAPI spec):
 Protected: ADMIN role required.
 """
 
+from typing import Any, NoReturn
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from src.infrastructure.external.employee_ad.employee_ad_client import (
+    EmployeeADAuthError,
     EmployeeADClient,
     EmployeeADError,
-    EmployeeADAuthError,
     EmployeeADUnavailableError,
 )
 from src.infrastructure.security.permission_manager import require_permission
@@ -46,7 +48,7 @@ class GetSelectedEmployeesRequest(BaseModel):
     employee_ids: list[str] = Field(..., description="List of employee IDs to fetch")
 
 
-def _raise_for_darwin_error(exc: EmployeeADError) -> None:
+def _raise_for_darwin_error(exc: EmployeeADError) -> NoReturn:
     """Map Darwin client exceptions to HTTP responses."""
     if isinstance(exc, EmployeeADAuthError):
         raise HTTPException(status_code=401, detail=exc.detail)
@@ -56,7 +58,7 @@ def _raise_for_darwin_error(exc: EmployeeADError) -> None:
 
 
 @router.get("/health", summary="Check Employee AD service reachability")
-async def check_health() -> dict:
+async def check_health() -> dict[str, Any]:
     """
     Verify whether the Darwin AD service is reachable.
     """
@@ -70,7 +72,9 @@ async def check_health() -> dict:
 
 
 @router.post("/validate-credentials", summary="Validate employee AD credentials")
-async def validate_credentials(request: ValidateCredentialsRequest) -> dict:
+async def validate_credentials(
+    request: ValidateCredentialsRequest,
+) -> dict[str, Any]:
     """
     POST /validatecredentials — Validate employee AD credentials via Darwin.
     """
@@ -89,7 +93,9 @@ async def validate_credentials(request: ValidateCredentialsRequest) -> dict:
 
 
 @router.post("/selected-employees", summary="Get selected employees by IDs")
-async def get_selected_employees(request: GetSelectedEmployeesRequest) -> dict:
+async def get_selected_employees(
+    request: GetSelectedEmployeesRequest,
+) -> dict[str, Any]:
     """
     POST /getselectedemployees — Fetch employee records by IDs (multipart/form-data to Darwin).
     """
@@ -101,7 +107,7 @@ async def get_selected_employees(request: GetSelectedEmployeesRequest) -> dict:
 
 
 @router.get("/employees", summary="Get all employees")
-async def get_employees() -> dict:
+async def get_employees() -> dict[str, Any]:
     """
     GET /getemployees — Fetch all employee records from Darwin.
     """
@@ -113,7 +119,7 @@ async def get_employees() -> dict:
 
 
 @router.get("/hierarchy", summary="Get hierarchy data")
-async def get_hierarchy_data() -> dict:
+async def get_hierarchy_data() -> dict[str, Any]:
     """
     GET /getHierarchyData — Fetch hierarchy data from Darwin.
     """

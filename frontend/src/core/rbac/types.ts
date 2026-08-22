@@ -4,7 +4,15 @@
  */
 
 export type PermissionScope = 'MENU' | 'API' | 'FIELD';
-export type PermissionAction = 'CREATE' | 'READ' | 'UPDATE' | 'DELETE' | 'EXECUTE' | 'EXPORT' | 'IMPORT' | 'APPROVE';
+export type PermissionAction =
+  | 'CREATE'
+  | 'READ'
+  | 'UPDATE'
+  | 'DELETE'
+  | 'EXECUTE'
+  | 'EXPORT'
+  | 'IMPORT'
+  | 'APPROVE';
 
 export interface Permission {
   id: string;
@@ -31,6 +39,20 @@ export interface Role {
 
 export interface MenuPermissionsResponse {
   menu_keys: string[];
+  permissions: Permission[];
+}
+
+/**
+ * The caller's API-scope grants, used to hide controls they could not use.
+ *
+ * Both shapes are returned because both are needed: `codes` gates a control by
+ * permission code, `resource_actions` gates it by the (resource, action) pair the
+ * endpoints actually authorise on. Neither is derivable from the other without
+ * assuming a naming convention nothing enforces.
+ */
+export interface ApiPermissionsResponse {
+  codes: string[];
+  resource_actions: Record<string, PermissionAction[]>;
   permissions: Permission[];
 }
 

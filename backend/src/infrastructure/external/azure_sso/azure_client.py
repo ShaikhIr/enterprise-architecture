@@ -1,4 +1,4 @@
-﻿"""
+"""
 Azure AD / Microsoft SSO integration client.
 
 Handles:
@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import logging
 import urllib.parse
+from typing import Any
 
 from src.config.settings import settings
 
@@ -46,7 +47,7 @@ class AzureSsoClient:
         self._client_id = settings.AZURE_CLIENT_ID
         self._client_secret = settings.AZURE_CLIENT_SECRET
         self._tenant_id = settings.AZURE_TENANT_ID
-        self._redirect_uri = settings.AZURE_REDIRECT_URI or "http://localhost:3000/auth/microsoft/callback"
+        self._redirect_uri = settings.AZURE_REDIRECT_URI or "http://localhost:6769/auth/microsoft/callback"
 
     @property
     def is_configured(self) -> bool:
@@ -76,7 +77,7 @@ class AzureSsoClient:
         auth_url = base_url + "?" + urllib.parse.urlencode(params)
         return auth_url, self._redirect_uri
 
-    async def exchange_code_for_profile(self, code: str) -> dict:
+    async def exchange_code_for_profile(self, code: str) -> dict[str, Any]:
         """
         Exchange an authorization code for tokens and return the Microsoft Graph profile.
 
@@ -120,7 +121,8 @@ class AzureSsoClient:
                     headers={"Authorization": f"Bearer {ms_access_token}"},
                 )
                 graph_resp.raise_for_status()
-                return graph_resp.json()
+                profile: dict[str, Any] = graph_resp.json()
+                return profile
 
         except AzureTokenMissingError:
             raise

@@ -1,1 +1,1 @@
-﻿# Date/time utilities
+# Date/time utilities

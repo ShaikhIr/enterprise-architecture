@@ -1,4 +1,4 @@
-﻿"""
+"""
 User repository implementation (Adapter).
 Implements the IUserRepository using SQLAlchemy async.
 """

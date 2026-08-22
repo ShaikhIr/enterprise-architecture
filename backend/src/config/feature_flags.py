@@ -1,1 +1,1 @@
-﻿# Feature flag management
+# Feature flag management

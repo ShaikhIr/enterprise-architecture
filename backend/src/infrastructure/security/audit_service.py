@@ -1,4 +1,4 @@
-﻿"""
+"""
 Audit logging service.
 Records all security-relevant operations to the audit_logs table.
 Designed to be non-blocking — audit failures do not break business flows.
@@ -6,11 +6,12 @@ Designed to be non-blocking — audit failures do not break business flows.
 
 import json
 import logging
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.domain.entities.audit_log import AuditAction, AuditLog
+from src.domain.entities.audit_log import AuditAction
 from src.infrastructure.database.models.audit_log_model import AuditLogModel
 
 logger = logging.getLogger(__name__)
@@ -37,11 +38,11 @@ class AuditService:
         resource_type: str,
         resource_id: str = "",
         tenant_id: UUID | None = None,
-        old_value: dict | None = None,
-        new_value: dict | None = None,
+        old_value: dict[str, Any] | None = None,
+        new_value: dict[str, Any] | None = None,
         ip_address: str = "",
         user_agent: str = "",
-        metadata: dict | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """
         Write a single audit log entry.
@@ -50,13 +51,15 @@ class AuditService:
         to avoid disrupting the calling business operation.
         """
         try:
+            # actor_id and tenant_id are UUID(as_uuid=True) columns: pass the
+            # UUID through rather than str(), or asyncpg rejects the parameter.
             entry = AuditLogModel(
-                actor_id=str(actor_id) if actor_id else None,
+                actor_id=actor_id,
                 actor_username=actor_username,
                 action=str(action),
                 resource_type=resource_type,
                 resource_id=str(resource_id),
-                tenant_id=str(tenant_id) if tenant_id else None,
+                tenant_id=tenant_id,
                 old_value=json.dumps(old_value) if old_value else None,
                 new_value=json.dumps(new_value) if new_value else None,
                 ip_address=ip_address,

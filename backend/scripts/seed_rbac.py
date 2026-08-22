@@ -3,7 +3,7 @@ Seed script for RBAC permissions.
 Populates default menu, API, and field-level permissions.
 Run via: python -m scripts.seed_rbac
 
-This is idempotent — re-running will skip existing permissions.
+This is idempotent - re-running will skip existing permissions.
 """
 
 import asyncio
@@ -15,7 +15,7 @@ from uuid import uuid4
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from sqlalchemy import select
-from src.infrastructure.database.session import async_session_factory
+
 from src.infrastructure.database.models.role_model import (
     PermissionModel,
     RoleAssignmentModel,
@@ -23,81 +23,199 @@ from src.infrastructure.database.models.role_model import (
     RolePermissionModel,
 )
 from src.infrastructure.database.models.user_model import UserModel
+from src.infrastructure.database.unit_of_work import UnitOfWork
 
-# ─── Default Permission Definitions ───
+# --- Default Permission Definitions ---
 
-DEFAULT_PERMISSIONS = [
-    # Menu permissions — control sidebar/navigation visibility
-    {"code": "menu.dashboard", "name": "Dashboard Menu", "scope": "MENU", "resource": "dashboard", "action": "READ"},
-    {"code": "menu.users", "name": "Users Menu", "scope": "MENU", "resource": "users", "action": "READ"},
-    {"code": "menu.roles", "name": "Roles Menu", "scope": "MENU", "resource": "roles", "action": "READ"},
-    {"code": "menu.audit_logs", "name": "Audit Logs Menu", "scope": "MENU", "resource": "audit_logs", "action": "READ"},
-    {"code": "menu.services", "name": "Services Menu", "scope": "MENU", "resource": "services", "action": "READ"},
-    {"code": "menu.reports", "name": "Reports Menu", "scope": "MENU", "resource": "reports", "action": "READ"},
-    {"code": "menu.settings", "name": "Settings Menu", "scope": "MENU", "resource": "settings", "action": "READ"},
-    {"code": "menu.workflows", "name": "Workflows Menu", "scope": "MENU", "resource": "workflows", "action": "READ"},
+# Permission table - one row per line so it reads as a table rather than as
+# 50-plus wrapped dict literals.
+# Columns: (code, scope, resource, action, name)
+_PERMISSION_TABLE = [
+    # Menu permissions - control sidebar/navigation visibility
+    ("menu.dashboard", "MENU", "dashboard", "READ", "Dashboard Menu"),
+    ("menu.users", "MENU", "users", "READ", "Users Menu"),
+    ("menu.roles", "MENU", "roles", "READ", "Roles Menu"),
+    ("menu.audit_logs", "MENU", "audit_logs", "READ", "Audit Logs Menu"),
+    ("menu.services", "MENU", "services", "READ", "Services Menu"),
+    ("menu.workflows", "MENU", "workflows", "READ", "Workflows Menu"),
 
-    # API permissions — control endpoint access
-    {"code": "users.list", "name": "List Users", "scope": "API", "resource": "users", "action": "READ"},
-    {"code": "users.create", "name": "Create User", "scope": "API", "resource": "users", "action": "CREATE"},
-    {"code": "users.update", "name": "Update User", "scope": "API", "resource": "users", "action": "UPDATE"},
-    {"code": "users.delete", "name": "Delete User", "scope": "API", "resource": "users", "action": "DELETE"},
-    {"code": "users.export", "name": "Export Users", "scope": "API", "resource": "users", "action": "EXPORT"},
-    {"code": "users.import", "name": "Import Users", "scope": "API", "resource": "users", "action": "IMPORT"},
-    {"code": "roles.list", "name": "List Roles", "scope": "API", "resource": "roles", "action": "READ"},
-    {"code": "roles.create", "name": "Create Role", "scope": "API", "resource": "roles", "action": "CREATE"},
-    {"code": "roles.update", "name": "Update Role", "scope": "API", "resource": "roles", "action": "UPDATE"},
-    {"code": "roles.assign", "name": "Assign Roles", "scope": "API", "resource": "roles", "action": "EXECUTE"},
-    {"code": "audit.read", "name": "View Audit Logs", "scope": "API", "resource": "audit_logs", "action": "READ"},
-    {"code": "reports.export", "name": "Export Reports", "scope": "API", "resource": "reports", "action": "EXPORT"},
+    # Masters navigation - `masters` gates the section as a whole, and each
+    # `masters.<x>` gates one screen within it. Both are required to reach a
+    # screen, so revoking `menu.masters` hides the section outright while
+    # revoking one child hides just that screen.
+    #
+    # The dotted resource is what nests these under a single "Masters" folder on
+    # the RBAC screen, which groups by the first segment of the resource.
+    ("menu.masters", "MENU", "masters", "READ", "Masters Menu"),
+    ("menu.masters.countries", "MENU", "masters.countries", "READ", "Countries Menu"),
+    ("menu.masters.states", "MENU", "masters.states", "READ", "States Menu"),
+    (
+        "menu.masters.categories_of_law",
+        "MENU",
+        "masters.categories_of_law",
+        "READ",
+        "Categories of Law Menu",
+    ),
+    (
+        "menu.masters.legislations",
+        "MENU",
+        "masters.legislations",
+        "READ",
+        "Legislations Menu",
+    ),
+    ("menu.masters.rules", "MENU", "masters.rules", "READ", "Rules Menu"),
+    ("menu.masters.task_types", "MENU", "masters.task_types", "READ", "Task Types Menu"),
 
-    # RBAC management permissions — granular control over roles & permissions CRUD
-    {"code": "rbac.read", "name": "View Roles & Permissions", "scope": "API", "resource": "rbac", "action": "READ"},
-    {"code": "rbac.create", "name": "Create Roles & Permissions", "scope": "API", "resource": "rbac", "action": "CREATE"},
-    {"code": "rbac.update", "name": "Update Roles & Permissions", "scope": "API", "resource": "rbac", "action": "UPDATE"},
+    # API permissions - control endpoint access
+    ("users.list", "API", "users", "READ", "List Users"),
+    ("users.create", "API", "users", "CREATE", "Create User"),
+    ("users.update", "API", "users", "UPDATE", "Update User"),
+    ("users.delete", "API", "users", "DELETE", "Delete User"),
+    ("users.export", "API", "users", "EXPORT", "Export Users"),
+    ("users.import", "API", "users", "IMPORT", "Import Users"),
+    ("roles.list", "API", "roles", "READ", "List Roles"),
+    ("roles.create", "API", "roles", "CREATE", "Create Role"),
+    ("roles.update", "API", "roles", "UPDATE", "Update Role"),
+    ("roles.assign", "API", "roles", "EXECUTE", "Assign Roles"),
+    ("audit.read", "API", "audit_logs", "READ", "View Audit Logs"),
+
+    # RBAC management permissions - granular control over roles & permissions CRUD
+    ("rbac.read", "API", "rbac", "READ", "View Roles & Permissions"),
+    ("rbac.create", "API", "rbac", "CREATE", "Create Roles & Permissions"),
+    ("rbac.update", "API", "rbac", "UPDATE", "Update Roles & Permissions"),
 
     # Employee AD service permission
-    {"code": "services.employee_ad", "name": "Access Employee AD Service", "scope": "API", "resource": "services", "action": "EXECUTE"},
+    ("services.employee_ad", "API", "services", "EXECUTE", "Access Employee AD Service"),
 
-    # Field-level permissions — control visibility of sensitive fields
-    {"code": "users.salary.read", "name": "View Salary", "scope": "FIELD", "resource": "users.salary", "action": "READ"},
-    {"code": "users.salary.update", "name": "Edit Salary", "scope": "FIELD", "resource": "users.salary", "action": "UPDATE"},
-    {"code": "users.email.read", "name": "View Email", "scope": "FIELD", "resource": "users.email", "action": "READ"},
-    {"code": "users.email.update", "name": "Edit Email", "scope": "FIELD", "resource": "users.email", "action": "UPDATE"},
-    {"code": "users.phone.read", "name": "View Phone", "scope": "FIELD", "resource": "users.phone", "action": "READ"},
+    # Master data permissions - compliance reference data CRUD
+    ("countries.list", "API", "countries", "READ", "List Countries"),
+    ("countries.create", "API", "countries", "CREATE", "Create Country"),
+    ("countries.update", "API", "countries", "UPDATE", "Update Country"),
+    ("countries.delete", "API", "countries", "DELETE", "Delete Country"),
+    ("states.list", "API", "states", "READ", "List States"),
+    ("states.create", "API", "states", "CREATE", "Create State"),
+    ("states.update", "API", "states", "UPDATE", "Update State"),
+    ("states.delete", "API", "states", "DELETE", "Delete State"),
+    ("categories_of_law.list", "API", "categories_of_law", "READ", "List Categories of Law"),
+    ("categories_of_law.create", "API", "categories_of_law", "CREATE", "Create Category of Law"),
+    ("categories_of_law.update", "API", "categories_of_law", "UPDATE", "Update Category of Law"),
+    ("categories_of_law.delete", "API", "categories_of_law", "DELETE", "Delete Category of Law"),
+    ("legislations.list", "API", "legislations", "READ", "List Legislations"),
+    ("legislations.create", "API", "legislations", "CREATE", "Create Legislation"),
+    ("legislations.update", "API", "legislations", "UPDATE", "Update Legislation"),
+    ("legislations.delete", "API", "legislations", "DELETE", "Delete Legislation"),
+    ("rules.list", "API", "rules", "READ", "List Rules"),
+    ("rules.create", "API", "rules", "CREATE", "Create Rule"),
+    ("rules.update", "API", "rules", "UPDATE", "Update Rule"),
+    ("rules.delete", "API", "rules", "DELETE", "Delete Rule"),
+    ("task_types.list", "API", "task_types", "READ", "List Task Types"),
+    ("task_types.create", "API", "task_types", "CREATE", "Create Task Type"),
+    ("task_types.update", "API", "task_types", "UPDATE", "Update Task Type"),
+    ("task_types.delete", "API", "task_types", "DELETE", "Delete Task Type"),
+
+    # Workflow engine permissions - three resources so designing a workflow,
+    # running one, and configuring approval routing stay separately grantable.
+    ("workflows.list", "API", "workflows", "READ", "List Workflows"),
+    ("workflows.create", "API", "workflows", "CREATE", "Create Workflow"),
+    ("workflows.update", "API", "workflows", "UPDATE", "Update Workflow"),
+    ("workflows.delete", "API", "workflows", "DELETE", "Delete Workflow"),
+    ("workflow_instances.list", "API", "workflow_instances", "READ", "View Workflow Instances"),
+    ("workflow_instances.create", "API", "workflow_instances", "CREATE", "Start Workflow"),
+    ("workflow_instances.update", "API", "workflow_instances", "UPDATE", "Act on Workflow"),
+    ("workflow_instances.delete", "API", "workflow_instances", "DELETE", "Delete Instance"),
+    ("approval_matrices.list", "API", "approval_matrices", "READ", "List Approval Matrices"),
+    ("approval_matrices.create", "API", "approval_matrices", "CREATE", "Create Approval Matrix"),
+    ("approval_matrices.update", "API", "approval_matrices", "UPDATE", "Update Approval Matrix"),
+    ("approval_matrices.delete", "API", "approval_matrices", "DELETE", "Delete Approval Matrix"),
+
+    # Field-level permissions - control visibility of sensitive fields
+    ("users.salary.read", "FIELD", "users.salary", "READ", "View Salary"),
+    ("users.salary.update", "FIELD", "users.salary", "UPDATE", "Edit Salary"),
+    ("users.email.read", "FIELD", "users.email", "READ", "View Email"),
+    ("users.email.update", "FIELD", "users.email", "UPDATE", "Edit Email"),
+    ("users.phone.read", "FIELD", "users.phone", "READ", "View Phone"),
 ]
 
-# Role → permission code assignments
+# Expanded to the dict shape the seeding code below consumes.
+DEFAULT_PERMISSIONS = [
+    {"code": c, "scope": s, "resource": r, "action": a, "name": n}
+    for c, s, r, a, n in _PERMISSION_TABLE
+]
+
+# Role -> permission code assignments
 ROLE_PERMISSIONS = {
     "ADMIN": [
         # Admin gets ALL permissions
         "menu.dashboard", "menu.users", "menu.roles", "menu.audit_logs",
-        "menu.services", "menu.reports", "menu.settings", "menu.workflows",
+        "menu.services",
         "users.list", "users.create", "users.update", "users.delete",
         "users.export", "users.import",
         "roles.list", "roles.create", "roles.update", "roles.assign",
-        "audit.read", "reports.export",
+        "audit.read",
         "rbac.read", "rbac.create", "rbac.update", "services.employee_ad",
+        "menu.masters",
+        "menu.masters.countries", "menu.masters.states",
+        "menu.masters.categories_of_law", "menu.masters.legislations",
+        "menu.masters.rules", "menu.masters.task_types",
+        "countries.list", "countries.create", "countries.update", "countries.delete",
+        "states.list", "states.create", "states.update", "states.delete",
+        "categories_of_law.list", "categories_of_law.create",
+        "categories_of_law.update", "categories_of_law.delete",
+        "legislations.list", "legislations.create",
+        "legislations.update", "legislations.delete",
+        "rules.list", "rules.create", "rules.update", "rules.delete",
+        "task_types.list", "task_types.create", "task_types.update", "task_types.delete",
+        "menu.workflows",
+        "workflows.list", "workflows.create", "workflows.update", "workflows.delete",
+        "workflow_instances.list", "workflow_instances.create",
+        "workflow_instances.update", "workflow_instances.delete",
+        "approval_matrices.list", "approval_matrices.create",
+        "approval_matrices.update", "approval_matrices.delete",
         "users.salary.read", "users.salary.update",
         "users.email.read", "users.email.update", "users.phone.read",
     ],
     "MANAGER": [
-        "menu.dashboard", "menu.users", "menu.reports", "menu.services",
+        "menu.dashboard", "menu.users", "menu.services",
         "users.list", "users.export",
-        "reports.export",
         "users.email.read", "users.phone.read",
+        # Masters are read-only for managers
+        "menu.masters",
+        "menu.masters.countries", "menu.masters.states",
+        "menu.masters.categories_of_law", "menu.masters.legislations",
+        "menu.masters.rules", "menu.masters.task_types",
+        "countries.list", "states.list", "categories_of_law.list",
+        "legislations.list", "rules.list", "task_types.list",
+        # Managers run workflows and read the routing config, but do not design
+        # either: no workflows.create/update/delete, no approval_matrices writes.
+        "menu.workflows",
+        "workflows.list",
+        "workflow_instances.list", "workflow_instances.create",
+        "workflow_instances.update",
+        "approval_matrices.list",
     ],
     "USER": [
         "menu.dashboard", "menu.services",
+        "menu.masters",
+        "menu.masters.countries", "menu.masters.states",
+        "menu.masters.categories_of_law", "menu.masters.legislations",
+        "menu.masters.rules", "menu.masters.task_types",
+        "countries.list", "states.list", "categories_of_law.list",
+        "legislations.list", "rules.list", "task_types.list",
+        # Read-only visibility into workflows they are involved in; /my-tasks
+        # needs no API permission because it is scoped to the caller.
+        "menu.workflows",
+        "workflows.list",
+        "workflow_instances.list",
     ],
 }
 
 
 async def seed() -> None:
     """Seed default permissions and role-permission mappings."""
-    async with async_session_factory() as session:
+    async with UnitOfWork() as uow:
+        session = uow.session
         # 1. Create permissions (skip existing)
-        perm_map: dict[str, str] = {}  # code → id
+        perm_map: dict[str, str] = {}  # code -> id
 
         for perm_def in DEFAULT_PERMISSIONS:
             existing = await session.execute(
@@ -134,7 +252,7 @@ async def seed() -> None:
             )
             role = role_result.scalar_one_or_none()
             if not role:
-                print(f"  [warn] Role '{role_code}' not found — skipping assignments")
+                print(f"  [warn] Role '{role_code}' not found - skipping assignments")
                 continue
 
             for perm_code in perm_codes:
@@ -159,13 +277,14 @@ async def seed() -> None:
                     modified_by="seed_script",
                 )
                 session.add(rp)
-                print(f"  [link] {role_code} ← {perm_code}")
+                print(f"  [link] {role_code} <- {perm_code}")
 
-        await session.commit()
-        print("\n✓ RBAC seed complete.")
+        await uow.commit()
+        print("\nOK RBAC seed complete.")
 
     # 3. Assign ADMIN role to all existing users who don't have any role assignment
-    async with async_session_factory() as session:
+    async with UnitOfWork() as uow:
+        session = uow.session
         print("\nAssigning default role to existing users without role assignments...")
 
         # Find the ADMIN role
@@ -174,7 +293,7 @@ async def seed() -> None:
         )
         admin_role = admin_role_result.scalar_one_or_none()
         if not admin_role:
-            print("  [warn] ADMIN role not found — skipping user assignments")
+            print("  [warn] ADMIN role not found - skipping user assignments")
         else:
             # Find all users
             users_result = await session.execute(select(UserModel))
@@ -202,10 +321,10 @@ async def seed() -> None:
                     modified_by="seed_script",
                 )
                 session.add(assignment)
-                print(f"  [new]  User '{user.username}' → Role 'ADMIN'")
+                print(f"  [new]  User '{user.username}' -> Role 'ADMIN'")
 
-        await session.commit()
-        print("\n✓ Role assignments complete.")
+        await uow.commit()
+        print("\nOK Role assignments complete.")
 
 
 if __name__ == "__main__":

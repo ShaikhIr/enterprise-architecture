@@ -1,180 +1,195 @@
-﻿"""
-State Machine Service.
-Manages state transitions for workflow instances.
-Validates transitions against configured rules and executes them atomically.
 """
+State machine service.
+
+Owns the rules about moving a workflow instance between states: which actions are
+offered from the current state, whether a requested action is legal, and what
+gets written when it is executed.
+
+Only talks to repository ports, so it holds no SQLAlchemy dependency and can be
+unit tested against in-memory fakes.
+"""
+
 import logging
+from dataclasses import dataclass
 from uuid import UUID
 
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from src.domain.entities.workflow.value_objects import StateType
+from src.domain.entities.workflow import (
+    WorkflowDefinition,
+    WorkflowHistoryEntry,
+    WorkflowInstance,
+    WorkflowStatus,
+    WorkflowTransition,
+)
+from src.domain.exceptions.domain_exceptions import (
+    BusinessRuleViolationError,
+    EntityNotFoundError,
+)
+from src.domain.repositories.workflow_definition_repository import (
+    IWorkflowDefinitionRepository,
+)
+from src.domain.repositories.workflow_instance_repository import (
+    IWorkflowInstanceRepository,
+)
 
 logger = logging.getLogger(__name__)
 
+INSTANCE = "WorkflowInstance"
+STATUS = "WorkflowStatus"
+
+
+@dataclass(frozen=True)
+class InstanceState:
+    """An instance together with the state and definition it resolves to."""
+
+    instance: WorkflowInstance
+    status: WorkflowStatus
+    definition: WorkflowDefinition
+
+
+@dataclass(frozen=True)
+class TransitionResult:
+    """
+    Everything one executed action produced.
+
+    `transition` is carried out so callers can react to what the move was declared
+    to mean (its `action_type`) without looking it up a second time.
+    """
+
+    instance: WorkflowInstance
+    from_status: WorkflowStatus | None
+    to_status: WorkflowStatus
+    transition: WorkflowTransition
+    history: WorkflowHistoryEntry
+
 
 class StateMachineService:
-    """Core state machine — validates and executes state transitions."""
+    """Validates and executes state transitions for workflow instances."""
 
-    def __init__(self, session: AsyncSession) -> None:
-        self._session = session
-
-    async def get_current_state(self, instance_id: UUID) -> dict:
-        """Get the current state of a workflow instance."""
-        from src.infrastructure.database.models.workflow.workflow_models import (
-            WorkflowInstanceModel,
-            WorkflowStatusModel,
-        )
-        stmt = select(WorkflowInstanceModel).where(WorkflowInstanceModel.id == str(instance_id))
-        result = await self._session.execute(stmt)
-        instance = result.scalar_one_or_none()
-        if not instance:
-            raise ValueError(f"Instance {instance_id} not found")
-
-        status_stmt = select(WorkflowStatusModel).where(
-            WorkflowStatusModel.id == instance.current_status_id
-        )
-        status_result = await self._session.execute(status_stmt)
-        status = status_result.scalar_one_or_none()
-
-        return {
-            "instance_id": str(instance.id),
-            "status_id": str(status.id) if status else None,
-            "status_code": status.code if status else None,
-            "status_name": status.name if status else None,
-            "is_terminal": status.is_terminal if status else False,
-        }
-
-    async def get_available_actions(self, instance_id: UUID) -> list[dict]:
-        """Get actions available from the current state."""
-        from src.infrastructure.database.models.workflow.workflow_models import (
-            WorkflowInstanceModel,
-            WorkflowTransitionModel,
-        )
-        stmt = select(WorkflowInstanceModel).where(WorkflowInstanceModel.id == str(instance_id))
-        result = await self._session.execute(stmt)
-        instance = result.scalar_one_or_none()
-        if not instance:
-            return []
-
-        trans_stmt = select(WorkflowTransitionModel).where(
-            WorkflowTransitionModel.workflow_definition_id == instance.workflow_definition_id,
-            WorkflowTransitionModel.from_status_id == instance.current_status_id,
-        ).order_by(WorkflowTransitionModel.priority)
-
-        trans_result = await self._session.execute(trans_stmt)
-        transitions = trans_result.scalars().all()
-
-        return [
-            {
-                "action_code": t.action_code,
-                "requires_comment": t.requires_comment,
-            }
-            for t in transitions
-        ]
-
-    async def validate_transition(self, instance_id: UUID, action_code: str) -> dict | None:
-        """Validate if a transition is allowed. Returns the transition or None."""
-        from src.infrastructure.database.models.workflow.workflow_models import (
-            WorkflowInstanceModel,
-            WorkflowTransitionModel,
-        )
-        stmt = select(WorkflowInstanceModel).where(WorkflowInstanceModel.id == str(instance_id))
-        result = await self._session.execute(stmt)
-        instance = result.scalar_one_or_none()
-        if not instance:
-            return None
-
-        trans_stmt = select(WorkflowTransitionModel).where(
-            WorkflowTransitionModel.workflow_definition_id == instance.workflow_definition_id,
-            WorkflowTransitionModel.from_status_id == instance.current_status_id,
-            WorkflowTransitionModel.action_code == action_code,
-        )
-        trans_result = await self._session.execute(trans_stmt)
-        transition = trans_result.scalar_one_or_none()
-
-        if not transition:
-            return None
-
-        return {
-            "transition_id": str(transition.id),
-            "from_status_id": str(transition.from_status_id),
-            "to_status_id": str(transition.to_status_id),
-            "action_code": transition.action_code,
-            "requires_comment": transition.requires_comment,
-        }
-
-    async def execute_transition(
+    def __init__(
         self,
-        instance_id: UUID,
+        definition_repo: IWorkflowDefinitionRepository,
+        instance_repo: IWorkflowInstanceRepository,
+    ) -> None:
+        self._definitions = definition_repo
+        self._instances = instance_repo
+
+    # ─── Reads ───
+
+    async def get_state(self, instance_id: UUID) -> InstanceState:
+        """Resolve an instance to its current status and owning definition."""
+        instance = await self._instances.get_by_id(instance_id)
+        if instance is None:
+            raise EntityNotFoundError(INSTANCE, instance_id)
+        return await self._resolve(instance)
+
+    async def available_actions(
+        self, instance: WorkflowInstance
+    ) -> list[WorkflowTransition]:
+        """
+        Transitions leaving the instance's current state.
+
+        A completed instance offers nothing, so callers do not have to special
+        case terminal states in the UI.
+        """
+        if instance.is_completed:
+            return []
+        return await self._definitions.list_transitions_from(
+            instance.workflow_definition_id, instance.current_status_id
+        )
+
+    # ─── Writes ───
+
+    async def execute(
+        self,
+        *,
+        instance: WorkflowInstance,
         action_code: str,
         actor_id: UUID,
         actor_username: str,
         comments: str = "",
         ip_address: str = "",
-    ) -> dict:
-        """Execute a state transition. Updates instance and creates history entry."""
-        from src.infrastructure.database.models.workflow.workflow_models import (
-            WorkflowInstanceModel,
-            WorkflowTransitionModel,
-            WorkflowHistoryModel,
-            WorkflowStatusModel,
-        )
-        from uuid import uuid4
-        from datetime import datetime, timezone
+    ) -> TransitionResult:
+        """
+        Apply an action to an instance.
 
-        # Validate transition exists
-        transition_data = await self.validate_transition(instance_id, action_code)
-        if not transition_data:
-            raise ValueError(
-                f"Invalid transition: action '{action_code}' not allowed from current state"
+        Raises:
+            BusinessRuleViolationError: The instance is finished, the action is
+                not wired up from the current state, or the transition requires a
+                comment that was not supplied.
+        """
+        if instance.is_completed:
+            raise BusinessRuleViolationError(
+                f"Workflow instance '{instance.id}' is already completed and "
+                "accepts no further actions"
             )
 
-        # Get instance
-        stmt = select(WorkflowInstanceModel).where(WorkflowInstanceModel.id == str(instance_id))
-        result = await self._session.execute(stmt)
-        instance = result.scalar_one()
-
-        old_status_id = instance.current_status_id
-
-        # Update instance state
-        instance.current_status_id = transition_data["to_status_id"]
-
-        # Check if new state is terminal
-        new_status_stmt = select(WorkflowStatusModel).where(
-            WorkflowStatusModel.id == transition_data["to_status_id"]
+        transition = await self._definitions.find_transition(
+            instance.workflow_definition_id, instance.current_status_id, action_code
         )
-        new_status_result = await self._session.execute(new_status_stmt)
-        new_status = new_status_result.scalar_one()
+        if transition is None:
+            raise BusinessRuleViolationError(
+                f"Action '{action_code}' is not allowed from the current state"
+            )
 
-        if new_status.is_terminal:
-            instance.completed_at = datetime.now(timezone.utc)
+        # The source system stored `requires_comment` but never enforced it, so a
+        # rejection could be recorded with no reason attached. Enforced here.
+        if transition.requires_comment and not comments.strip():
+            raise BusinessRuleViolationError(
+                f"Action '{action_code}' requires a comment"
+            )
 
-        # Create history entry
-        history = WorkflowHistoryModel(
-            id=uuid4(),
-            instance_id=str(instance_id),
-            from_status_id=old_status_id,
-            to_status_id=transition_data["to_status_id"],
-            action_code=action_code,
-            actor_id=str(actor_id),
-            actor_username=actor_username,
-            comments=comments,
-            ip_address=ip_address,
-            created_at=datetime.now(timezone.utc),
+        from_status = await self._definitions.get_status(instance.current_status_id)
+        to_status = await self._definitions.get_status(transition.to_status_id)
+        if to_status is None:
+            raise EntityNotFoundError(STATUS, transition.to_status_id)
+
+        instance.move_to(to_status.id, is_terminal=to_status.is_terminal)
+        instance.mark_modified(actor_username)
+        updated = await self._instances.update(instance)
+
+        history = await self._instances.add_history(
+            WorkflowHistoryEntry(
+                instance_id=updated.id,
+                from_status_id=from_status.id if from_status else None,
+                to_status_id=to_status.id,
+                action_code=action_code,
+                actor_id=actor_id,
+                actor_username=actor_username,
+                comments=comments,
+                ip_address=ip_address,
+            )
         )
-        self._session.add(history)
 
         logger.info(
-            "State transition executed: instance=%s action=%s to=%s",
-            instance_id, action_code, new_status.code,
+            "Workflow transition: instance=%s action=%s %s -> %s terminal=%s",
+            updated.id,
+            action_code,
+            from_status.code if from_status else "-",
+            to_status.code,
+            to_status.is_terminal,
         )
 
-        return {
-            "instance_id": str(instance_id),
-            "previous_status": old_status_id,
-            "current_status_id": str(new_status.id),
-            "current_status_code": new_status.code,
-            "is_completed": new_status.is_terminal,
-        }
+        return TransitionResult(
+            instance=updated,
+            from_status=from_status,
+            to_status=to_status,
+            transition=transition,
+            history=history,
+        )
+
+    # ─── Internals ───
+
+    async def _resolve(self, instance: WorkflowInstance) -> InstanceState:
+        status = await self._definitions.get_status(instance.current_status_id)
+        if status is None:
+            raise EntityNotFoundError(STATUS, instance.current_status_id)
+
+        definition = await self._definitions.get_by_id(
+            instance.workflow_definition_id
+        )
+        if definition is None:
+            raise EntityNotFoundError(
+                "WorkflowDefinition", instance.workflow_definition_id
+            )
+
+        return InstanceState(instance=instance, status=status, definition=definition)

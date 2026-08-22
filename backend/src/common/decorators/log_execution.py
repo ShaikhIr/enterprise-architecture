@@ -1,11 +1,12 @@
-﻿"""
+"""
 Method entry/exit logging decorator.
 Automatically logs START and END of function execution with timing and correlation ID.
 """
 
 import time
+from collections.abc import Callable
 from functools import wraps
-from typing import Any, Callable
+from typing import Any
 
 from src.observability.correlation import get_correlation_id
 from src.observability.structured_logger import get_logger
@@ -13,7 +14,7 @@ from src.observability.structured_logger import get_logger
 logger = get_logger(__name__)
 
 
-def log_execution(func: Callable) -> Callable:
+def log_execution(func: Callable[..., Any]) -> Callable[..., Any]:
     """
     Decorator that logs method entry and exit with execution time.
 

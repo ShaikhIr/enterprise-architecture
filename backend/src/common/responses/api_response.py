@@ -1,1 +1,1 @@
-﻿# Standardized API response envelope
+# Standardized API response envelope

@@ -4,12 +4,14 @@
  */
 
 import { useState } from 'react';
-import { InputText } from 'primereact/inputtext';
+
 import { Button } from 'primereact/button';
-import { Dialog } from 'primereact/dialog';
-import { DataTable } from 'primereact/datatable';
 import { Column } from 'primereact/column';
+import { DataTable } from 'primereact/datatable';
+import { Dialog } from 'primereact/dialog';
+import { InputText } from 'primereact/inputtext';
 import { Tag } from 'primereact/tag';
+
 import { useImportEmployees } from '../hooks/useUsers';
 import type { ImportResult } from '../models/User';
 
@@ -105,7 +107,8 @@ export const ImportEmployeeDialog = ({ visible, onHide, onSuccess }: ImportEmplo
             aria-label="Employee IDs to import"
           />
           <small className="text-600">
-            Employees will be imported with username = Employee ID, default password = Employee ID, role = USER
+            Employees will be imported with username = Employee ID, default password = Employee ID,
+            role = USER
           </small>
         </div>
 

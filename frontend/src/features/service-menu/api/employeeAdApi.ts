@@ -35,42 +35,38 @@ export interface ValidateCredentialsResponse {
 
 export const employeeAdApi = {
   healthCheck: async (): Promise<HealthCheckResponse> => {
-    const { data } = await apiClient.get<HealthCheckResponse>(
-      '/services/employee-ad/health'
-    );
+    const { data } = await apiClient.get<HealthCheckResponse>('/services/employee-ad/health');
     return data;
   },
 
   validateCredentials: async (
-    request: ValidateCredentialsRequest
+    request: ValidateCredentialsRequest,
   ): Promise<ValidateCredentialsResponse> => {
     const { data } = await apiClient.post<ValidateCredentialsResponse>(
       '/services/employee-ad/validate-credentials',
-      request
+      request,
     );
     return data;
   },
 
-  getSelectedEmployees: async (
-    employeeIds: string[]
-  ): Promise<Record<string, unknown>> => {
+  getSelectedEmployees: async (employeeIds: string[]): Promise<Record<string, unknown>> => {
     const { data } = await apiClient.post<Record<string, unknown>>(
       '/services/employee-ad/selected-employees',
-      { employee_ids: employeeIds }
+      { employee_ids: employeeIds },
     );
     return data;
   },
 
   getEmployees: async (): Promise<Record<string, unknown>> => {
     const { data } = await apiClient.get<Record<string, unknown>>(
-      '/services/employee-ad/employees'
+      '/services/employee-ad/employees',
     );
     return data;
   },
 
   getHierarchy: async (): Promise<Record<string, unknown>> => {
     const { data } = await apiClient.get<Record<string, unknown>>(
-      '/services/employee-ad/hierarchy'
+      '/services/employee-ad/hierarchy',
     );
     return data;
   },

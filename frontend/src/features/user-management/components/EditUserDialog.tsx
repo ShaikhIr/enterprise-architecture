@@ -4,15 +4,17 @@
  */
 
 import { useEffect, useState } from 'react';
-import { useForm, Controller } from 'react-hook-form';
+
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { Dropdown } from 'primereact/dropdown';
-import { InputSwitch } from 'primereact/inputswitch';
 import { Button } from 'primereact/button';
 import { Dialog } from 'primereact/dialog';
-import { useRoles } from '../hooks/useRoles';
+import { Dropdown } from 'primereact/dropdown';
+import { InputSwitch } from 'primereact/inputswitch';
+import { useForm, Controller } from 'react-hook-form';
+import { z } from 'zod';
+
 import { userApi } from '../api/userApi';
+import { useRoles } from '../hooks/useRoles';
 import type { User, UpdateUserRequest } from '../models/User';
 
 const editUserSchema = z.object({
@@ -32,16 +34,17 @@ interface EditUserDialogProps {
   loading?: boolean;
 }
 
-export const EditUserDialog = ({ visible, user, onHide, onSubmit, loading }: EditUserDialogProps) => {
+export const EditUserDialog = ({
+  visible,
+  user,
+  onHide,
+  onSubmit,
+  loading,
+}: EditUserDialogProps) => {
   const { roleOptions, loading: rolesLoading } = useRoles();
   const [loadingUserRole, setLoadingUserRole] = useState(false);
 
-  const {
-    handleSubmit,
-    control,
-    reset,
-    setValue,
-  } = useForm<EditUserFormData>({
+  const { handleSubmit, control, reset, setValue } = useForm<EditUserFormData>({
     resolver: zodResolver(editUserSchema),
     defaultValues: {
       is_active: true,
@@ -63,10 +66,11 @@ export const EditUserDialog = ({ visible, user, onHide, onSubmit, loading }: Edi
 
       // Fetch user's current role assignment
       setLoadingUserRole(true);
-      userApi.getUserRoles(user.id)
+      userApi
+        .getUserRoles(user.id)
         .then((data) => {
           if (data.roles.length > 0) {
-            setValue('role_id', data.roles[0].id);
+            setValue('role_id', data.roles[0]!.id);
           }
         })
         .catch(() => {})
@@ -86,13 +90,7 @@ export const EditUserDialog = ({ visible, user, onHide, onSubmit, loading }: Edi
 
   const footer = (
     <div className="flex justify-content-end gap-2">
-      <Button
-        label="Cancel"
-        icon="pi pi-times"
-        severity="secondary"
-        outlined
-        onClick={onHide}
-      />
+      <Button label="Cancel" icon="pi pi-times" severity="secondary" outlined onClick={onHide} />
       <Button
         label="Save"
         icon="pi pi-check"
@@ -121,7 +119,9 @@ export const EditUserDialog = ({ visible, user, onHide, onSubmit, loading }: Edi
 
         {/* Role Assignment */}
         <div className="flex flex-column gap-2">
-          <label htmlFor="edit-role" className="font-medium">Role</label>
+          <label htmlFor="edit-role" className="font-medium">
+            Role
+          </label>
           <Controller
             name="role_id"
             control={control}
@@ -154,7 +154,9 @@ export const EditUserDialog = ({ visible, user, onHide, onSubmit, loading }: Edi
               />
             )}
           />
-          <label htmlFor="edit-active" className="font-medium cursor-pointer">Active</label>
+          <label htmlFor="edit-active" className="font-medium cursor-pointer">
+            Active
+          </label>
         </div>
 
         {/* Blocked */}
@@ -171,7 +173,9 @@ export const EditUserDialog = ({ visible, user, onHide, onSubmit, loading }: Edi
               />
             )}
           />
-          <label htmlFor="edit-blocked" className="font-medium cursor-pointer">Blocked</label>
+          <label htmlFor="edit-blocked" className="font-medium cursor-pointer">
+            Blocked
+          </label>
         </div>
 
         {/* Validate with AD */}

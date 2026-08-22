@@ -1,4 +1,4 @@
-﻿"""Drop role column from users table.
+"""Drop role column from users table.
 
 The legacy role column is replaced by the role_assignments table
 which supports multiple roles per user via the RBAC system.
@@ -8,8 +8,8 @@ Revises: b7e2f1c4d9a3
 Create Date: 2026-06-19
 """
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 
 # revision identifiers
 revision = "c9d4e2f5a1b7"

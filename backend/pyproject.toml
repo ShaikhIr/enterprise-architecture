@@ -1,7 +1,7 @@
 [project]
-name = "enterprise-fastapi-backend"
+name = "enterprise-architecture-backend"
 version = "1.0.0"
-description = "Enterprise-grade FastAPI application with Clean Architecture"
+description = "Enterprise Architecture — enterprise-grade FastAPI backend with Clean Architecture"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi==0.115.0",
@@ -12,18 +12,28 @@ dependencies = [
     "asyncpg==0.29.0",
     "alembic==1.13.2",
     "PyJWT==2.9.0",
-    "passlib[bcrypt]==1.7.4",
+    # bcrypt is used directly by password_encoder; passlib was pinned but never
+    # imported, so it was removed rather than left as unused attack surface.
     "bcrypt==4.2.0",
     "structlog==24.4.0",
     "httpx==0.27.2",
+]
+
+[project.optional-dependencies]
+# Declared but not yet imported anywhere: the modules that will use these
+# (celery_app, periodic_tasks, user_tasks, redis_cache, tracing, metrics) are
+# still placeholders. Holding them as extras keeps them one command away when
+# that work starts, without adding install weight and supply-chain surface to
+# every deployment in the meantime. Promote to `dependencies` when first used.
+background = [
     "celery[redis]==5.4.0",
     "redis==5.1.1",
+]
+observability = [
     "opentelemetry-api==1.27.0",
     "opentelemetry-sdk==1.27.0",
     "opentelemetry-instrumentation-fastapi==0.48b0",
 ]
-
-[project.optional-dependencies]
 dev = [
     "pytest==8.3.3",
     "pytest-asyncio==0.24.0",
@@ -36,10 +46,34 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# -ra always prints a short summary of skips/failures, so a mass skip (e.g. the
+# database being unreachable) is visible in the log instead of hiding behind a
+# green run.
+addopts = "-ra"
 asyncio_mode = "auto"
+# Async fixtures share the test's own event loop by default, so DB connections
+# opened in a fixture stay usable inside the test. The one session-scoped fixture
+# opts into the session loop explicitly via loop_scope="session".
+asyncio_default_fixture_loop_scope = "function"
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+
+[tool.coverage.run]
+source = ["src"]
+branch = true
+# SQLAlchemy's asyncio layer bridges sync/async by switching greenlets. Without
+# declaring greenlet concurrency, coverage loses the trace across those switches
+# and under-reports any code that touches the database — services and
+# repositories showed ~40% despite being fully exercised by the test suite.
+concurrency = ["thread", "greenlet"]
+omit = [
+    "src/infrastructure/database/migrations/*",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
 
 [tool.ruff]
 target-version = "py312"
@@ -48,11 +82,77 @@ line-length = 100
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP", "B", "A", "SIM"]
 
+# ─── Lint debt burn-down ───
+# These rules are temporarily silenced so CI can block on everything else
+# starting today. A permanently-red gate gets ignored; a green gate with a
+# shrinking, documented exception list does not. Delete an entry once its
+# outstanding violations are fixed — after that, new violations fail the build.
+# All previously-deferred rules are now clear, so nothing is globally ignored:
+#   B904   all 28 raises inside except blocks chain with `from`
+#   B017   narrowed to the specific exception
+#   SIM117 combined nested with statements
+#   E402   moved the late import to the top of main.py
+#   W291   trailing whitespace in a generated migration header
+#   E501   long lines wrapped; generated migrations exempted via per-file-ignores
+ignore = []
+
+[tool.ruff.lint.per-file-ignores]
+# Alembic writes these files; holding generated code to a line-length rule just
+# means re-wrapping it by hand after every `alembic revision --autogenerate`.
+"src/infrastructure/database/migrations/versions/*.py" = ["E501"]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI's dependency-injection style intentionally calls these in argument
+# defaults (`x = Depends(...)`), which B008 would otherwise flag. Treating them
+# as immutable calls keeps B008 useful for genuine mutable-default bugs.
+extend-immutable-calls = [
+    "fastapi.Body",
+    "fastapi.Cookie",
+    "fastapi.Depends",
+    "fastapi.File",
+    "fastapi.Form",
+    "fastapi.Header",
+    "fastapi.Path",
+    "fastapi.Query",
+    "fastapi.Security",
+]
+
 [tool.mypy]
 python_version = "3.12"
 strict = true
 plugins = ["pydantic.mypy"]
 
+# ─── Module naming for the test tree ───
+# `tests/conftest.py` and `tests/unit/application/conftest.py` both map to a
+# module named "conftest" under mypy's default rules, and mypy refuses to check
+# two files with the same module name. CI ran `mypy src tests scripts` and failed
+# with "Duplicate module named conftest" before reaching a single real error.
+#
+# These two settings make mypy derive module names from the project root instead
+# of from the nearest non-package directory, so the files become
+# `tests.conftest` and `tests.unit.application.conftest` — distinct, and no
+# `__init__.py` files needed in the test tree, which would change how pytest
+# collects and imports them.
+# The second entry mirrors pytest: its prepend import mode puts a test file's own
+# directory on sys.path, which is how `from workflow_fakes import ...` resolves at
+# runtime. Telling mypy the same thing keeps the import working for both instead
+# of rewriting it to a dotted path that pytest would then fail to resolve.
+mypy_path = [".", "tests/unit/application"]
+explicit_package_bases = true
+
+# ─── No exemptions ───
+# Strict mode covers every module, with no per-module `ignore_errors` escape
+# hatch. The burn-down list this file used to carry is empty and has been
+# removed; if a new module does not type check, fix the module rather than
+# re-introducing an exemption block here.
+
 [build-system]
 requires = ["setuptools>=68.0"]
 build-backend = "setuptools.build_meta"
+
+# Explicit discovery: without this, setuptools auto-discovery fails because
+# `src`, `tests`, and `scripts` all sit at the project root. Declaring it keeps
+# `pip install -e ".[dev]"` working, which is how CI installs the project.
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]

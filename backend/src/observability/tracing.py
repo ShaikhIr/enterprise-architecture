@@ -1,1 +1,1 @@
-﻿# OpenTelemetry distributed tracing setup
+# OpenTelemetry distributed tracing setup

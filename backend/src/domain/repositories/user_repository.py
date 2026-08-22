@@ -1,4 +1,4 @@
-﻿"""
+"""
 User repository interface (Port).
 Defines the contract for user persistence operations.
 The domain layer owns this interface; infrastructure implements it.

@@ -1,6 +1,10 @@
-﻿"""
-File logging configuration with rotating handler and ZIP compression.
+"""
+File logging configuration with rotating handler and gzip compression.
 Writes to log file ONLY — does not add another console handler.
+
+The destination comes from `settings.log_file`, which roots a relative
+LOG_FILE_PATH under UPLOAD_DIR so log files and (future) uploads share one
+configured storage location.
 """
 
 import gzip
@@ -8,7 +12,6 @@ import logging
 import os
 import shutil
 from logging.handlers import RotatingFileHandler
-from pathlib import Path
 
 from src.config.settings import settings
 
@@ -20,9 +23,8 @@ class CompressedRotatingFileHandler(RotatingFileHandler):
         return default_name + ".gz"
 
     def rotate(self, source: str, dest: str) -> None:
-        with open(source, "rb") as f_in:
-            with gzip.open(dest, "wb") as f_out:
-                shutil.copyfileobj(f_in, f_out)
+        with open(source, "rb") as f_in, gzip.open(dest, "wb") as f_out:
+            shutil.copyfileobj(f_in, f_out)
         os.remove(source)
 
 
@@ -32,8 +34,20 @@ def configure_file_logging() -> None:
     This writes to the log FILE only (not console).
     Console output is handled by structured_logger.py.
     """
-    log_path = Path(settings.LOG_FILE_PATH)
-    log_path.parent.mkdir(parents=True, exist_ok=True)
+    log_path = settings.log_file
+
+    # Fail loudly and specifically. A bad UPLOAD_DIR (wrong drive, unavailable
+    # network share, no write permission) otherwise surfaces as a bare OSError
+    # from deep inside the logging module during startup.
+    try:
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        raise RuntimeError(
+            f"Cannot create the log directory '{log_path.parent}'. "
+            f"Check UPLOAD_DIR (currently '{settings.UPLOAD_DIR}') and "
+            f"LOG_FILE_PATH (currently '{settings.LOG_FILE_PATH}'): the "
+            "resolved path must be writable by the application user."
+        ) from exc
 
     handler = CompressedRotatingFileHandler(
         filename=str(log_path),

@@ -4,6 +4,7 @@
  */
 
 import { apiClient } from '@shared/services/apiClient';
+
 import type { TokenResponse } from '../models/auth.types';
 
 export interface MicrosoftLoginUrlResponse {

@@ -1,5 +1,5 @@
 ---
-inclusion: auto
+inclusion: always
 ---
 
 # Enterprise Full Stack Development Standards

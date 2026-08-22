@@ -1,43 +1,88 @@
-"""RBAC Application Service."""
+"""
+RBAC Application Service.
 
+Depends only on domain ports — no SQLAlchemy session, no ORM models. That keeps
+the application layer free of infrastructure and makes the service unit-testable
+with fake repositories.
+
+Transaction boundary: repositories flush but never commit. The request-scoped
+session (`get_db_session`) commits once if the request succeeds and rolls back
+otherwise. Committing inside these methods previously made each one its own
+transaction, so a caller could not compose two operations atomically — a later
+failure left earlier writes permanently applied.
+"""
+
+import json
+from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
-
-from src.domain.entities.audit_log import AuditAction
-from src.domain.entities.role import PermissionScope
-from src.domain.entities.user import User
-from src.infrastructure.database.models.audit_log_model import AuditLogModel
-from src.infrastructure.database.models.role_model import (
-    PermissionModel,
-    RoleAssignmentModel,
-    RoleModel,
-    RolePermissionModel,
+from src.domain.entities.audit_log import AuditAction, AuditLog
+from src.domain.entities.role import (
+    Permission,
+    PermissionScope,
+    Role,
+    RoleAssignment,
 )
-from src.infrastructure.security.audit_service import AuditService
-from src.infrastructure.security.permission_manager import PermissionManager
+from src.domain.entities.user import User
+from src.domain.repositories.audit_log_repository import IAuditLogRepository
+from src.domain.repositories.permission_repository import IPermissionRepository
+from src.domain.repositories.role_assignment_repository import IRoleAssignmentRepository
+from src.domain.repositories.role_repository import IRoleRepository
+from src.domain.services.permission_resolver import IPermissionResolver
 
 
 class RbacService:
     """Application service for RBAC management."""
 
-    def __init__(self, session: AsyncSession) -> None:
-        self._session = session
+    def __init__(
+        self,
+        permission_repo: IPermissionRepository,
+        role_repo: IRoleRepository,
+        assignment_repo: IRoleAssignmentRepository,
+        audit_repo: IAuditLogRepository,
+        permission_resolver: IPermissionResolver,
+    ) -> None:
+        self._permissions = permission_repo
+        self._roles = role_repo
+        self._assignments = assignment_repo
+        self._audit = audit_repo
+        self._resolver = permission_resolver
 
-    # ═══════════════════════════════════════════════════════════════════
-    # PERMISSIONS
-    # ═══════════════════════════════════════════════════════════════════
+    # ─── Audit helper ───
 
-    async def list_permissions(self, scope: str | None = None) -> list[PermissionModel]:
+    async def _audit_log(
+        self,
+        *,
+        actor_id: UUID | None,
+        actor_username: str,
+        action: AuditAction,
+        resource_type: str,
+        resource_id: str,
+        tenant_id: UUID | None = None,
+        old_value: dict[str, Any] | None = None,
+        new_value: dict[str, Any] | None = None,
+        ip_address: str = "",
+    ) -> None:
+        """Append an audit entry, JSON-encoding the before/after snapshots."""
+        await self._audit.add(
+            AuditLog(
+                actor_id=actor_id,
+                actor_username=actor_username,
+                action=str(action),
+                resource_type=resource_type,
+                resource_id=resource_id,
+                tenant_id=tenant_id,
+                old_value=json.dumps(old_value) if old_value else None,
+                new_value=json.dumps(new_value) if new_value else None,
+                ip_address=ip_address,
+            )
+        )
+
+    # ─── Permissions ───
+
+    async def list_permissions(self, scope: str | None = None) -> list[Permission]:
         """List permissions, optionally filtered by scope."""
-        stmt = select(PermissionModel).where(PermissionModel.is_active == True)  # noqa: E712
-        if scope:
-            stmt = stmt.where(PermissionModel.scope == scope)
-        stmt = stmt.order_by(PermissionModel.scope, PermissionModel.resource)
-        result = await self._session.execute(stmt)
-        return list(result.scalars().all())
+        return await self._permissions.list_active(scope=scope)
 
     async def create_permission(
         self,
@@ -51,63 +96,47 @@ class RbacService:
         actor_id: UUID,
         actor_username: str,
         ip_address: str,
-    ) -> PermissionModel:
+    ) -> Permission:
         """Create a new permission definition."""
-        # Check uniqueness
-        existing = await self._session.execute(
-            select(PermissionModel).where(PermissionModel.code == code)
-        )
-        if existing.scalar_one_or_none():
+        if await self._permissions.get_by_code(code):
             raise ValueError(f"Permission code '{code}' already exists")
 
-        perm = PermissionModel(
-            id=uuid4(),
-            code=code,
-            name=name,
-            description=description,
-            scope=scope,
-            resource=resource,
-            action=action,
-            is_active=True,
-            created_by=actor_username,
-            modified_by=actor_username,
+        created = await self._permissions.create(
+            Permission(
+                id=uuid4(),
+                code=code,
+                name=name,
+                description=description or "",
+                scope=scope,
+                resource=resource,
+                action=action,
+                is_active=True,
+                created_by=actor_username,
+                modified_by=actor_username,
+            )
         )
-        self._session.add(perm)
 
-        # Audit log
-        audit = AuditService(self._session)
-        await audit.log(
+        await self._audit_log(
             actor_id=actor_id,
             actor_username=actor_username,
             action=AuditAction.PERMISSION_CREATED,
             resource_type="Permission",
-            resource_id=str(perm.id),
-            new_value={"code": perm.code, "scope": perm.scope, "resource": perm.resource, "action": perm.action},
+            resource_id=str(created.id),
+            new_value={
+                "code": created.code,
+                "scope": created.scope,
+                "resource": created.resource,
+                "action": created.action,
+            },
             ip_address=ip_address,
         )
+        return created
 
-        await self._session.commit()
-        await self._session.refresh(perm)
-        return perm
+    # ─── Roles ───
 
-    # ═══════════════════════════════════════════════════════════════════
-    # ROLES
-    # ═══════════════════════════════════════════════════════════════════
-
-    async def list_roles(self, tenant_id: UUID | None = None) -> dict:
-        """List roles with their permissions. Returns dict with roles list and total."""
-        stmt = (
-            select(RoleModel)
-            .options(selectinload(RoleModel.permissions))
-            .where(RoleModel.is_active == True)  # noqa: E712
-        )
-        if tenant_id:
-            stmt = stmt.where(
-                (RoleModel.tenant_id == str(tenant_id)) | (RoleModel.tenant_id.is_(None))
-            )
-        stmt = stmt.order_by(RoleModel.code)
-        result = await self._session.execute(stmt)
-        roles = list(result.scalars().all())
+    async def list_roles(self, tenant_id: UUID | None = None) -> dict[str, Any]:
+        """List roles with their permissions."""
+        roles = await self._roles.list_active(tenant_id=tenant_id)
         return {"roles": roles, "total": len(roles)}
 
     async def create_role(
@@ -121,43 +150,37 @@ class RbacService:
         actor_id: UUID,
         actor_username: str,
         ip_address: str,
-    ) -> RoleModel:
+    ) -> Role:
         """Create a new role."""
-        existing = await self._session.execute(
-            select(RoleModel).where(RoleModel.code == code)
-        )
-        if existing.scalar_one_or_none():
+        if await self._roles.get_by_code(code):
             raise ValueError(f"Role code '{code}' already exists")
 
-        role = RoleModel(
-            id=uuid4(),
-            code=code,
-            name=name,
-            description=description,
-            is_system=False,
-            is_active=True,
-            tenant_id=str(tenant_id) if tenant_id else None,
-            parent_role_id=str(parent_role_id) if parent_role_id else None,
-            created_by=actor_username,
-            modified_by=actor_username,
+        created = await self._roles.create(
+            Role(
+                id=uuid4(),
+                code=code,
+                name=name,
+                description=description or "",
+                is_system=False,
+                is_active=True,
+                tenant_id=tenant_id,
+                parent_role_id=parent_role_id,
+                created_by=actor_username,
+                modified_by=actor_username,
+            )
         )
-        self._session.add(role)
 
-        audit = AuditService(self._session)
-        await audit.log(
+        await self._audit_log(
             actor_id=actor_id,
             actor_username=actor_username,
             action=AuditAction.ROLE_CREATED,
             resource_type="Role",
-            resource_id=str(role.id),
+            resource_id=str(created.id),
             tenant_id=tenant_id,
-            new_value={"code": role.code, "name": role.name},
+            new_value={"code": created.code, "name": created.name},
             ip_address=ip_address,
         )
-
-        await self._session.commit()
-        await self._session.refresh(role)
-        return role
+        return created
 
     async def update_role(
         self,
@@ -170,22 +193,19 @@ class RbacService:
         actor_id: UUID,
         actor_username: str,
         ip_address: str,
-    ) -> RoleModel:
+    ) -> Role:
         """Update role properties."""
-        stmt = (
-            select(RoleModel)
-            .options(selectinload(RoleModel.permissions))
-            .where(RoleModel.id == str(role_id))
-        )
-        result = await self._session.execute(stmt)
-        role = result.scalar_one_or_none()
-
+        role = await self._roles.get_by_id(role_id, with_permissions=True)
         if not role:
             raise ValueError("Role not found")
         if role.is_system:
             raise ValueError("System roles cannot be modified")
 
-        old_value = {"name": role.name, "description": role.description, "is_active": role.is_active}
+        old_value = {
+            "name": role.name,
+            "description": role.description,
+            "is_active": role.is_active,
+        }
 
         if name is not None:
             role.name = name
@@ -194,29 +214,28 @@ class RbacService:
         if is_active is not None:
             role.is_active = is_active
         if parent_role_id is not None:
-            role.parent_role_id = str(parent_role_id)
-
+            role.parent_role_id = parent_role_id
         role.modified_by = actor_username
 
-        audit = AuditService(self._session)
-        await audit.log(
+        updated = await self._roles.update(role)
+
+        await self._audit_log(
             actor_id=actor_id,
             actor_username=actor_username,
             action=AuditAction.ROLE_UPDATED,
             resource_type="Role",
             resource_id=str(role_id),
             old_value=old_value,
-            new_value={"name": role.name, "description": role.description, "is_active": role.is_active},
+            new_value={
+                "name": updated.name,
+                "description": updated.description,
+                "is_active": updated.is_active,
+            },
             ip_address=ip_address,
         )
+        return updated
 
-        await self._session.commit()
-        await self._session.refresh(role)
-        return role
-
-    # ═══════════════════════════════════════════════════════════════════
-    # PERMISSION GRANT / REVOKE ON ROLES
-    # ═══════════════════════════════════════════════════════════════════
+    # ─── Permission grant / revoke on roles ───
 
     async def grant_permission(
         self,
@@ -226,47 +245,31 @@ class RbacService:
         actor_id: UUID,
         actor_username: str,
         ip_address: str,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Grant a permission to a role."""
-        role = await self._session.get(RoleModel, str(role_id))
+        role = await self._roles.get_by_id(role_id)
         if not role:
             raise ValueError("Role not found")
 
-        perm = await self._session.get(PermissionModel, str(permission_id))
-        if not perm:
+        permission = await self._permissions.get_by_id(permission_id)
+        if not permission:
             raise ValueError("Permission not found")
 
-        # Check if already granted
-        existing = await self._session.execute(
-            select(RolePermissionModel).where(
-                RolePermissionModel.role_id == str(role_id),
-                RolePermissionModel.permission_id == str(permission_id),
-            )
-        )
-        if existing.scalar_one_or_none():
+        if await self._roles.is_permission_granted(role_id, permission_id):
             raise ValueError("Permission already granted to this role")
 
-        rp = RolePermissionModel(
-            id=uuid4(),
-            role_id=str(role_id),
-            permission_id=str(permission_id),
-            created_by=actor_username,
-            modified_by=actor_username,
-        )
-        self._session.add(rp)
+        await self._roles.grant_permission(role_id, permission_id, actor_username)
 
-        audit = AuditService(self._session)
-        await audit.log_permission_change(
+        await self._audit_log(
             actor_id=actor_id,
             actor_username=actor_username,
             action=AuditAction.PERMISSION_GRANTED,
-            role_id=role_id,
-            permission_code=perm.code,
+            resource_type="RolePermission",
+            resource_id=str(role_id),
+            new_value={"role_id": str(role_id), "permission_code": permission.code},
             ip_address=ip_address,
         )
-
-        await self._session.commit()
-        return {"detail": f"Permission '{perm.code}' granted to role '{role.code}'"}
+        return {"detail": f"Permission '{permission.code}' granted to role '{role.code}'"}
 
     async def revoke_permission(
         self,
@@ -276,39 +279,28 @@ class RbacService:
         actor_id: UUID,
         actor_username: str,
         ip_address: str,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Revoke a permission from a role."""
-        stmt = select(RolePermissionModel).where(
-            RolePermissionModel.role_id == str(role_id),
-            RolePermissionModel.permission_id == str(permission_id),
-        )
-        result = await self._session.execute(stmt)
-        rp = result.scalar_one_or_none()
+        permission = await self._permissions.get_by_id(permission_id)
 
-        if not rp:
+        if not await self._roles.revoke_permission(role_id, permission_id):
             raise ValueError("Permission not assigned to this role")
 
-        # Get permission code for audit
-        perm = await self._session.get(PermissionModel, str(permission_id))
-
-        await self._session.delete(rp)
-
-        audit = AuditService(self._session)
-        await audit.log_permission_change(
+        await self._audit_log(
             actor_id=actor_id,
             actor_username=actor_username,
             action=AuditAction.PERMISSION_REVOKED,
-            role_id=role_id,
-            permission_code=perm.code if perm else str(permission_id),
+            resource_type="RolePermission",
+            resource_id=str(role_id),
+            new_value={
+                "role_id": str(role_id),
+                "permission_code": permission.code if permission else str(permission_id),
+            },
             ip_address=ip_address,
         )
-
-        await self._session.commit()
         return {"detail": "Permission revoked"}
 
-    # ═══════════════════════════════════════════════════════════════════
-    # ROLE ASSIGNMENTS (User ↔ Role)
-    # ═══════════════════════════════════════════════════════════════════
+    # ─── Role assignments (User <-> Role) ───
 
     async def assign_role(
         self,
@@ -319,48 +311,42 @@ class RbacService:
         actor_id: UUID,
         actor_username: str,
         ip_address: str,
-    ) -> RoleAssignmentModel:
+    ) -> RoleAssignment:
         """Assign a role to a user."""
-        role = await self._session.get(RoleModel, str(role_id))
+        role = await self._roles.get_by_id(role_id)
         if not role:
             raise ValueError("Role not found")
 
-        # Check duplicate
-        existing = await self._session.execute(
-            select(RoleAssignmentModel).where(
-                RoleAssignmentModel.user_id == str(user_id),
-                RoleAssignmentModel.role_id == str(role_id),
-                RoleAssignmentModel.is_active == True,  # noqa: E712
-            )
-        )
-        if existing.scalar_one_or_none():
+        if await self._assignments.get_active(user_id, role_id):
             raise ValueError("Role already assigned to this user")
 
-        assignment = RoleAssignmentModel(
-            id=uuid4(),
-            user_id=str(user_id),
-            role_id=str(role_id),
-            tenant_id=str(tenant_id) if tenant_id else None,
-            is_active=True,
-            created_by=actor_username,
-            modified_by=actor_username,
+        created = await self._assignments.create(
+            RoleAssignment(
+                id=uuid4(),
+                user_id=user_id,
+                role_id=role_id,
+                tenant_id=tenant_id,
+                is_active=True,
+                created_by=actor_username,
+                modified_by=actor_username,
+            )
         )
-        self._session.add(assignment)
 
-        audit = AuditService(self._session)
-        await audit.log_role_assigned(
+        await self._audit_log(
             actor_id=actor_id,
             actor_username=actor_username,
-            user_id=user_id,
-            role_id=role_id,
-            role_code=role.code,
+            action=AuditAction.ROLE_ASSIGNED,
+            resource_type="RoleAssignment",
+            resource_id=str(user_id),
             tenant_id=tenant_id,
+            new_value={
+                "user_id": str(user_id),
+                "role_id": str(role_id),
+                "role_code": role.code,
+            },
             ip_address=ip_address,
         )
-
-        await self._session.commit()
-        await self._session.refresh(assignment)
-        return assignment
+        return created
 
     async def revoke_role(
         self,
@@ -371,87 +357,77 @@ class RbacService:
         actor_id: UUID,
         actor_username: str,
         ip_address: str,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Revoke a role from a user."""
-        stmt = select(RoleAssignmentModel).where(
-            RoleAssignmentModel.user_id == str(user_id),
-            RoleAssignmentModel.role_id == str(role_id),
-            RoleAssignmentModel.is_active == True,  # noqa: E712
-        )
-        result = await self._session.execute(stmt)
-        assignment = result.scalar_one_or_none()
-
+        assignment = await self._assignments.get_active(user_id, role_id)
         if not assignment:
             raise ValueError("Active role assignment not found")
 
-        assignment.is_active = False
-        assignment.modified_by = actor_username
+        await self._assignments.deactivate(assignment.id, actor_username)
 
-        role = await self._session.get(RoleModel, str(role_id))
+        role = await self._roles.get_by_id(role_id)
 
-        audit = AuditService(self._session)
-        await audit.log_role_revoked(
+        await self._audit_log(
             actor_id=actor_id,
             actor_username=actor_username,
-            user_id=user_id,
-            role_id=role_id,
-            role_code=role.code if role else str(role_id),
+            action=AuditAction.ROLE_REVOKED,
+            resource_type="RoleAssignment",
+            resource_id=str(user_id),
             tenant_id=tenant_id,
+            old_value={
+                "user_id": str(user_id),
+                "role_id": str(role_id),
+                "role_code": role.code if role else str(role_id),
+            },
             ip_address=ip_address,
         )
-
-        await self._session.commit()
         return {"detail": "Role revoked"}
 
-    # ═══════════════════════════════════════════════════════════════════
-    # USER PERMISSION QUERIES
-    # ═══════════════════════════════════════════════════════════════════
+    # ─── User permission queries ───
 
-    async def get_my_menu_permissions(self, current_user: User) -> dict:
-        """Get menu permissions for a user. Returns dict with menu_keys and permissions."""
-        manager = PermissionManager(self._session)
-        permissions = await manager.get_user_permissions(
+    async def get_my_menu_permissions(self, current_user: User) -> dict[str, Any]:
+        """Menu keys and MENU-scoped permissions for the current user."""
+        permissions = await self._resolver.get_user_permissions(
             current_user.id, scope=PermissionScope.MENU
         )
-        menu_keys = list({p.resource for p in permissions})
-        return {"menu_keys": menu_keys, "permissions": permissions}
+        return {
+            "menu_keys": list({p.resource for p in permissions}),
+            "permissions": permissions,
+        }
 
-    async def get_my_all_permissions(self, current_user: User) -> dict:
-        """Get all permissions for the current user (debug/introspection)."""
-        manager = PermissionManager(self._session)
+    async def get_my_api_permissions(self, current_user: User) -> dict[str, Any]:
+        """
+        API-scope permissions for the current user, shaped for the frontend.
 
-        # Get role assignments for this user
-        assign_result = await self._session.execute(
-            select(RoleAssignmentModel).where(RoleAssignmentModel.user_id == str(current_user.id))
+        Returned as codes and as resource/action pairs: the UI gates some controls
+        by permission code and others by the (resource, action) pair the endpoints
+        authorise on, and the two are not mechanically derivable from each other.
+        """
+        permissions = await self._resolver.get_user_permissions(
+            current_user.id, scope=PermissionScope.API
         )
-        assignments = assign_result.scalars().all()
 
-        # Get role details
-        role_ids = [a.role_id for a in assignments]
-        roles_info = []
-        if role_ids:
-            role_result = await self._session.execute(
-                select(RoleModel).options(selectinload(RoleModel.permissions)).where(RoleModel.id.in_(role_ids))
-            )
-            roles = role_result.scalars().all()
-            for r in roles:
-                roles_info.append({
-                    "id": str(r.id),
-                    "code": r.code,
-                    "name": r.name,
-                    "is_active": r.is_active,
-                    "permission_count": len(r.permissions),
-                    "permissions": [
-                        {"code": p.code, "scope": p.scope, "resource": p.resource, "action": p.action}
-                        for p in r.permissions
-                    ],
-                })
+        resource_actions: dict[str, list[str]] = {}
+        for permission in permissions:
+            actions = resource_actions.setdefault(permission.resource, [])
+            if permission.action not in actions:
+                actions.append(permission.action)
 
-        permissions = await manager.get_user_permissions(current_user.id)
+        return {
+            "codes": sorted({p.code for p in permissions}),
+            "resource_actions": resource_actions,
+            "permissions": permissions,
+        }
+
+    async def get_my_all_permissions(self, current_user: User) -> dict[str, Any]:
+        """Everything the current user can do (debug/introspection)."""
+        assignments = await self._assignments.list_for_user(current_user.id)
+        roles = await self._roles.list_by_ids([a.role_id for a in assignments])
+        permissions = await self._resolver.get_user_permissions(current_user.id)
+
         return {
             "user_id": str(current_user.id),
             "username": current_user.username,
-            "legacy_role": current_user.role,
             "role_assignments": [
                 {
                     "role_id": str(a.role_id),
@@ -460,28 +436,29 @@ class RbacService:
                 }
                 for a in assignments
             ],
-            "assigned_roles": roles_info,
-            "total_effective_permissions": len(permissions),
-            "effective_permissions": [
+            "assigned_roles": [
                 {
-                    "code": p.code,
-                    "scope": p.scope,
-                    "resource": p.resource,
-                    "action": p.action,
+                    "id": str(r.id),
+                    "code": r.code,
+                    "name": r.name,
+                    "is_active": r.is_active,
+                    "permission_count": len(r.permissions),
+                    "permissions": [self._permission_summary(p) for p in r.permissions],
                 }
-                for p in permissions
+                for r in roles
             ],
+            "total_effective_permissions": len(permissions),
+            "effective_permissions": [self._permission_summary(p) for p in permissions],
         }
 
-    async def get_my_field_permissions(self, current_user: User, resource: str) -> dict:
-        """Get field-level permissions for a user on a specific resource."""
-        manager = PermissionManager(self._session)
-        field_perms = await manager.get_field_permissions(current_user.id, resource)
-        return {"resource": resource, "fields": field_perms}
+    async def get_my_field_permissions(
+        self, current_user: User, resource: str
+    ) -> dict[str, Any]:
+        """Field-level permissions for the current user on one resource."""
+        fields = await self._resolver.get_field_permissions(current_user.id, resource)
+        return {"resource": resource, "fields": fields}
 
-    # ═══════════════════════════════════════════════════════════════════
-    # AUDIT LOGS
-    # ═══════════════════════════════════════════════════════════════════
+    # ─── Audit logs ───
 
     async def list_audit_logs(
         self,
@@ -491,27 +468,30 @@ class RbacService:
         resource_type: str | None = None,
         skip: int = 0,
         limit: int = 50,
-    ) -> dict:
-        """Query audit logs with filters. Returns dict with logs, total, skip, limit."""
-        stmt = select(AuditLogModel)
-        count_stmt = select(func.count()).select_from(AuditLogModel)
-
-        if action:
-            stmt = stmt.where(AuditLogModel.action == action)
-            count_stmt = count_stmt.where(AuditLogModel.action == action)
-        if actor_username:
-            stmt = stmt.where(AuditLogModel.actor_username == actor_username)
-            count_stmt = count_stmt.where(AuditLogModel.actor_username == actor_username)
-        if resource_type:
-            stmt = stmt.where(AuditLogModel.resource_type == resource_type)
-            count_stmt = count_stmt.where(AuditLogModel.resource_type == resource_type)
-
-        stmt = stmt.order_by(AuditLogModel.created_at.desc()).offset(skip).limit(limit)
-
-        result = await self._session.execute(stmt)
-        total_result = await self._session.execute(count_stmt)
-
-        logs = list(result.scalars().all())
-        total = total_result.scalar() or 0
-
+    ) -> dict[str, Any]:
+        """Query the audit trail with filters."""
+        logs = await self._audit.query(
+            action=action,
+            actor_username=actor_username,
+            resource_type=resource_type,
+            skip=skip,
+            limit=limit,
+        )
+        total = await self._audit.count(
+            action=action,
+            actor_username=actor_username,
+            resource_type=resource_type,
+        )
         return {"logs": logs, "total": total, "skip": skip, "limit": limit}
+
+    # ─── Internals ───
+
+    @staticmethod
+    def _permission_summary(permission: Permission) -> dict[str, str]:
+        """Compact permission shape used by the introspection endpoints."""
+        return {
+            "code": permission.code,
+            "scope": permission.scope,
+            "resource": permission.resource,
+            "action": permission.action,
+        }

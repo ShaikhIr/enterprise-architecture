@@ -1,4 +1,4 @@
-﻿"""
+"""
 Alembic migration environment configuration.
 Supports both sync and async migration execution.
 """
@@ -12,19 +12,40 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from src.config.settings import settings
+from src.infrastructure.database.models.approval_matrix_model import (  # noqa: F401
+    ApprovalAssignmentModel,
+    ApprovalMatrixModel,
+    ApprovalRuleModel,
+    ApprovalTaskModel,
+)
+from src.infrastructure.database.models.audit_log_model import AuditLogModel  # noqa: F401
 from src.infrastructure.database.models.base_model import Base
+from src.infrastructure.database.models.category_of_law_model import (
+    CategoryOfLawModel,  # noqa: F401
+)
+from src.infrastructure.database.models.country_model import CountryModel  # noqa: F401
+from src.infrastructure.database.models.legislation_model import LegislationModel  # noqa: F401
+from src.infrastructure.database.models.role_model import (  # noqa: F401
+    PermissionModel,
+    RoleAssignmentModel,
+    RoleModel,
+    RolePermissionModel,
+)
+from src.infrastructure.database.models.rule_model import RuleModel  # noqa: F401
+from src.infrastructure.database.models.state_model import StateModel  # noqa: F401
+from src.infrastructure.database.models.task_type_model import TaskTypeModel  # noqa: F401
+from src.infrastructure.database.models.tenant_model import TenantModel  # noqa: F401
+from src.infrastructure.database.models.user_details_model import UserDetailsModel  # noqa: F401
 
 # Import all models so Alembic detects them
 from src.infrastructure.database.models.user_model import UserModel  # noqa: F401
-from src.infrastructure.database.models.user_details_model import UserDetailsModel  # noqa: F401
-from src.infrastructure.database.models.tenant_model import TenantModel  # noqa: F401
-from src.infrastructure.database.models.role_model import (  # noqa: F401
-    PermissionModel,
-    RoleModel,
-    RolePermissionModel,
-    RoleAssignmentModel,
+from src.infrastructure.database.models.workflow_model import (  # noqa: F401
+    WorkflowDefinitionModel,
+    WorkflowHistoryModel,
+    WorkflowInstanceModel,
+    WorkflowStatusModel,
+    WorkflowTransitionModel,
 )
-from src.infrastructure.database.models.audit_log_model import AuditLogModel  # noqa: F401
 
 # Alembic Config object
 config = context.config

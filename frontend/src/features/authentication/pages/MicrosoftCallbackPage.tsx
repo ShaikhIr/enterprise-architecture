@@ -5,13 +5,18 @@
  */
 
 import { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ProgressSpinner } from 'primereact/progressspinner';
+
 import { Button } from 'primereact/button';
+import { ProgressSpinner } from 'primereact/progressspinner';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+
 import { useAppDispatch } from '@app/store';
-import { fetchCurrentUser } from '../store/authSlice';
-import { microsoftApi } from '../api/microsoftApi';
+
 import { storageService } from '@shared/services/storageService';
+import { extractApiError } from '@shared/utils/apiError';
+
+import { microsoftApi } from '../api/microsoftApi';
+import { fetchCurrentUser } from '../store/authSlice';
 
 export const MicrosoftCallbackPage = () => {
   const navigate = useNavigate();
@@ -37,11 +42,10 @@ export const MicrosoftCallbackPage = () => {
     microsoftApi
       .exchangeCode(code)
       .then(async (tokenRes) => {
-        // Store tokens in memory
+        // Access token → memory. Refresh token was set as an HttpOnly cookie by the server.
         storageService.setAccessToken(tokenRes.access_token);
-        storageService.setRefreshToken(tokenRes.refresh_token);
 
-        // Fetch user profile
+        // Fetch user profile (also loads RBAC + broadcasts login to other tabs)
         await dispatch(fetchCurrentUser());
 
         // Navigate to dashboard
@@ -49,9 +53,11 @@ export const MicrosoftCallbackPage = () => {
         sessionStorage.removeItem('redirectAfterLogin');
         navigate(redirect, { replace: true });
       })
-      .catch((err: any) => {
-        const detail = err.response?.data?.detail || err.message || 'Microsoft login failed';
-        setError(detail);
+      .catch((err: unknown) => {
+        // Falls back to the thrown error's own message, which is what a network failure
+        // carries — it never reaches the server, so there is no response body to unwrap.
+        const fallback = err instanceof Error ? err.message : 'Microsoft login failed';
+        setError(extractApiError(err, fallback));
       });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 

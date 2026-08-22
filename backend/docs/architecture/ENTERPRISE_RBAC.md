@@ -9,7 +9,7 @@ This document describes the enterprise-grade Role-Based Access Control (RBAC) sy
 3. **Menu-level permissions** — Controls UI sidebar/navigation visibility
 4. **API-level permissions** — Controls endpoint access
 5. **Field-level permissions** — Controls field read/write visibility per resource
-6. **Multi-tenant RBAC** — Tenant-scoped roles and assignments (SaaS-ready)
+6. **Multi-tenant RBAC** — the `tenant_id` plumbing exists (`roles.tenant_id`, `role_assignments.tenant_id`), but nothing in `permission_manager.py`'s dependency functions filters by tenant yet — it's dormant plumbing for a future feature, not an active constraint today
 7. **Tree-based permission UI** — Checkbox tree grouped by feature for easy management
 8. **Full audit trail** — All permission changes are logged
 
@@ -113,24 +113,37 @@ This document describes the enterprise-grade Role-Based Access Control (RBAC) sy
 
 ### Default Permissions (Seeded)
 
+Seeded by `scripts/seed_rbac.py`, idempotently (re-running skips permissions that
+already exist). There is no single `rbac.manage` catch-all — RBAC management itself
+splits into `rbac.read`, `rbac.create`, and `rbac.update`, at the same granularity as
+every other resource.
+
 | Category | Permissions |
 |----------|-------------|
-| Menu | dashboard, users, roles, audit_logs, services, reports, settings |
+| Menu | dashboard, users, roles, audit_logs, services, workflows, masters (+ one child per master: countries, states, categories_of_law, legislations, rules, task_types) |
 | Users API | list, create, update, delete, export, import |
 | Roles API | list, create, update, assign |
-| RBAC | rbac.manage (CRUD roles/permissions/assignments) |
+| RBAC | read, create, update |
 | Audit | audit.read |
 | Services | services.employee_ad |
-| Reports | reports.export |
+| Masters API (× 6: countries, states, categories_of_law, legislations, rules, task_types) | list, create, update, delete |
+| Workflow API | workflows.list/create/update/delete, workflow_instances.list/create/update/delete, approval_matrices.list/create/update/delete |
 | Fields | users.salary (read/update), users.email (read/update), users.phone (read) |
 
 ### Default Roles (Seeded)
 
+Three roles, each with a distinct, real set of grants (see `ROLE_PERMISSIONS` in
+`seed_rbac.py` for the exact list per role):
+
 | Role | Permissions |
 |------|-------------|
-| ADMIN | ALL permissions (27 total) |
-| MANAGER | Dashboard, Users (list/export), Reports, Services, email/phone fields |
-| USER | Dashboard, Services only |
+| ADMIN | ALL permissions |
+| MANAGER | Dashboard, Users (list/export), Services, read-only Masters, read-only Workflows (can run instances, cannot design workflows or approval matrices), email/phone fields |
+| USER | Dashboard, Services, read-only Masters, read-only Workflows |
+
+Creating a fourth role, or changing what these three can do, is a normal
+`RoleModel`/`RolePermissionModel` row change — nothing in application code is hardcoded
+to these three names.
 
 ---
 
@@ -152,7 +165,9 @@ The codebase contains **zero** `require_role("ADMIN")` calls. All access control
 |----------------|-------------------|
 | GET/POST /users | `users.list` / `users.create` |
 | PATCH /users | `users.update` |
-| All /rbac/* CRUD | `rbac.manage` |
+| GET /rbac/permissions, /rbac/roles | `rbac.read` |
+| POST /rbac/permissions, /rbac/roles | `rbac.create` |
+| PATCH /rbac/roles/{id}, grant/revoke-permission, assignments | `rbac.update` |
 | GET /rbac/audit-logs | `audit.read` |
 | All /services/employee-ad | `services.employee_ad` |
 | POST /users/import-employees | `users.import` |
@@ -234,20 +249,21 @@ frontend/src/
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/v1/rbac/my-permissions/menu` | Menu keys + permissions for current user |
+| GET | `/api/v1/rbac/my-permissions/api` | API-scope permission codes + resource→actions map, for hiding controls the caller couldn't use anyway |
 | GET | `/api/v1/rbac/my-permissions/fields/{resource}` | Field-level perms for a resource |
 | GET | `/api/v1/rbac/my-permissions/all` | All permissions (debug endpoint) |
 
-### Role Management (requires `rbac.manage`)
+### Role Management (requires `rbac.read`/`rbac.create`/`rbac.update` as noted)
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/v1/rbac/roles` | List roles with permissions |
-| POST | `/api/v1/rbac/roles` | Create a new role |
-| PATCH | `/api/v1/rbac/roles/{role_id}` | Update role |
-| POST | `/api/v1/rbac/roles/grant-permission` | Grant permission to role |
-| POST | `/api/v1/rbac/roles/revoke-permission` | Revoke permission from role |
+| Method | Endpoint | Description | Requires |
+|--------|----------|-------------|----------|
+| GET | `/api/v1/rbac/roles` | List roles with permissions | `rbac.read` |
+| POST | `/api/v1/rbac/roles` | Create a new role | `rbac.create` |
+| PATCH | `/api/v1/rbac/roles/{role_id}` | Update role | `rbac.update` |
+| POST | `/api/v1/rbac/roles/grant-permission` | Grant permission to role | `rbac.update` |
+| POST | `/api/v1/rbac/roles/revoke-permission` | Revoke permission from role | `rbac.update` |
 
-### Role Assignment (requires `rbac.manage`)
+### Role Assignment (requires `rbac.update`)
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -330,7 +346,8 @@ The Users page has a shield (🛡) button per row. Clicking it opens a Tree popu
    ├── 🔑 List Users (READ)
    └── ...
 🛡 Manager (MANAGER)
-   ├── 🔑 Reports Menu
+   ├── 🔑 Dashboard Menu
+   ├── 🔑 Users Menu (list/export only)
    └── ...
 ```
 
@@ -351,6 +368,12 @@ Roles are assigned via `POST /api/v1/rbac/assignments`:
 | Scoped assignments | `role_assignments.tenant_id` — assigns role within a tenant |
 | Resolution logic | PermissionManager merges global + tenant roles for a user |
 | API filtering | `GET /rbac/roles?tenant_id=...` returns global + tenant roles |
+
+Currently dormant: the schema and repository-level filtering above are in place, but
+`permission_manager.py`'s actual `require_permission()`/`require_api_permission()`/
+`require_field_permission()` dependency functions do not pass or filter by `tenant_id`
+today. This is groundwork for a future multi-tenant feature rather than an active
+constraint on any request right now.
 
 ---
 

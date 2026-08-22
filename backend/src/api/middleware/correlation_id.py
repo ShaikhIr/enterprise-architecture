@@ -1,4 +1,4 @@
-﻿"""
+"""
 Correlation ID middleware.
 Extracts or generates X-Correlation-ID for every incoming request
 and attaches it to the response headers.

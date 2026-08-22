@@ -3,10 +3,8 @@
  */
 
 import { useQuery, useMutation } from '@tanstack/react-query';
-import {
-  employeeAdApi,
-  type ValidateCredentialsRequest,
-} from '../api/employeeAdApi';
+
+import { employeeAdApi, type ValidateCredentialsRequest } from '../api/employeeAdApi';
 
 export const useEmployeeADHealth = () => {
   return useQuery({
@@ -19,15 +17,13 @@ export const useEmployeeADHealth = () => {
 
 export const useValidateCredentials = () => {
   return useMutation({
-    mutationFn: (request: ValidateCredentialsRequest) =>
-      employeeAdApi.validateCredentials(request),
+    mutationFn: (request: ValidateCredentialsRequest) => employeeAdApi.validateCredentials(request),
   });
 };
 
 export const useGetSelectedEmployees = () => {
   return useMutation({
-    mutationFn: (employeeIds: string[]) =>
-      employeeAdApi.getSelectedEmployees(employeeIds),
+    mutationFn: (employeeIds: string[]) => employeeAdApi.getSelectedEmployees(employeeIds),
   });
 };
 

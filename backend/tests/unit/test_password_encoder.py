@@ -8,7 +8,7 @@ from src.infrastructure.security.password_encoder import hash_password, verify_p
 class TestPasswordEncoder:
     """Password encoder unit tests."""
 
-    def test_hash_password_returns_hash(self):
+    def test_hash_password_returns_hash(self) -> None:
         """Hashing should return a non-empty string different from input."""
         plain = "MySecurePassword123!"
         hashed = hash_password(plain)
@@ -17,20 +17,20 @@ class TestPasswordEncoder:
         assert len(hashed) > 0
         assert hashed != plain
 
-    def test_verify_correct_password(self):
+    def test_verify_correct_password(self) -> None:
         """Correct password should verify successfully."""
         plain = "MySecurePassword123!"
         hashed = hash_password(plain)
 
         assert verify_password(plain, hashed) is True
 
-    def test_verify_incorrect_password(self):
+    def test_verify_incorrect_password(self) -> None:
         """Incorrect password should fail verification."""
         hashed = hash_password("CorrectPassword123!")
 
         assert verify_password("WrongPassword456!", hashed) is False
 
-    def test_different_hashes_for_same_password(self):
+    def test_different_hashes_for_same_password(self) -> None:
         """BCrypt should produce different hashes for the same input (salted)."""
         plain = "SamePassword!"
         hash1 = hash_password(plain)

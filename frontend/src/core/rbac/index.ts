@@ -3,10 +3,12 @@
  */
 
 // Components
-export { FieldGate, MenuGate, PermissionGate } from './PermissionGate';
+export { ActionGate, FieldGate, MenuGate, PermissionGate } from './PermissionGate';
 
 // Hooks
 export {
+  useApiPermissions,
+  useCan,
   useFieldPermissions,
   useHasPermission,
   useMenuPermission,
@@ -14,11 +16,17 @@ export {
 } from './usePermissions';
 
 // Redux
-export { clearRbac, fetchFieldPermissions, fetchMenuPermissions } from './rbacSlice';
+export {
+  clearRbac,
+  fetchApiPermissions,
+  fetchFieldPermissions,
+  fetchMenuPermissions,
+} from './rbacSlice';
 export { default as rbacReducer } from './rbacSlice';
 
 // Types
 export type {
+  ApiPermissionsResponse,
   AuditLogEntry,
   AuditLogListResponse,
   FieldPermissionsResponse,

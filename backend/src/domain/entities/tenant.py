@@ -1,9 +1,8 @@
-﻿"""
+"""
 Tenant domain entity for multi-tenant RBAC support.
 """
 
 from dataclasses import dataclass, field
-from uuid import UUID
 
 from src.domain.entities.base_entity import BaseEntity
 

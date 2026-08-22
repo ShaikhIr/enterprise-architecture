@@ -1,1 +1,0 @@
-﻿# Base domain event class

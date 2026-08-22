@@ -1,4 +1,4 @@
-﻿"""
+"""
 Pydantic schemas for RBAC API endpoints.
 """
 
@@ -6,7 +6,6 @@ from datetime import datetime
 from uuid import UUID
 
 from pydantic import BaseModel, Field
-
 
 # ─── Permission Schemas ───
 
@@ -143,6 +142,25 @@ class MenuPermissionsResponse(BaseModel):
     """User's menu access permissions for frontend consumption."""
 
     menu_keys: list[str]
+    permissions: list[PermissionResponse]
+
+
+# ─── API Permissions Response ───
+
+
+class ApiPermissionsResponse(BaseModel):
+    """
+    User's API-scope permissions, for driving UI affordances.
+
+    `codes` and `resource_actions` describe the same grants two ways because the
+    frontend needs both: a gate written against a permission code
+    (`countries.create`), and a check written against the pair the backend actually
+    authorises on (`countries` + `CREATE`). Deriving one from the other in the UI
+    would mean assuming a naming convention that nothing enforces.
+    """
+
+    codes: list[str]
+    resource_actions: dict[str, list[str]]
     permissions: list[PermissionResponse]
 
 

@@ -3,14 +3,17 @@
  * Lists all users and provides create/edit/import functionality.
  */
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
+
 import { Button } from 'primereact/button';
 import { Toast } from 'primereact/toast';
-import { useRef } from 'react';
-import { UserTable } from '../components/UserTable';
-import { UserForm } from '../components/UserForm';
+
+import { extractApiError } from '@shared/utils/apiError';
+
 import { EditUserDialog } from '../components/EditUserDialog';
 import { ImportEmployeeDialog } from '../components/ImportEmployeeDialog';
+import { UserForm } from '../components/UserForm';
+import { UserTable } from '../components/UserTable';
 import { useUsers, useCreateUser, useUpdateUser } from '../hooks/useUsers';
 import type { User, CreateUserRequest, UpdateUserRequest } from '../models/User';
 
@@ -35,16 +38,12 @@ export const UserListPage = () => {
         detail: `User '${formData.username}' created successfully`,
         life: 3000,
       });
-    } catch (error: any) {
-      const rawDetail = error.response?.data?.detail;
-      // Handle Pydantic 422 validation errors (array of objects)
-      const detail = Array.isArray(rawDetail)
-        ? rawDetail.map((e: any) => e.msg || e.message).join('; ')
-        : (typeof rawDetail === 'string' ? rawDetail : 'Failed to create user');
+    } catch (error) {
+      // Flattens both error shapes the backend speaks, Pydantic's 422 array included.
       toast.current?.show({
         severity: 'error',
         summary: 'Error',
-        detail,
+        detail: extractApiError(error, 'Failed to create user'),
         life: 5000,
       });
     }
@@ -66,15 +65,11 @@ export const UserListPage = () => {
         detail: 'User updated successfully',
         life: 3000,
       });
-    } catch (error: any) {
-      const rawDetail = error.response?.data?.detail;
-      const detail = Array.isArray(rawDetail)
-        ? rawDetail.map((e: any) => e.msg || e.message).join('; ')
-        : (typeof rawDetail === 'string' ? rawDetail : 'Failed to update user');
+    } catch (error) {
       toast.current?.show({
         severity: 'error',
         summary: 'Error',
-        detail,
+        detail: extractApiError(error, 'Failed to update user'),
         life: 5000,
       });
     }
@@ -110,11 +105,7 @@ export const UserListPage = () => {
 
       {/* Data Table */}
       <div className="surface-card p-4 border-round shadow-1">
-        <UserTable
-          users={data?.users || []}
-          loading={isLoading}
-          onEdit={handleEditUser}
-        />
+        <UserTable users={data?.users || []} loading={isLoading} onEdit={handleEditUser} />
       </div>
 
       {/* Create User Dialog */}
@@ -129,7 +120,10 @@ export const UserListPage = () => {
       <EditUserDialog
         visible={showEditDialog}
         user={editingUser}
-        onHide={() => { setShowEditDialog(false); setEditingUser(null); }}
+        onHide={() => {
+          setShowEditDialog(false);
+          setEditingUser(null);
+        }}
         onSubmit={handleUpdateUser}
         loading={updateUserMutation.isPending}
       />

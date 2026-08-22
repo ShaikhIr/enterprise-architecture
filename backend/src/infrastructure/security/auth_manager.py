@@ -1,4 +1,4 @@
-﻿"""
+"""
 Authentication manager.
 Coordinates login flow: user lookup, password verification, status checks, token issuance.
 Supports dual authentication:
@@ -134,7 +134,7 @@ class AuthManager:
                 raise InvalidCredentialsError()
         except EmployeeADError as exc:
             logger.error("Darwin AD validation failed for %s: %s", employee_id, exc)
-            raise InvalidCredentialsError()
+            raise InvalidCredentialsError() from exc
 
     async def refresh(self, refresh_token: str) -> AuthTokenResponse:
         """
@@ -148,7 +148,7 @@ class AuthManager:
         try:
             payload = self._jwt.verify_token(refresh_token, expected_type="refresh")
         except Exception as e:
-            raise AuthenticationError(f"Invalid refresh token: {e}", status_code=401)
+            raise AuthenticationError(f"Invalid refresh token: {e}", status_code=401) from e
 
         user = await self._user_repo.get_by_username(payload.sub)
 

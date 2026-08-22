@@ -1,1 +1,1 @@
-﻿# Email value object with validation
+# Email value object with validation

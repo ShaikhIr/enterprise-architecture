@@ -1,27 +1,31 @@
-﻿"""
+"""
 Enterprise Permission Manager.
 Provides granular permission checks for menu, API, and field-level access control.
 Integrates with the role-permission database model and supports multi-tenancy.
 """
 
-from typing import Callable
+from collections.abc import Callable
+from typing import Any
 from uuid import UUID
 
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from src.domain.entities.role import PermissionAction, PermissionScope
+from src.domain.entities.role import Permission, PermissionAction, PermissionScope
+from src.domain.services.permission_resolver import IPermissionResolver
 from src.infrastructure.database.models.role_model import (
-    PermissionModel,
     RoleAssignmentModel,
     RoleModel,
+)
+from src.infrastructure.database.repositories.permission_repository_impl import (
+    PermissionRepositoryImpl,
 )
 from src.infrastructure.database.session import get_db_session
 
 
-class PermissionManager:
+class PermissionManager(IPermissionResolver):
     """
     Centralized permission evaluation engine.
 
@@ -39,7 +43,7 @@ class PermissionManager:
         user_id: UUID,
         tenant_id: UUID | None = None,
         scope: PermissionScope | None = None,
-    ) -> list[PermissionModel]:
+    ) -> list[Permission]:
         """
         Retrieve all effective permissions for a user.
 
@@ -55,14 +59,14 @@ class PermissionManager:
         stmt = (
             select(RoleAssignmentModel)
             .where(
-                RoleAssignmentModel.user_id == str(user_id),
+                RoleAssignmentModel.user_id == user_id,
                 RoleAssignmentModel.is_active == True,  # noqa: E712
             )
         )
         if tenant_id:
             # Include global roles (tenant_id IS NULL) + tenant-specific roles
             stmt = stmt.where(
-                (RoleAssignmentModel.tenant_id == str(tenant_id))
+                (RoleAssignmentModel.tenant_id == tenant_id)
                 | (RoleAssignmentModel.tenant_id.is_(None))
             )
 
@@ -88,7 +92,7 @@ class PermissionManager:
 
         # Collect all permissions, handling role inheritance
         seen_ids: set[str] = set()
-        permissions: list[PermissionModel] = []
+        permissions: list[Permission] = []
 
         for role in roles:
             for perm in role.permissions:
@@ -99,7 +103,7 @@ class PermissionManager:
                 perm_id = str(perm.id)
                 if perm_id not in seen_ids:
                     seen_ids.add(perm_id)
-                    permissions.append(perm)
+                    permissions.append(PermissionRepositoryImpl._to_entity(perm))
 
             # Walk parent role chain (single level for performance)
             if role.parent_role_id:
@@ -119,7 +123,7 @@ class PermissionManager:
                         perm_id = str(perm.id)
                         if perm_id not in seen_ids:
                             seen_ids.add(perm_id)
-                            permissions.append(perm)
+                            permissions.append(PermissionRepositoryImpl._to_entity(perm))
 
         return permissions
 
@@ -188,7 +192,7 @@ class PermissionManager:
 # ─── FastAPI Dependencies ───
 
 
-def require_permission(permission_code: str) -> Callable:
+def require_permission(permission_code: str) -> Callable[..., Any]:
     """
     FastAPI dependency factory for permission-based endpoint protection.
 
@@ -220,7 +224,7 @@ def require_permission(permission_code: str) -> Callable:
     return permission_checker
 
 
-def require_api_permission(resource: str, action: str | PermissionAction) -> Callable:
+def require_api_permission(resource: str, action: str | PermissionAction) -> Callable[..., Any]:
     """
     FastAPI dependency for API-level permission checks.
 
@@ -249,3 +253,47 @@ def require_api_permission(resource: str, action: str | PermissionAction) -> Cal
         return current_user
 
     return api_permission_checker
+
+
+def require_field_permission(
+    resource: str, field: str, action: str | PermissionAction
+) -> Callable[..., Any]:
+    """
+    FastAPI dependency for field-level permission checks.
+
+    For an endpoint that exists to change one guarded field rather than a whole record.
+    A field grant normally decides whether a column is shown, and where the column is
+    editable the write needs the same grant enforced — otherwise the only thing stopping
+    the change is a button the client chose not to draw.
+
+    Resolved through `get_field_permissions`, so this asks exactly the question the client
+    asks of `/rbac/my-permissions/fields`. Checking a permission code here and a field
+    name there would be two spellings of one rule, free to drift apart.
+
+    Stacks with `require_api_permission`: the caller needs the endpoint's own grant as
+    well, so this narrows access rather than granting it.
+
+    Usage:
+        @router.put("/{id}/dates", dependencies=[
+            Depends(require_api_permission("task_transactions", "UPDATE")),
+            Depends(require_field_permission("task_repository", "edit_dates", "UPDATE")),
+        ])
+    """
+    from src.api.v1.dependencies import get_current_active_user
+    from src.domain.entities.user import User
+
+    async def field_permission_checker(
+        current_user: User = Depends(get_current_active_user),
+        session: AsyncSession = Depends(get_db_session),
+    ) -> User:
+        fields = await PermissionManager(session).get_field_permissions(
+            user_id=current_user.id, resource=resource
+        )
+        if str(action) not in fields.get(field, []):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Field access denied: {resource}.{field}.{action}",
+            )
+        return current_user
+
+    return field_permission_checker

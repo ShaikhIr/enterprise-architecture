@@ -6,28 +6,56 @@
 
 :root {
   /* Primary */
-  --color-primary: #ED1C24;
-  --color-primary-hover: #C8141B;
-  --color-primary-50: #FFF0F0;
-  --color-primary-100: #FFD6D8;
+  --color-primary: #ed1c24;
+  --color-primary-hover: #c8141b;
+  --color-primary-50: #fff0f0;
+  --color-primary-100: #ffd6d8;
 
   /* Semantic */
-  --color-success: #17C765;
-  --color-success-hover: #0DA050;
-  --color-warning: #FFA21E;
-  --color-error: #EF4444;
-  --color-info: #3B82F6;
+  --color-success: #17c765;
+  --color-success-hover: #0da050;
+  --color-warning: #ffa21e;
+  --color-error: #ef4444;
+  --color-info: #3b82f6;
+
+  /*
+   * One triple per severity: the ink, its hover, and a pale tint for outlined and
+   * text variants to wash on hover. Buttons read these through custom properties,
+   * so a severity is defined in exactly one place.
+   */
+  --color-secondary: #6c757d;
+  --color-secondary-hover: #495057;
+  --color-secondary-50: #f1f3f5;
+  --color-success-50: #ecfdf5;
+  --color-warning-hover: #d97706;
+  --color-warning-50: #fffbeb;
+  --color-error-hover: #b91c1c;
+  --color-error-50: #fef2f2;
+  --color-info-hover: #2563eb;
+  --color-info-50: #eff6ff;
+  --color-help: #8b5cf6;
+  --color-help-hover: #7c3aed;
+  --color-help-50: #f5f3ff;
+
+  /*
+   * Selection and focus. The base theme is lara-light-blue, so anything selected —
+   * a checked row, a checkbox, the current page, a chosen dropdown option — arrives
+   * blue. These two tokens re-point all of it at the brand.
+   */
+  --color-highlight-bg: var(--color-primary-50);
+  --color-highlight-text: var(--color-primary-hover);
+  --color-focus-ring: rgb(237 28 36 / 20%);
 
   /* Text */
   --color-text-primary: #212529;
-  --color-text-secondary: #6C757D;
-  --color-text-muted: #ADB5BD;
+  --color-text-secondary: #6c757d;
+  --color-text-muted: #adb5bd;
 
   /* Surface */
-  --color-surface: #FFFFFF;
-  --color-surface-ground: #F8F9FA;
-  --color-surface-border: #E9ECEF;
-  --color-surface-hover: #F1F3F5;
+  --color-surface: #ffffff;
+  --color-surface-ground: #f8f9fa;
+  --color-surface-border: #e9ecef;
+  --color-surface-hover: #f1f3f5;
 
   /* Spacing */
   --space-1: 4px;
@@ -55,6 +83,14 @@
 
 /* ─── Global Compact Density ─── */
 
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
 body {
   font-size: 13px;
   line-height: 1.5;
@@ -66,13 +102,36 @@ h2 {
 
 /* ─── PrimeReact Compact Overrides ─── */
 
-/* Buttons — smaller padding */
+/* ─── Buttons ──────────────────────────────────────────────── */
+/*
+ * A PrimeReact button is a severity (primary, secondary, danger…) crossed with a
+ * variant (filled, outlined, text). The two used to be tangled here, and outlined
+ * buttons came out as solid blocks all over the app — the red "InActivate", every
+ * grey "Cancel", "Reset" and "Refresh", every rounded icon action in a table.
+ *
+ * Two causes, both fixed below. The severity rules painted `background` with a
+ * gradient, which sets background-*image*, and the theme's outlined rules only
+ * clear background-*color* — so the gradient survived a variant that is supposed
+ * to paint nothing. And `.p-button:not(:disabled):hover` applied the brand hover
+ * to every button regardless of severity, so a green Save turned red under the
+ * cursor.
+ *
+ * So severity and variant no longer overlap. A severity sets custom properties and
+ * nothing else; the fill is scoped away from the variants that must stay
+ * transparent, and each variant reads the properties. One rule per variant covers
+ * every severity, and adding a severity is three lines that cannot break a variant.
+ */
+
+/* Compact density, shared by every variant. */
 .p-button {
-  background: var(--color-primary);
-  border-color: var(--color-primary);
   border-radius: var(--radius-md);
   padding: 0.5rem 0.85rem;
   font-size: 0.813rem;
+
+  /* Defaults, overridden per severity below. */
+  --em-btn-ink: var(--color-primary);
+  --em-btn-ink-hover: var(--color-primary-hover);
+  --em-btn-tint: var(--color-primary-50);
 }
 
 .p-button.p-button-sm {
@@ -80,40 +139,133 @@ h2 {
   font-size: 0.75rem;
 }
 
-.p-button:not(:disabled):hover {
-  background: var(--color-primary-hover);
-  border-color: var(--color-primary-hover);
-}
+/* ─── Severities: three tokens each, no painting ─── */
 
-.p-button.p-button-outlined {
-  color: var(--color-primary);
-  border-color: var(--color-primary);
-  background: transparent;
-}
-
-.p-button.p-button-outlined:not(:disabled):hover {
-  background: var(--color-primary-50);
-  color: var(--color-primary-hover);
+.p-button.p-button-secondary {
+  --em-btn-ink: var(--color-secondary);
+  --em-btn-ink-hover: var(--color-secondary-hover);
+  --em-btn-tint: var(--color-secondary-50);
 }
 
 .p-button.p-button-success {
-  background: linear-gradient(135deg, #34d874, #0da050);
-  border-color: var(--color-success);
+  --em-btn-ink: var(--color-success);
+  --em-btn-ink-hover: var(--color-success-hover);
+  --em-btn-tint: var(--color-success-50);
 }
 
 .p-button.p-button-danger {
-  background: linear-gradient(135deg, #ff6b6b, #b91c1c);
-  border-color: var(--color-error);
+  --em-btn-ink: var(--color-error);
+  --em-btn-ink-hover: var(--color-error-hover);
+  --em-btn-tint: var(--color-error-50);
 }
 
-.p-button.p-button-secondary {
+.p-button.p-button-warning {
+  --em-btn-ink: var(--color-warning);
+  --em-btn-ink-hover: var(--color-warning-hover);
+  --em-btn-tint: var(--color-warning-50);
+}
+
+.p-button.p-button-info {
+  --em-btn-ink: var(--color-info);
+  --em-btn-ink-hover: var(--color-info-hover);
+  --em-btn-tint: var(--color-info-50);
+}
+
+.p-button.p-button-help {
+  --em-btn-ink: var(--color-help);
+  --em-btn-ink-hover: var(--color-help-hover);
+  --em-btn-tint: var(--color-help-50);
+}
+
+/* ─── Filled: the default variant ─── */
+/*
+ * Scoped away from outlined, text and link. Written as :not() chains rather than
+ * as a plain `.p-button` rule because that is the whole point — a variant that
+ * paints nothing must not have to undo a fill it never asked for.
+ */
+
+.p-button:not(.p-button-outlined):not(.p-button-text):not(.p-button-link) {
+  background: var(--em-btn-ink);
+  border-color: var(--em-btn-ink);
+  color: #fff;
+}
+
+.p-button:not(.p-button-outlined):not(.p-button-text):not(.p-button-link):not(:disabled):hover {
+  background: var(--em-btn-ink-hover);
+  border-color: var(--em-btn-ink-hover);
+  color: #fff;
+}
+
+/*
+ * Amber is too light to carry white text — around 2:1, well under the 4.5:1 that
+ * WCAG AA asks for — so filled warning buttons take the dark ink instead.
+ */
+.p-button.p-button-warning:not(.p-button-outlined):not(.p-button-text):not(.p-button-link),
+.p-button.p-button-warning:not(.p-button-outlined):not(.p-button-text):not(.p-button-link):not(:disabled):hover {
+  color: var(--color-text-primary);
+}
+
+/* Secondary filled is a light control, so it takes dark text. */
+.p-button.p-button-secondary:not(.p-button-outlined):not(.p-button-text):not(.p-button-link) {
   background: linear-gradient(135deg, #f8f9fa, #e9ecef);
   border-color: var(--color-surface-border);
   color: var(--color-text-primary);
 }
 
-.p-button.p-button-text {
-  color: var(--color-primary);
+.p-button.p-button-secondary:not(.p-button-outlined):not(.p-button-text):not(.p-button-link):not(:disabled):hover {
+  background: var(--color-surface-hover);
+  border-color: var(--color-text-muted);
+  color: var(--color-text-primary);
+}
+
+/* ─── Outlined and text ─── */
+/*
+ * `background-image: none` is the load-bearing declaration: without it any
+ * gradient reaching these buttons from a severity rule — the theme's, or a future
+ * one here — shows through `background-color: transparent`.
+ *
+ * The :not(.p-button-link) is carried for specificity as much as for meaning. The
+ * base theme states outlined-plus-severity colours at three classes deep, so these
+ * have to match that weight to be the ones that apply.
+ */
+
+.p-button.p-button-outlined:not(.p-button-link),
+.p-button.p-button-text:not(.p-button-link) {
+  background: transparent;
+  background-image: none;
+  color: var(--em-btn-ink);
+}
+
+.p-button.p-button-outlined:not(.p-button-link) {
+  border: 1px solid var(--em-btn-ink);
+}
+
+.p-button.p-button-text:not(.p-button-link) {
+  border-color: transparent;
+}
+
+.p-button.p-button-outlined:not(.p-button-link):not(:disabled):hover,
+.p-button.p-button-text:not(.p-button-link):not(:disabled):hover {
+  background: var(--em-btn-tint);
+  background-image: none;
+  color: var(--em-btn-ink-hover);
+}
+
+.p-button.p-button-outlined:not(.p-button-link):not(:disabled):hover {
+  border-color: var(--em-btn-ink-hover);
+}
+
+.p-button.p-button-text:not(.p-button-link):not(:disabled):hover {
+  border-color: transparent;
+}
+
+/*
+ * Focus ring, brand-tinted. The base theme's is blue, and it restates the ring per
+ * severity at four classes deep, so this has to match that weight to win.
+ */
+.p-button:focus,
+.p-button:not(.p-button-link):not(:disabled):focus {
+  box-shadow: 0 0 0 0.2rem var(--color-focus-ring);
 }
 
 /* Input fields — compact */
@@ -122,10 +274,8 @@ h2 {
   font-size: 0.813rem;
 }
 
-.p-inputtext:focus {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 2px var(--color-primary-50);
-}
+/* Focus is not styled here — every control's ring is set together further down,
+   under Focus rings, so the brand tint is stated once. */
 
 /* Password component — force full width */
 .p-password {
@@ -188,23 +338,118 @@ h2 {
 }
 
 .p-tag.p-tag-success {
-  background: #ECFDF5;
-  color: #065F46;
+  background: var(--color-success-50);
+  color: #065f46;
 }
 
 .p-tag.p-tag-danger {
-  background: #FEF2F2;
-  color: #991B1B;
+  background: var(--color-error-50);
+  color: #991b1b;
 }
 
 .p-tag.p-tag-warning {
-  background: #FFFBEB;
-  color: #92400E;
+  background: var(--color-warning-50);
+  color: #92400e;
 }
 
 .p-tag.p-tag-info {
-  background: #EFF6FF;
-  color: #1E40AF;
+  background: var(--color-info-50);
+  color: #1e40af;
+}
+
+/* ─── Selection ──────────────────────────────────────────────── */
+/*
+ * The base theme is lara-light-*blue*, and it hard-codes its highlight palette —
+ * #eff6ff behind #1d4ed8 text, #3b82f6 for a ticked control — in ninety-odd rules
+ * rather than reading a variable. So on a red brand every selected thing came out
+ * blue: checked rows, checkboxes, the current paginator page, the chosen option in
+ * a dropdown.
+ *
+ * Two groups. A soft wash for things selected in a list, and a solid fill for the
+ * small controls that indicate their own state. Both read the highlight tokens, so
+ * the brand is stated once.
+ *
+ * Grouped by role rather than by component so a component added later inherits the
+ * right treatment by matching one of these selectors.
+ */
+
+/* Soft wash: rows, options, pages, dates. */
+.p-datatable .p-datatable-tbody > tr.p-highlight,
+.p-datatable .p-datatable-tbody > tr > td.p-highlight,
+.p-datatable.p-datatable-striped .p-datatable-tbody > tr.p-row-odd.p-highlight,
+.p-datatable .p-sortable-column.p-highlight,
+.p-datatable .p-sortable-column.p-highlight:not(.p-sortable-disabled):hover,
+.p-treetable .p-sortable-column.p-highlight,
+.p-dropdown-panel .p-dropdown-items .p-dropdown-item.p-highlight,
+.p-multiselect-panel .p-multiselect-items .p-multiselect-item.p-highlight,
+.p-autocomplete-panel .p-autocomplete-items .p-autocomplete-item.p-highlight,
+.p-listbox .p-listbox-list .p-listbox-item.p-highlight,
+.p-tree .p-tree-container .p-treenode .p-treenode-content.p-highlight,
+.p-paginator .p-paginator-pages .p-paginator-page.p-highlight,
+.p-datepicker table td > span.p-highlight,
+.p-datepicker .p-monthpicker .p-monthpicker-month.p-highlight,
+.p-datepicker .p-yearpicker .p-yearpicker-year.p-highlight,
+.p-tabview .p-tabview-nav li.p-highlight .p-tabview-nav-link {
+  background: var(--color-highlight-bg);
+  color: var(--color-highlight-text);
+}
+
+/* Icons inside a washed row inherit nothing, so they are named. */
+.p-datatable .p-sortable-column.p-highlight .p-sortable-column-icon,
+.p-tree .p-tree-container .p-treenode .p-treenode-content.p-highlight .p-tree-toggler,
+.p-tree .p-tree-container .p-treenode .p-treenode-content.p-highlight .p-treenode-icon {
+  color: var(--color-highlight-text);
+}
+
+.p-paginator .p-paginator-pages .p-paginator-page.p-highlight {
+  border-color: var(--color-highlight-bg);
+}
+
+.p-tabview .p-tabview-nav li.p-highlight .p-tabview-nav-link {
+  border-color: var(--color-primary);
+}
+
+/* Solid fill: the controls that show their own checked state. */
+.p-checkbox.p-highlight .p-checkbox-box,
+.p-tristatecheckbox.p-highlight .p-checkbox-box,
+.p-radiobutton.p-highlight .p-radiobutton-box,
+.p-selectbutton .p-button.p-highlight,
+.p-togglebutton.p-highlight .p-button {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+
+.p-inputswitch.p-highlight .p-inputswitch-slider {
+  background: var(--color-primary);
+}
+
+/*
+ * Hover on a ticked control. Stated separately because the theme reaches these
+ * through `:has(.p-checkbox-input:hover)`, which outweighs a plain class selector.
+ */
+.p-checkbox:not(.p-disabled):has(.p-checkbox-input:hover).p-highlight .p-checkbox-box,
+.p-radiobutton:not(.p-disabled):has(.p-radiobutton-input:hover).p-highlight .p-radiobutton-box {
+  background: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
+}
+
+/* ─── Focus rings ─── */
+/* Same story as selection: the base theme's ring is a blue #bfdbfe. */
+.p-inputtext:enabled:focus,
+.p-dropdown:not(.p-disabled).p-focus,
+.p-multiselect:not(.p-disabled).p-focus,
+.p-calendar:not(.p-calendar-disabled).p-focus > .p-inputtext,
+.p-checkbox:not(.p-disabled):has(.p-checkbox-input:focus-visible) .p-checkbox-box,
+.p-radiobutton:not(.p-disabled):has(.p-radiobutton-input:focus-visible) .p-radiobutton-box,
+.p-inputswitch:not(.p-disabled):has(.p-inputswitch-input:focus-visible) .p-inputswitch-slider {
+  box-shadow: 0 0 0 0.2rem var(--color-focus-ring);
+  border-color: var(--color-primary);
+}
+
+.p-datatable.p-datatable-selectable .p-datatable-tbody > tr.p-selectable-row:focus-visible {
+  outline: 0.15rem solid var(--color-primary-100);
+  outline-offset: -0.15rem;
 }
 
 /* Tree — compact */
@@ -353,8 +598,90 @@ h2 {
   }
 }
 
-
 /* Avatar */
 .bg-primary {
   background-color: var(--color-primary) !important;
+}
+
+/* ─── Paginator rows-per-page dropdown alignment ─── */
+/* The global .p-dropdown-label padding pushes the value to the top and makes
+   this dropdown taller than the page buttons. Center its label and match the
+   height of the surrounding paginator controls. */
+.p-paginator .p-paginator-rpp-options.p-dropdown {
+  height: 2.5rem;
+  align-items: center;
+  margin-left: 0.5rem;
+}
+
+.p-paginator .p-paginator-rpp-options.p-dropdown .p-dropdown-label {
+  display: flex;
+  align-items: center;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.p-paginator .p-paginator-first,
+.p-paginator .p-paginator-prev,
+.p-paginator .p-paginator-next,
+.p-paginator .p-paginator-last,
+.p-paginator .p-paginator-pages .p-paginator-page {
+  height: 2.5rem;
+  min-width: 2.5rem;
+}
+
+/* ─── Dropdown and MultiSelect — long option labels ─────────── */
+/*
+ * Some master data carries a whole sentence where a name is expected: a
+ * legislation label can run to a paragraph, and the code that disambiguates it —
+ * "(LEG0024)" — sits at the very end.
+ *
+ * The theme sets dropdown items to `nowrap`, and PrimeReact sizes the panel from
+ * its widest item, so one long option stretched the panel far past the field and
+ * off the page. Letting items wrap is the actual fix: the panel then keeps the
+ * `min-width` PrimeReact copies from the trigger, and the text flows inside it.
+ *
+ * Wrapped rather than clamped on purpose. Clamping to a line or two would hide
+ * the trailing code, which is the part that tells two similar entries apart. Only
+ * pathological labels grow tall, and the panel already scrolls.
+ *
+ * The closed field is different — it is one line and cannot wrap, so it truncates
+ * with an ellipsis. The full text is one click away in the panel.
+ */
+
+.p-dropdown-panel .p-dropdown-items .p-dropdown-item,
+.p-multiselect-panel .p-multiselect-items .p-multiselect-item {
+  white-space: normal;
+  /* `anywhere` rather than `break-word`: some labels are a single unbroken token
+     (a URL, an unspaced identifier) that no word boundary can split. */
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+  padding: 0.4rem 0.75rem;
+}
+
+/* Belt and braces. Wrapping keeps the panel at the trigger width in every case
+   seen so far, but a panel is positioned against the viewport rather than its
+   container, so this stops one ever reaching past the window edge. */
+.p-dropdown-panel,
+.p-multiselect-panel {
+  max-width: min(90vw, 40rem);
+}
+
+/* The selected value in the closed control: one line, ellipsised. `min-width: 0`
+   is what allows a flex child to shrink below its content width — without it the
+   label refuses to truncate and pushes the field wider instead. */
+.p-dropdown {
+  max-width: 100%;
+}
+
+.p-dropdown .p-dropdown-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Multi-select chips wrap onto more rows instead of widening the control. */
+.p-multiselect .p-multiselect-label {
+  min-width: 0;
+  white-space: normal;
 }

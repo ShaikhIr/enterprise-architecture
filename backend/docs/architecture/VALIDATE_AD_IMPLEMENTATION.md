@@ -2,7 +2,7 @@
 
 ## Overview
 
-The enterprise-architecture project implements a dual authentication strategy controlled by the `is_validate_ad` flag on each user record:
+This project implements a dual authentication strategy controlled by the `is_validate_ad` flag on each user record:
 
 - **`is_validate_ad = true`**: Login calls the Darwin AD service (`POST /validatecredentials`) to authenticate
 - **`is_validate_ad = false`**: Login uses local bcrypt password verification
@@ -73,8 +73,14 @@ class User(BaseEntity):
     is_active: bool = field(default=True)
     is_blocked: bool = field(default=False)
     is_validate_ad: bool = field(default=True)   # ← AD flag
-    role: str = field(default="USER")
 ```
+
+There is **no `role` field**. An earlier revision of this document showed one; it was
+dropped by migration `c9d4e2f5a1b7_drop_role_column_from_users.py` along with the matching
+`users.role` column, and role assignment is now exclusively via the `role_assignments`
+table (see [ENTERPRISE_RBAC.md](./ENTERPRISE_RBAC.md)). If you're adding a role to a newly
+created or imported user, that means creating a `RoleAssignment` row, not setting an
+attribute on `User`.
 
 ### 2. ORM Model (`src/infrastructure/database/models/user_model.py`)
 
@@ -87,8 +93,9 @@ class UserModel(BaseModel):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     is_blocked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_validate_ad: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    role: Mapped[str] = mapped_column(String(50), default="USER", nullable=False)
 ```
+
+Same note: no `role` column on the ORM model either.
 
 ### 3. Auth Manager (`src/infrastructure/security/auth_manager.py`)
 
@@ -276,7 +283,6 @@ Returns organizational hierarchy data. No request body required.
 | is_active | BOOLEAN | true | Account active flag |
 | is_blocked | BOOLEAN | false | Account blocked flag |
 | is_validate_ad | BOOLEAN | true | **AD authentication flag** |
-| role | VARCHAR(50) | USER | ADMIN/MANAGER/USER |
 | created_by | VARCHAR(255) | system | Audit field |
 | created_date | TIMESTAMP | now() | Audit field |
 | modified_by | VARCHAR(255) | system | Audit field |
@@ -330,16 +336,27 @@ POST /api/v1/users/import-employees { employee_ids: ["93300040"] }
         ▼
 Backend (employee_import_controller.py):
   1. Call Darwin POST /getselectedemployees (multipart: EmployeeIDs)
-  2. For each employee in response:
+  2. For each employee in response, inside its own SAVEPOINT (so one bad record
+     cannot fail the rest of the batch):
      a. Check if user exists (SELECT WHERE username = employee_id)
      b. IF NOT EXISTS:
-        - INSERT into users: username=employee_id, password=bcrypt(employee_id),
-          role=USER, is_validate_ad=true
+        - INSERT into users: username=employee_id, password_hash=bcrypt(employee_id),
+          is_active=true, is_blocked=false (is_validate_ad keeps its column default
+          of true — not set explicitly by this flow; no role is assigned here at all,
+          since users carries no role column — grant one via role_assignments
+          separately if needed)
      c. IF EXISTS:
         - Password left unchanged
      d. UPSERT into user_details: all Darwin fields
   3. Return summary: { created: N, updated: N, failed: N, results: [...] }
 ```
+
+This flow is implemented behind `EmployeeImportService` / `IEmployeeImportWriter` /
+`EmployeeImportWriterImpl` (`src/application/services/employee_import_service.py`,
+`src/application/ports/employee_import_writer.py`,
+`src/infrastructure/database/repositories/employee_import_writer_impl.py`) — the
+controller itself only calls Darwin, translates its error, and delegates. See
+`.kiro/steering/api-layer-standard.md` for why that separation is required.
 
 ---
 
@@ -349,9 +366,13 @@ Backend (employee_import_controller.py):
 
 | Button | Action |
 |--------|--------|
-| New User | Opens create dialog (username, password, role, validate_ad toggle) |
+| New User | Opens create dialog (username, password, role picker → `role_id`, validate_ad toggle) |
 | Fetch Employee | Opens import dialog (comma-separated IDs → import from Darwin) |
-| Edit (pencil icon) | Opens edit dialog (role, active, blocked, validate_ad toggle) |
+| Edit (pencil icon) | Opens edit dialog (role picker → `role_id`, active, blocked, validate_ad toggle) |
+
+The "role" here is always a `role_id` selected from a dropdown populated from
+`GET /api/v1/rbac/roles` — it assigns/replaces the user's row in `role_assignments`, not a
+`role` field on the user record (`UserForm.tsx`'s Zod schema: `role_id: z.string()`).
 
 ### Login Flow (Frontend)
 
@@ -386,7 +407,7 @@ EMPLOYEE_AD_BASE_URL: str = Field(
 | AD service down | Raises InvalidCredentialsError (fail-closed) |
 | SSL certificate | `verify=False` (internal CA, not public) |
 | Default password | Set to employee_id on import (AD validates, so local hash unused) |
-| Access control | All Employee AD endpoints require ADMIN role |
+| Access control | All Employee AD endpoints require the `services.employee_ad` permission — not a hardcoded role (see [EMPLOYEE_AD_SERVICE.md](./EMPLOYEE_AD_SERVICE.md)) |
 | Token refresh | Uses local JWT — no AD call on refresh |
 
 ---

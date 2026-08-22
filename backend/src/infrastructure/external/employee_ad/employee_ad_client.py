@@ -1,4 +1,4 @@
-﻿"""
+"""
 Employee AD (Darwin) integration client.
 
 Proxies requests to the Emcure Darwin AD integrator service at:
@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
+from typing import Any, NoReturn
 
 import httpx
 
@@ -53,7 +54,7 @@ class EmployeeValidationResult:
 
     is_success: bool
     is_valid_user: bool
-    raw_response: dict = field(default_factory=dict)
+    raw_response: dict[str, Any] = field(default_factory=dict)
 
 
 class EmployeeADClient:
@@ -72,7 +73,9 @@ class EmployeeADClient:
         """True when the base URL is set."""
         return bool(self._base_url)
 
-    def _handle_http_error(self, exc: httpx.HTTPStatusError, context: str) -> None:
+    def _handle_http_error(
+        self, exc: httpx.HTTPStatusError, context: str
+    ) -> NoReturn:
         """Raise appropriate exception based on HTTP status code."""
         detail = f"{context}: {exc.response.status_code} - {exc.response.text[:200]}"
         logger.error(detail)
@@ -80,7 +83,7 @@ class EmployeeADClient:
             raise EmployeeADAuthError(detail) from exc
         raise EmployeeADError(detail) from exc
 
-    async def health_check(self) -> dict:
+    async def health_check(self) -> dict[str, Any]:
         """
         Check if the Darwin AD service is reachable by hitting the base URL.
 
@@ -144,12 +147,13 @@ class EmployeeADClient:
                 )
         except httpx.HTTPStatusError as exc:
             self._handle_http_error(exc, "Darwin validatecredentials error")
-            raise  # unreachable but satisfies type checker
         except httpx.RequestError as exc:
             logger.error("Darwin API connection error: %s", exc)
             raise EmployeeADUnavailableError(str(exc)) from exc
 
-    async def get_selected_employees(self, employee_ids: list[str]) -> dict:
+    async def get_selected_employees(
+        self, employee_ids: list[str]
+    ) -> dict[str, Any]:
         """
         POST multipart/form-data to /getselectedemployees.
 
@@ -173,15 +177,15 @@ class EmployeeADClient:
                     headers={"accept": "application/json"},
                 )
                 response.raise_for_status()
-                return response.json()
+                data: dict[str, Any] = response.json()
+                return data
         except httpx.HTTPStatusError as exc:
             self._handle_http_error(exc, "Darwin getselectedemployees error")
-            raise
         except httpx.RequestError as exc:
             logger.error("Darwin API connection error: %s", exc)
             raise EmployeeADUnavailableError(str(exc)) from exc
 
-    async def get_employees(self) -> dict:
+    async def get_employees(self) -> dict[str, Any]:
         """
         GET /getemployees — Fetch all employees.
 
@@ -203,15 +207,15 @@ class EmployeeADClient:
                     headers={"accept": "application/json"},
                 )
                 response.raise_for_status()
-                return response.json()
+                data: dict[str, Any] = response.json()
+                return data
         except httpx.HTTPStatusError as exc:
             self._handle_http_error(exc, "Darwin getemployees error")
-            raise
         except httpx.RequestError as exc:
             logger.error("Darwin API connection error: %s", exc)
             raise EmployeeADUnavailableError(str(exc)) from exc
 
-    async def get_hierarchy_data(self) -> dict:
+    async def get_hierarchy_data(self) -> dict[str, Any]:
         """
         GET /getHierarchyData — Fetch hierarchy data.
 
@@ -233,10 +237,10 @@ class EmployeeADClient:
                     headers={"accept": "application/json"},
                 )
                 response.raise_for_status()
-                return response.json()
+                data: dict[str, Any] = response.json()
+                return data
         except httpx.HTTPStatusError as exc:
             self._handle_http_error(exc, "Darwin getHierarchyData error")
-            raise
         except httpx.RequestError as exc:
             logger.error("Darwin API connection error: %s", exc)
             raise EmployeeADUnavailableError(str(exc)) from exc

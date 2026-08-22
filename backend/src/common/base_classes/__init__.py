@@ -1,1 +1,1 @@
-﻿# Base classes for DRY patterns
+# Base classes for DRY patterns

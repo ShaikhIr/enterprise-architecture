@@ -1,11 +1,16 @@
 /**
- * Secure storage service.
- * Access tokens are stored in memory only (never localStorage).
- * Refresh tokens are stored in memory for this implementation.
+ * In-memory access-token store.
+ *
+ * The access token is kept in memory only (never in localStorage/sessionStorage)
+ * to minimize XSS exposure. It naturally dies with the tab.
+ *
+ * The refresh token is NOT stored here at all — it lives in an HttpOnly cookie
+ * set by the backend, invisible to JavaScript. Session continuity across page
+ * reloads and new tabs is achieved by silently calling /auth/refresh (which
+ * reads that cookie) on startup and on access-token expiry.
  */
 
 let accessToken: string | null = null;
-let refreshToken: string | null = null;
 
 export const storageService = {
   getAccessToken: (): string | null => accessToken,
@@ -14,15 +19,8 @@ export const storageService = {
     accessToken = token;
   },
 
-  getRefreshToken: (): string | null => refreshToken,
-
-  setRefreshToken: (token: string): void => {
-    refreshToken = token;
-  },
-
-  clearTokens: (): void => {
+  clearAccessToken: (): void => {
     accessToken = null;
-    refreshToken = null;
   },
 
   isAuthenticated: (): boolean => accessToken !== null,

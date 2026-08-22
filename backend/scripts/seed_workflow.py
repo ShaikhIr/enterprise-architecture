@@ -1,417 +1,304 @@
 """
-Seed script for Workflow Engine.
-Creates a sample Commission Claim workflow with statuses, transitions, and approval matrix.
+Seed script for a sample compliance approval workflow.
 Run via: python -m scripts.seed_workflow
 
-This is idempotent — re-running will skip existing data.
+Creates one workflow definition with a maker-checker-plus-second-level state
+machine, and two approval matrices for the same entity type so the priority
+tie-break is visible in the UI:
+
+    DRAFT --SUBMIT--> L1_REVIEW --APPROVE--> L2_REVIEW --APPROVE--> APPROVED
+                          |                      |
+                          +--REJECT-->       REJECTED
+                          +--REFER_BACK--> DRAFT / L1_REVIEW
+    DRAFT --CANCEL--> CANCELLED
+
+Idempotent: re-running skips anything already present, so it is safe to run after
+a partial failure or against an environment that has been seeded before.
+
+Requires `python -m scripts.seed_rbac` to have run first, because the approval
+levels reference the ADMIN and MANAGER roles by code. Missing roles are reported
+and skipped rather than aborting the seed.
 """
 
 import asyncio
 import sys
 from pathlib import Path
-from uuid import uuid4
+from uuid import UUID, uuid4
 
+# Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from sqlalchemy import select
-from src.infrastructure.database.session import async_session_factory
-from src.workflow.infrastructure.models.workflow_models import (
+
+from src.infrastructure.database.models.approval_matrix_model import (
+    ApprovalAssignmentModel,
+    ApprovalMatrixModel,
+    ApprovalRuleModel,
+)
+from src.infrastructure.database.models.role_model import RoleModel
+from src.infrastructure.database.models.workflow_model import (
     WorkflowDefinitionModel,
     WorkflowStatusModel,
     WorkflowTransitionModel,
-    WorkflowActionModel,
 )
-from src.workflow.infrastructure.models.approval_matrix_models import (
-    ApprovalMatrixModel,
-    ApprovalRuleModel,
-    ApprovalAssignmentModel,
-)
+from src.infrastructure.database.unit_of_work import UnitOfWork
+
+ACTOR = "seed_script"
+ENTITY_TYPE = "compliance_task"
+WORKFLOW_CODE = "COMPLIANCE_TASK_APPROVAL"
+
+# (code, name, is_initial, is_terminal, sequence)
+STATES = [
+    ("DRAFT", "Draft", True, False, 10),
+    ("L1_REVIEW", "Level 1 Review", False, False, 20),
+    ("L2_REVIEW", "Level 2 Review", False, False, 30),
+    ("APPROVED", "Approved", False, True, 40),
+    ("REJECTED", "Rejected", False, True, 50),
+    ("CANCELLED", "Cancelled", False, True, 60),
+]
+
+# (from_code, action_code, to_code, action_type, requires_comment, priority)
+#
+# `action_type` is what drives the approval chain, and it is separate from
+# `action_code` on purpose: the code is a label for the UI, the type is the
+# meaning. Here they happen to coincide, but a workflow could just as well name
+# its approve action SIGN_OFF and still declare it an APPROVE.
+TRANSITIONS = [
+    ("DRAFT", "SUBMIT", "L1_REVIEW", "SUBMIT", False, 10),
+    ("DRAFT", "CANCEL", "CANCELLED", "CANCEL", True, 20),
+    ("L1_REVIEW", "APPROVE", "L2_REVIEW", "APPROVE", False, 10),
+    ("L1_REVIEW", "REFER_BACK", "DRAFT", "REFER_BACK", True, 20),
+    ("L1_REVIEW", "REJECT", "REJECTED", "REJECT", True, 30),
+    ("L2_REVIEW", "APPROVE", "APPROVED", "APPROVE", False, 10),
+    ("L2_REVIEW", "REFER_BACK", "L1_REVIEW", "REFER_BACK", True, 20),
+    ("L2_REVIEW", "REJECT", "REJECTED", "REJECT", True, 30),
+]
+
+# Lower priority is evaluated first, so the specific matrix must sort before the
+# catch-all — otherwise the catch-all would swallow every record.
+# (code, name, priority, rules, assignments)
+_Rule = tuple[str, str, str, str, str]  # field, operator, value, data_type, group
+_Assignment = tuple[int, str]  # level, role_code
+_Matrix = tuple[str, str, int, list[_Rule], list[_Assignment]]
+
+MATRICES: list[_Matrix] = [
+    (
+        "COMPLIANCE_TASK_CRITICAL",
+        "Critical compliance tasks — two levels",
+        10,
+        [("risk_level", "EQ", "CRITICAL", "STRING", "default")],
+        [(1, "MANAGER"), (2, "ADMIN")],
+    ),
+    (
+        "COMPLIANCE_TASK_STANDARD",
+        "All other compliance tasks — single level",
+        100,
+        [],
+        [(1, "MANAGER")],
+    ),
+]
 
 
 async def seed() -> None:
-    """Seed a complete Commission Claim workflow example."""
-    async with async_session_factory() as session:
+    """Seed the sample workflow definition and approval matrices."""
+    async with UnitOfWork() as uow:
+        session = uow.session
 
-        # ═══════════════════════════════════════════════════════════
-        # 1. WORKFLOW DEFINITION
-        # ═══════════════════════════════════════════════════════════
-
-        print("\n── Workflow Definition ──")
-
+        # ─── 1. Definition ───
         existing = await session.execute(
-            select(WorkflowDefinitionModel).where(WorkflowDefinitionModel.code == "COMMISSION_CLAIM")
+            select(WorkflowDefinitionModel).where(
+                WorkflowDefinitionModel.code == WORKFLOW_CODE
+            )
         )
         definition = existing.scalar_one_or_none()
 
         if definition:
-            print("  [skip] Workflow 'COMMISSION_CLAIM' already exists")
+            print(f"  [skip] Workflow '{WORKFLOW_CODE}' already exists")
         else:
             definition = WorkflowDefinitionModel(
                 id=uuid4(),
-                code="COMMISSION_CLAIM",
-                name="Commission Claim Approval",
-                description="Multi-level approval workflow for commission claims. Routes based on claim amount.",
-                entity_type="commission_claim",
+                code=WORKFLOW_CODE,
+                name="Compliance Task Approval",
+                description=(
+                    "Two-level maker-checker approval for compliance tasks, with "
+                    "refer-back at both levels."
+                ),
+                entity_type=ENTITY_TYPE,
                 version=1,
                 is_active=True,
-                created_by="seed_script",
-                modified_by="seed_script",
+                created_by=ACTOR,
+                modified_by=ACTOR,
             )
             session.add(definition)
             await session.flush()
-            print("  [new]  Workflow 'COMMISSION_CLAIM' created")
+            print(f"  [new]  Workflow '{WORKFLOW_CODE}' created")
 
-        def_id = str(definition.id)
+        definition_id = definition.id
 
-        # ═══════════════════════════════════════════════════════════
-        # 2. WORKFLOW STATUSES
-        # ═══════════════════════════════════════════════════════════
-
-        print("\n── Workflow Statuses ──")
-
-        STATUS_DEFS = [
-            {"code": "DRAFT", "name": "Draft", "is_initial": True, "is_terminal": False, "sequence": 1},
-            {"code": "SUBMITTED", "name": "Submitted", "is_initial": False, "is_terminal": False, "sequence": 2},
-            {"code": "L1_PENDING", "name": "L1 Approval Pending", "is_initial": False, "is_terminal": False, "sequence": 3},
-            {"code": "L2_PENDING", "name": "L2 Approval Pending", "is_initial": False, "is_terminal": False, "sequence": 4},
-            {"code": "APPROVED", "name": "Approved", "is_initial": False, "is_terminal": True, "sequence": 5},
-            {"code": "REJECTED", "name": "Rejected", "is_initial": False, "is_terminal": True, "sequence": 6},
-            {"code": "CANCELLED", "name": "Cancelled", "is_initial": False, "is_terminal": True, "sequence": 7},
-            {"code": "CLOSED", "name": "Closed", "is_initial": False, "is_terminal": True, "sequence": 8},
-        ]
-
-        status_map: dict[str, str] = {}  # code → id
-
-        for s_def in STATUS_DEFS:
-            existing_s = await session.execute(
+        # ─── 2. States ───
+        state_ids: dict[str, UUID] = {}
+        for code, name, is_initial, is_terminal, sequence in STATES:
+            found = await session.execute(
                 select(WorkflowStatusModel).where(
-                    WorkflowStatusModel.workflow_definition_id == def_id,
-                    WorkflowStatusModel.code == s_def["code"],
+                    WorkflowStatusModel.workflow_definition_id == definition_id,
+                    WorkflowStatusModel.code == code,
                 )
             )
-            status = existing_s.scalar_one_or_none()
+            state = found.scalar_one_or_none()
+            if state:
+                state_ids[code] = state.id
+                print(f"  [skip] State '{code}' already exists")
+                continue
 
-            if status:
-                status_map[s_def["code"]] = str(status.id)
-                print(f"  [skip] Status '{s_def['code']}' already exists")
-            else:
-                status = WorkflowStatusModel(
-                    id=uuid4(),
-                    workflow_definition_id=def_id,
-                    code=s_def["code"],
-                    name=s_def["name"],
-                    is_initial=s_def["is_initial"],
-                    is_terminal=s_def["is_terminal"],
-                    sequence=s_def["sequence"],
-                    created_by="seed_script",
-                    modified_by="seed_script",
-                )
-                session.add(status)
-                status_map[s_def["code"]] = str(status.id)
-                print(f"  [new]  Status '{s_def['code']}' created")
+            state = WorkflowStatusModel(
+                id=uuid4(),
+                workflow_definition_id=definition_id,
+                code=code,
+                name=name,
+                is_initial=is_initial,
+                is_terminal=is_terminal,
+                sequence=sequence,
+                created_by=ACTOR,
+                modified_by=ACTOR,
+            )
+            session.add(state)
+            state_ids[code] = state.id
+            print(f"  [new]  State '{code}' created")
 
         await session.flush()
 
-        # ═══════════════════════════════════════════════════════════
-        # 3. WORKFLOW TRANSITIONS (State Machine Rules)
-        # ═══════════════════════════════════════════════════════════
+        # ─── 3. Transitions ───
+        for (
+            from_code,
+            action_code,
+            to_code,
+            action_type,
+            requires_comment,
+            priority,
+        ) in TRANSITIONS:
+            from_id = state_ids[from_code]
+            to_id = state_ids[to_code]
 
-        print("\n── Workflow Transitions ──")
-
-        TRANSITIONS = [
-            # From DRAFT
-            {"from": "DRAFT", "to": "SUBMITTED", "action": "SUBMIT", "comment": False},
-            {"from": "DRAFT", "to": "CANCELLED", "action": "CANCEL", "comment": False},
-
-            # From SUBMITTED
-            {"from": "SUBMITTED", "to": "L1_PENDING", "action": "APPROVE", "comment": False},
-            {"from": "SUBMITTED", "to": "REJECTED", "action": "REJECT", "comment": True},
-            {"from": "SUBMITTED", "to": "CANCELLED", "action": "CANCEL", "comment": False},
-
-            # From L1_PENDING
-            {"from": "L1_PENDING", "to": "L2_PENDING", "action": "APPROVE", "comment": False},
-            {"from": "L1_PENDING", "to": "REJECTED", "action": "REJECT", "comment": True},
-            {"from": "L1_PENDING", "to": "SUBMITTED", "action": "REFER_BACK", "comment": True},
-
-            # From L2_PENDING
-            {"from": "L2_PENDING", "to": "APPROVED", "action": "APPROVE", "comment": False},
-            {"from": "L2_PENDING", "to": "REJECTED", "action": "REJECT", "comment": True},
-            {"from": "L2_PENDING", "to": "L1_PENDING", "action": "REFER_BACK", "comment": True},
-            {"from": "L2_PENDING", "to": "CLOSED", "action": "CLOSE", "comment": True},
-        ]
-
-        for t_def in TRANSITIONS:
-            from_id = status_map[t_def["from"]]
-            to_id = status_map[t_def["to"]]
-
-            existing_t = await session.execute(
+            # Its own variable rather than reusing `found`: mypy pins a variable to
+            # the type of its first assignment, so reusing one name across queries
+            # for different models makes every later row look like the first model.
+            found_transition = await session.execute(
                 select(WorkflowTransitionModel).where(
-                    WorkflowTransitionModel.workflow_definition_id == def_id,
+                    WorkflowTransitionModel.workflow_definition_id == definition_id,
                     WorkflowTransitionModel.from_status_id == from_id,
-                    WorkflowTransitionModel.to_status_id == to_id,
-                    WorkflowTransitionModel.action_code == t_def["action"],
+                    WorkflowTransitionModel.action_code == action_code,
                 )
             )
-            if existing_t.scalar_one_or_none():
-                print(f"  [skip] {t_def['from']} + {t_def['action']} → {t_def['to']}")
-            else:
-                transition = WorkflowTransitionModel(
+            existing_transition = found_transition.scalar_one_or_none()
+            if existing_transition:
+                # Adopt the declared semantics on re-run, so an environment seeded
+                # before action_type existed picks it up instead of staying CUSTOM.
+                if existing_transition.action_type != action_type:
+                    existing_transition.action_type = action_type
+                    existing_transition.modified_by = ACTOR
+                    print(
+                        f"  [fix]  Transition {from_code} --{action_code}--> "
+                        f"action_type set to {action_type}"
+                    )
+                else:
+                    print(f"  [skip] Transition {from_code} --{action_code}--> exists")
+                continue
+
+            session.add(
+                WorkflowTransitionModel(
                     id=uuid4(),
-                    workflow_definition_id=def_id,
+                    workflow_definition_id=definition_id,
                     from_status_id=from_id,
                     to_status_id=to_id,
-                    action_code=t_def["action"],
-                    requires_comment=t_def["comment"],
+                    action_code=action_code,
+                    action_type=action_type,
+                    guard_expression=None,
+                    requires_comment=requires_comment,
                     auto_execute=False,
-                    priority=0,
-                    created_by="seed_script",
-                    modified_by="seed_script",
-                )
-                session.add(transition)
-                print(f"  [new]  {t_def['from']} + {t_def['action']} → {t_def['to']}")
-
-        await session.flush()
-
-        # ═══════════════════════════════════════════════════════════
-        # 4. WORKFLOW ACTIONS
-        # ═══════════════════════════════════════════════════════════
-
-        print("\n── Workflow Actions ──")
-
-        ACTIONS = [
-            {"code": "SUBMIT", "name": "Submit", "type": "SUBMIT"},
-            {"code": "APPROVE", "name": "Approve", "type": "APPROVE"},
-            {"code": "REJECT", "name": "Reject", "type": "REJECT"},
-            {"code": "REFER_BACK", "name": "Refer Back", "type": "REFER_BACK"},
-            {"code": "CANCEL", "name": "Cancel", "type": "CANCEL"},
-            {"code": "CLOSE", "name": "Close", "type": "CLOSE"},
-        ]
-
-        for a_def in ACTIONS:
-            existing_a = await session.execute(
-                select(WorkflowActionModel).where(
-                    WorkflowActionModel.workflow_definition_id == def_id,
-                    WorkflowActionModel.code == a_def["code"],
+                    priority=priority,
+                    created_by=ACTOR,
+                    modified_by=ACTOR,
                 )
             )
-            if existing_a.scalar_one_or_none():
-                print(f"  [skip] Action '{a_def['code']}'")
-            else:
-                action = WorkflowActionModel(
-                    id=uuid4(),
-                    workflow_definition_id=def_id,
-                    code=a_def["code"],
-                    name=a_def["name"],
-                    action_type=a_def["type"],
-                    created_by="seed_script",
-                    modified_by="seed_script",
-                )
-                session.add(action)
-                print(f"  [new]  Action '{a_def['code']}'")
+            print(
+                f"  [new]  Transition {from_code} --{action_code}--> {to_code} "
+                f"({action_type})"
+            )
 
-        await session.flush()
+        await uow.commit()
+        print("\nOK Workflow definition seed complete.")
 
-        # ═══════════════════════════════════════════════════════════
-        # 5. APPROVAL MATRIX — Amount Based
-        # ═══════════════════════════════════════════════════════════
+    # ─── 4. Approval matrices ───
+    async with UnitOfWork() as uow:
+        session = uow.session
 
-        print("\n── Approval Matrix (Amount < 500000) ──")
+        roles = await session.execute(select(RoleModel))
+        role_ids = {role.code: role.id for role in roles.scalars().all()}
 
-        existing_m1 = await session.execute(
-            select(ApprovalMatrixModel).where(ApprovalMatrixModel.code == "COMMISSION_LOW_AMOUNT")
-        )
-        matrix1 = existing_m1.scalar_one_or_none()
+        for code, name, priority, rules, assignments in MATRICES:
+            found_matrix = await session.execute(
+                select(ApprovalMatrixModel).where(ApprovalMatrixModel.code == code)
+            )
+            if found_matrix.scalar_one_or_none():
+                print(f"  [skip] Approval matrix '{code}' already exists")
+                continue
 
-        if matrix1:
-            print("  [skip] Matrix 'COMMISSION_LOW_AMOUNT' already exists")
-        else:
-            matrix1 = ApprovalMatrixModel(
+            matrix = ApprovalMatrixModel(
                 id=uuid4(),
-                code="COMMISSION_LOW_AMOUNT",
-                name="Commission < 5L — L1 Manager Only",
-                entity_type="commission_claim",
-                priority=1,
+                code=code,
+                name=name,
+                entity_type=ENTITY_TYPE,
+                priority=priority,
                 is_active=True,
-                created_by="seed_script",
-                modified_by="seed_script",
+                created_by=ACTOR,
+                modified_by=ACTOR,
             )
-            session.add(matrix1)
+            session.add(matrix)
             await session.flush()
+            print(f"  [new]  Approval matrix '{code}' created")
 
-            # Rule: amount < 500000
-            rule1 = ApprovalRuleModel(
-                id=uuid4(),
-                matrix_id=str(matrix1.id),
-                field="amount",
-                operator="LT",
-                value="500000",
-                data_type="NUMBER",
-                logical_group="default",
-                created_by="seed_script",
-                modified_by="seed_script",
-            )
-            session.add(rule1)
-
-            # Assignment: L1 Manager (role-based)
-            assign1 = ApprovalAssignmentModel(
-                id=uuid4(),
-                matrix_id=str(matrix1.id),
-                assignment_type="ROLE",
-                role_id=None,  # Would be manager role UUID in production
-                user_id=None,
-                level=1,
-                created_by="seed_script",
-                modified_by="seed_script",
-            )
-            session.add(assign1)
-            print("  [new]  Matrix 'COMMISSION_LOW_AMOUNT' with 1 rule, 1 level")
-
-        # ─── Matrix 2: Amount >= 500000 ───
-
-        print("\n── Approval Matrix (Amount >= 500000) ──")
-
-        existing_m2 = await session.execute(
-            select(ApprovalMatrixModel).where(ApprovalMatrixModel.code == "COMMISSION_HIGH_AMOUNT")
-        )
-        matrix2 = existing_m2.scalar_one_or_none()
-
-        if matrix2:
-            print("  [skip] Matrix 'COMMISSION_HIGH_AMOUNT' already exists")
-        else:
-            matrix2 = ApprovalMatrixModel(
-                id=uuid4(),
-                code="COMMISSION_HIGH_AMOUNT",
-                name="Commission >= 5L — L1 Manager + Finance Head",
-                entity_type="commission_claim",
-                priority=2,
-                is_active=True,
-                created_by="seed_script",
-                modified_by="seed_script",
-            )
-            session.add(matrix2)
-            await session.flush()
-
-            # Rule: amount >= 500000
-            rule2 = ApprovalRuleModel(
-                id=uuid4(),
-                matrix_id=str(matrix2.id),
-                field="amount",
-                operator="GTE",
-                value="500000",
-                data_type="NUMBER",
-                logical_group="default",
-                created_by="seed_script",
-                modified_by="seed_script",
-            )
-            session.add(rule2)
-
-            # Assignment L1: Manager
-            assign2a = ApprovalAssignmentModel(
-                id=uuid4(),
-                matrix_id=str(matrix2.id),
-                assignment_type="ROLE",
-                role_id=None,
-                user_id=None,
-                level=1,
-                created_by="seed_script",
-                modified_by="seed_script",
-            )
-            session.add(assign2a)
-
-            # Assignment L2: Finance Head
-            assign2b = ApprovalAssignmentModel(
-                id=uuid4(),
-                matrix_id=str(matrix2.id),
-                assignment_type="ROLE",
-                role_id=None,
-                user_id=None,
-                level=2,
-                created_by="seed_script",
-                modified_by="seed_script",
-            )
-            session.add(assign2b)
-            print("  [new]  Matrix 'COMMISSION_HIGH_AMOUNT' with 1 rule, 2 levels")
-
-        # ─── Matrix 3: Company = Emcure → CFO required ───
-
-        print("\n── Approval Matrix (Company = Emcure) ──")
-
-        existing_m3 = await session.execute(
-            select(ApprovalMatrixModel).where(ApprovalMatrixModel.code == "COMMISSION_EMCURE_COMPANY")
-        )
-        matrix3 = existing_m3.scalar_one_or_none()
-
-        if matrix3:
-            print("  [skip] Matrix 'COMMISSION_EMCURE_COMPANY' already exists")
-        else:
-            matrix3 = ApprovalMatrixModel(
-                id=uuid4(),
-                code="COMMISSION_EMCURE_COMPANY",
-                name="Emcure Company — CFO Approval Required",
-                entity_type="commission_claim",
-                priority=3,
-                is_active=True,
-                created_by="seed_script",
-                modified_by="seed_script",
-            )
-            session.add(matrix3)
-            await session.flush()
-
-            # Rule: company = Emcure AND amount >= 1000000
-            rule3a = ApprovalRuleModel(
-                id=uuid4(),
-                matrix_id=str(matrix3.id),
-                field="company",
-                operator="EQ",
-                value="Emcure",
-                data_type="STRING",
-                logical_group="default",
-                created_by="seed_script",
-                modified_by="seed_script",
-            )
-            session.add(rule3a)
-
-            rule3b = ApprovalRuleModel(
-                id=uuid4(),
-                matrix_id=str(matrix3.id),
-                field="amount",
-                operator="GTE",
-                value="1000000",
-                data_type="NUMBER",
-                logical_group="default",
-                created_by="seed_script",
-                modified_by="seed_script",
-            )
-            session.add(rule3b)
-
-            # Assignment L1: Manager, L2: Finance Head, L3: CFO
-            for level in [1, 2, 3]:
-                assign = ApprovalAssignmentModel(
-                    id=uuid4(),
-                    matrix_id=str(matrix3.id),
-                    assignment_type="ROLE",
-                    role_id=None,
-                    user_id=None,
-                    level=level,
-                    created_by="seed_script",
-                    modified_by="seed_script",
+            for field, operator, value, data_type, logical_group in rules:
+                session.add(
+                    ApprovalRuleModel(
+                        id=uuid4(),
+                        matrix_id=matrix.id,
+                        field=field,
+                        operator=operator,
+                        value=value,
+                        data_type=data_type,
+                        logical_group=logical_group,
+                        created_by=ACTOR,
+                        modified_by=ACTOR,
+                    )
                 )
-                session.add(assign)
-            print("  [new]  Matrix 'COMMISSION_EMCURE_COMPANY' with 2 rules, 3 levels")
+                print(f"  [new]  Rule {field} {operator} {value}")
 
-        await session.commit()
-        print("\n✓ Workflow seed complete.")
-        print("\nSummary:")
-        print("  • 1 Workflow Definition: COMMISSION_CLAIM")
-        print("  • 8 Statuses: DRAFT → SUBMITTED → L1_PENDING → L2_PENDING → APPROVED/REJECTED/CANCELLED/CLOSED")
-        print("  • 12 Transitions (state machine rules)")
-        print("  • 6 Actions: SUBMIT, APPROVE, REJECT, REFER_BACK, CANCEL, CLOSE")
-        print("  • 3 Approval Matrices:")
-        print("      - COMMISSION_LOW_AMOUNT: amount < 5L → 1 level")
-        print("      - COMMISSION_HIGH_AMOUNT: amount >= 5L → 2 levels")
-        print("      - COMMISSION_EMCURE_COMPANY: company=Emcure & amount >= 10L → 3 levels")
+            for level, role_code in assignments:
+                role_id = role_ids.get(role_code)
+                if role_id is None:
+                    print(
+                        f"  [warn] Role '{role_code}' not found - skipping level "
+                        f"{level}. Run scripts.seed_rbac first."
+                    )
+                    continue
+                session.add(
+                    ApprovalAssignmentModel(
+                        id=uuid4(),
+                        matrix_id=matrix.id,
+                        assignment_type="ROLE",
+                        user_id=None,
+                        role_id=role_id,
+                        level=level,
+                        created_by=ACTOR,
+                        modified_by=ACTOR,
+                    )
+                )
+                print(f"  [new]  Level {level} -> role {role_code}")
+
+        await uow.commit()
+        print("\nOK Approval matrix seed complete.")
 
 
 if __name__ == "__main__":
-    print("Seeding Workflow Engine — Commission Claim Example...")
+    print("Seeding sample compliance workflow...")
     asyncio.run(seed())
