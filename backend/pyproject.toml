@@ -17,6 +17,11 @@ dependencies = [
     "bcrypt==4.2.0",
     "structlog==24.4.0",
     "httpx==0.27.2",
+    # S3 object storage adapter (infrastructure/external/storage). Only imported
+    # when STORAGE_BACKEND=s3; the default 'local' backend writes under UPLOAD_DIR
+    # and needs nothing extra. Pinned so an upload path behaves identically on a
+    # rerun months from now.
+    "boto3==1.35.36",
 ]
 
 [project.optional-dependencies]
@@ -42,6 +47,11 @@ dev = [
     "ruff==0.6.9",
     "mypy==1.11.2",
     "pre-commit==3.8.0",
+    # Type stubs for the S3 adapter. boto3 ships no py.typed, so under strict
+    # mypy every boto3 symbol would be Any and the adapter would go unchecked;
+    # real stubs are the fix, not an ignore_missing_imports override (which this
+    # project's mypy config deliberately forbids). Kept in lockstep with boto3.
+    "boto3-stubs[s3]==1.35.36",
 ]
 
 [tool.pytest.ini_options]

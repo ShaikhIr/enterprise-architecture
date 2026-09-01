@@ -6,7 +6,7 @@ Loads configuration from environment variables and .env files.
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings
 
 
@@ -75,6 +75,86 @@ class Settings(BaseSettings):
         default=10 * 1024 * 1024, description="Max log file size (10MB)"
     )
     LOG_BACKUP_COUNT: int = Field(default=10, description="Number of log backups")
+
+    # ─── Object storage (S3) ───
+    # When STORAGE_BACKEND=s3 files are stored in the bucket; otherwise they are
+    # written to disk under UPLOAD_DIR (see the `log_file`/`storage_root`
+    # properties). The S3_* fields are read only when the backend is 's3'.
+    STORAGE_BACKEND: Literal["local", "s3"] = Field(
+        default="local",
+        description=(
+            "Which IFileStorage implementation the container registers. Typed as "
+            "a literal so a typo fails at startup rather than silently falling "
+            "back to disk in production."
+        ),
+    )
+    S3_BUCKET: str = Field(
+        default="", description="Bucket name only, not an ARN or URL"
+    )
+    S3_REGION: str = Field(default="ap-south-1", description="Bucket's region")
+    S3_KEY_PREFIX: str = Field(
+        default="",
+        description=(
+            "Prepended to every key. Lets several apps and environments share one "
+            "bucket without collisions, and lets each app's IAM policy be scoped "
+            "to its own prefix. Example: 'architecture/prod'."
+        ),
+    )
+    S3_ACCESS_KEY_ID: str = Field(
+        default="",
+        description=(
+            "Leave empty wherever an instance role, task role or OIDC federation "
+            "is available; boto3 finds those itself. Static keys are the least "
+            "safe option and the only one needing rotation."
+        ),
+    )
+    S3_SECRET_ACCESS_KEY: SecretStr = Field(
+        default=SecretStr(""),
+        description=(
+            "SecretStr so it cannot be leaked by a stray log of the settings "
+            "object or an error page that renders config."
+        ),
+    )
+    S3_ENDPOINT_URL: str = Field(
+        default="",
+        description="Set for MinIO/Wasabi/R2/Ceph. Empty means real AWS.",
+    )
+    S3_ADDRESSING_STYLE: str = Field(
+        default="",
+        description=(
+            "Empty selects 'virtual' for AWS and 'path' for a custom endpoint. "
+            "Never set 'auto' on AWS: it breaks presigned URLs."
+        ),
+    )
+    S3_CHECKSUM_MODE: Literal["when_supported", "when_required"] = Field(
+        default="when_required",
+        description=(
+            "'when_required' avoids the aws-chunked upload encoding that proxies "
+            "drop. Change only if uploads are verified working without it."
+        ),
+    )
+    S3_CA_BUNDLE: str = Field(
+        default="",
+        description=(
+            "PEM bundle including any internal root CA, for networks doing TLS "
+            "inspection. Empty uses botocore's own roots."
+        ),
+    )
+    S3_PRESIGN_EXPIRY_SECONDS: int = Field(
+        default=900,
+        ge=30,
+        le=7 * 24 * 3600,
+        description=(
+            "Lifetime of download URLs. Anyone holding the URL can read the "
+            "object until it expires, so keep it short - long enough to start a "
+            "download on a slow connection, not long enough to be shared around."
+        ),
+    )
+    STORAGE_MAX_UPLOAD_BYTES: int = Field(
+        default=25 * 1024 * 1024,
+        ge=1024,
+        description="Largest accepted upload, enforced while streaming.",
+    )
 
     # Redis (Optional Cache)
     REDIS_URL: str = Field(

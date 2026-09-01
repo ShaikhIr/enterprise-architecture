@@ -16,6 +16,7 @@ from src.api.middleware.correlation_id import CorrelationIdMiddleware
 from src.api.middleware.exception_handler import ExceptionHandlerMiddleware
 from src.api.middleware.request_logging import RequestLoggingMiddleware
 from src.api.v1.router import api_v1_router
+from src.config.dependency_injection import Container
 from src.config.logging_config import configure_file_logging
 from src.config.settings import settings
 from src.observability.structured_logger import configure_logging
@@ -27,6 +28,16 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Startup
     configure_logging()
     configure_file_logging()
+
+    # Prove object storage is usable before traffic arrives, so a bucket typo or
+    # an expired key stops deployment rather than surfacing as a 500 for whoever
+    # uploads first. The probe is a cheap, read-only exists() call. The local
+    # backend has nothing to reach, so it is skipped.
+    if settings.STORAGE_BACKEND == "s3":
+        if not settings.S3_BUCKET:
+            raise RuntimeError("STORAGE_BACKEND=s3 requires S3_BUCKET to be set.")
+        await Container.get_file_storage().exists("startup-probe")
+
     yield
     # Shutdown (cleanup resources here)
 
