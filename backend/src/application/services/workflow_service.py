@@ -17,7 +17,6 @@ Business rules enforced here rather than left to the database, so callers get a
 - no transition may leave a terminal state
 """
 
-from uuid import UUID, uuid4
 
 from src.api.v1.schemas.approval_matrix_schema import ApprovalTaskResponse
 from src.api.v1.schemas.workflow_schema import (
@@ -117,14 +116,14 @@ class WorkflowService:
             limit=limit,
         )
 
-    async def get_definition(self, definition_id: UUID) -> WorkflowDefinitionResponse:
+    async def get_definition(self, definition_id: int) -> WorkflowDefinitionResponse:
         """Get a single definition. Raises EntityNotFoundError if missing."""
         return WorkflowDefinitionResponse.model_validate(
             await self._require_definition(definition_id)
         )
 
     async def get_definition_detail(
-        self, definition_id: UUID
+        self, definition_id: int
     ) -> WorkflowDefinitionDetailResponse:
         """Get a definition together with its states and transitions."""
         definition = await self._require_definition(definition_id)
@@ -149,7 +148,6 @@ class WorkflowService:
 
         created = await self._definitions.create(
             WorkflowDefinition(
-                id=uuid4(),
                 code=request.code,
                 name=request.name,
                 description=request.description,
@@ -163,7 +161,7 @@ class WorkflowService:
         return WorkflowDefinitionResponse.model_validate(created)
 
     async def update_definition(
-        self, definition_id: UUID, request: WorkflowDefinitionUpdate, actor: User
+        self, definition_id: int, request: WorkflowDefinitionUpdate, actor: User
     ) -> WorkflowDefinitionResponse:
         """Apply a partial update to a definition."""
         definition = await self._require_definition(definition_id)
@@ -194,7 +192,7 @@ class WorkflowService:
             await self._definitions.update(definition)
         )
 
-    async def delete_definition(self, definition_id: UUID) -> None:
+    async def delete_definition(self, definition_id: int) -> None:
         """Delete a definition, refusing while any instance still references it."""
         await self._require_definition(definition_id)
 
@@ -209,14 +207,14 @@ class WorkflowService:
 
     # ═══════════════════════════ Statuses ═══════════════════════════
 
-    async def list_statuses(self, definition_id: UUID) -> list[WorkflowStatusResponse]:
+    async def list_statuses(self, definition_id: int) -> list[WorkflowStatusResponse]:
         """States of a definition, ordered by sequence."""
         await self._require_definition(definition_id)
         statuses = await self._definitions.list_statuses(definition_id)
         return [WorkflowStatusResponse.model_validate(s) for s in statuses]
 
     async def create_status(
-        self, definition_id: UUID, request: WorkflowStatusCreate, actor: User
+        self, definition_id: int, request: WorkflowStatusCreate, actor: User
     ) -> WorkflowStatusResponse:
         """Add a state to a definition."""
         await self._require_definition(definition_id)
@@ -231,7 +229,6 @@ class WorkflowService:
 
         created = await self._definitions.create_status(
             WorkflowStatus(
-                id=uuid4(),
                 workflow_definition_id=definition_id,
                 code=request.code,
                 name=request.name,
@@ -245,7 +242,7 @@ class WorkflowService:
         return WorkflowStatusResponse.model_validate(created)
 
     async def update_status(
-        self, status_id: UUID, request: WorkflowStatusUpdate, actor: User
+        self, status_id: int, request: WorkflowStatusUpdate, actor: User
     ) -> WorkflowStatusResponse:
         """Apply a partial update to a state."""
         status = await self._require_status(status_id)
@@ -284,7 +281,7 @@ class WorkflowService:
             await self._definitions.update_status(status)
         )
 
-    async def delete_status(self, status_id: UUID) -> None:
+    async def delete_status(self, status_id: int) -> None:
         """Delete a state, refusing while it is wired up or occupied."""
         await self._require_status(status_id)
 
@@ -305,7 +302,7 @@ class WorkflowService:
     # ═══════════════════════════ Transitions ═══════════════════════════
 
     async def list_transitions(
-        self, definition_id: UUID
+        self, definition_id: int
     ) -> list[WorkflowTransitionResponse]:
         """Transitions of a definition, ordered by priority."""
         await self._require_definition(definition_id)
@@ -313,7 +310,7 @@ class WorkflowService:
         return [WorkflowTransitionResponse.model_validate(t) for t in transitions]
 
     async def create_transition(
-        self, definition_id: UUID, request: WorkflowTransitionCreate, actor: User
+        self, definition_id: int, request: WorkflowTransitionCreate, actor: User
     ) -> WorkflowTransitionResponse:
         """Wire an action from one state of a definition to another."""
         await self._require_definition(definition_id)
@@ -347,7 +344,6 @@ class WorkflowService:
 
         created = await self._definitions.create_transition(
             WorkflowTransition(
-                id=uuid4(),
                 workflow_definition_id=definition_id,
                 from_status_id=request.from_status_id,
                 to_status_id=request.to_status_id,
@@ -363,7 +359,7 @@ class WorkflowService:
         )
         return WorkflowTransitionResponse.model_validate(created)
 
-    async def delete_transition(self, transition_id: UUID) -> None:
+    async def delete_transition(self, transition_id: int) -> None:
         """Delete a transition."""
         if await self._definitions.get_transition(transition_id) is None:
             raise EntityNotFoundError(TRANSITION, transition_id)
@@ -388,7 +384,7 @@ class WorkflowService:
 
     async def execute_action(
         self,
-        instance_id: UUID,
+        instance_id: int,
         request: WorkflowActionRequest,
         actor: User,
         ip_address: str = "",
@@ -409,7 +405,7 @@ class WorkflowService:
             instance=result.instance, status=result.to_status, definition=definition
         )
 
-    async def get_instance(self, instance_id: UUID) -> WorkflowInstanceResponse:
+    async def get_instance(self, instance_id: int) -> WorkflowInstanceResponse:
         """Current state of one instance."""
         return self._instance_response(await self._engine.get_state(instance_id))
 
@@ -418,9 +414,9 @@ class WorkflowService:
         skip: int = 0,
         limit: int = 100,
         entity_type: str | None = None,
-        entity_id: UUID | None = None,
-        definition_id: UUID | None = None,
-        status_id: UUID | None = None,
+        entity_id: int | None = None,
+        definition_id: int | None = None,
+        status_id: int | None = None,
         is_completed: bool | None = None,
     ) -> WorkflowInstanceListResponse:
         """Get a page of instances with their definition and state resolved."""
@@ -474,7 +470,7 @@ class WorkflowService:
         )
 
     async def available_actions(
-        self, instance_id: UUID
+        self, instance_id: int
     ) -> list[WorkflowAvailableActionResponse]:
         """Actions the instance's current state offers."""
         transitions = await self._engine.available_actions(instance_id)
@@ -504,7 +500,7 @@ class WorkflowService:
         return actions
 
     async def instance_history(
-        self, instance_id: UUID
+        self, instance_id: int
     ) -> list[WorkflowHistoryResponse]:
         """Audit trail for one instance, newest first."""
         if await self._instances.get_by_id(instance_id) is None:
@@ -543,12 +539,12 @@ class WorkflowService:
             for entry in entries
         ]
 
-    async def my_tasks(self, user_id: UUID) -> list[ApprovalTaskResponse]:
+    async def my_tasks(self, user_id: int) -> list[ApprovalTaskResponse]:
         """Open approval tasks assigned to a user."""
         tasks = await self._engine.pending_tasks(user_id)
         return [ApprovalTaskResponse.model_validate(t) for t in tasks]
 
-    async def instance_tasks(self, instance_id: UUID) -> list[ApprovalTaskResponse]:
+    async def instance_tasks(self, instance_id: int) -> list[ApprovalTaskResponse]:
         """
         Every approval task raised for an instance, open or settled.
 
@@ -562,20 +558,20 @@ class WorkflowService:
 
     # ═══════════════════════════ Internals ═══════════════════════════
 
-    async def _require_definition(self, definition_id: UUID) -> WorkflowDefinition:
+    async def _require_definition(self, definition_id: int) -> WorkflowDefinition:
         definition = await self._definitions.get_by_id(definition_id)
         if definition is None:
             raise EntityNotFoundError(DEFINITION, definition_id)
         return definition
 
-    async def _require_status(self, status_id: UUID) -> WorkflowStatus:
+    async def _require_status(self, status_id: int) -> WorkflowStatus:
         status = await self._definitions.get_status(status_id)
         if status is None:
             raise EntityNotFoundError(STATUS, status_id)
         return status
 
     async def _reject_second_initial(
-        self, definition_id: UUID, exclude_id: UUID | None = None
+        self, definition_id: int, exclude_id: int | None = None
     ) -> None:
         existing = await self._definitions.get_initial_status(definition_id)
         if existing is not None and existing.id != exclude_id:

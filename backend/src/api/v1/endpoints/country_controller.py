@@ -3,7 +3,6 @@ Country master API endpoints.
 Thin controller — delegates all business logic to CountryService.
 """
 
-from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
 
@@ -73,7 +72,7 @@ async def create_country(
     dependencies=[Depends(require_api_permission(RESOURCE, "READ"))],
 )
 async def get_country(
-    country_id: UUID,
+    country_id: int,
     service: CountryService = Depends(_get_country_service),
 ) -> CountryResponse:
     """GET /api/v1/masters/countries/{country_id}"""
@@ -87,7 +86,7 @@ async def get_country(
     dependencies=[Depends(require_api_permission(RESOURCE, "UPDATE"))],
 )
 async def update_country(
-    country_id: UUID,
+    country_id: int,
     request: CountryUpdate,
     current_user: User = Depends(get_current_active_user),
     service: CountryService = Depends(_get_country_service),
@@ -105,7 +104,7 @@ async def update_country(
     dependencies=[Depends(require_api_permission(RESOURCE, "DELETE"))],
 )
 async def delete_country(
-    country_id: UUID,
+    country_id: int,
     service: CountryService = Depends(_get_country_service),
 ) -> None:
     """DELETE /api/v1/masters/countries/{country_id}"""

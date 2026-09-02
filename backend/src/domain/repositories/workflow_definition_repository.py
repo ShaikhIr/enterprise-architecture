@@ -8,7 +8,6 @@ the state machine reads all three together on every action.
 """
 
 from abc import abstractmethod
-from uuid import UUID
 
 from src.domain.entities.workflow import (
     WorkflowDefinition,
@@ -46,13 +45,13 @@ class IWorkflowDefinitionRepository(IRepository[WorkflowDefinition]):
         ...
 
     @abstractmethod
-    async def exists_by_name(self, name: str, exclude_id: UUID | None = None) -> bool:
+    async def exists_by_name(self, name: str, exclude_id: int | None = None) -> bool:
         """Check whether a definition name is taken, optionally ignoring one row."""
         ...
 
     @abstractmethod
     async def get_definitions_by_ids(
-        self, definition_ids: list[UUID]
+        self, definition_ids: list[int]
     ) -> list[WorkflowDefinition]:
         """
         Batch-load definitions by primary key.
@@ -65,28 +64,28 @@ class IWorkflowDefinitionRepository(IRepository[WorkflowDefinition]):
     # ─── Statuses ───
 
     @abstractmethod
-    async def list_statuses(self, definition_id: UUID) -> list[WorkflowStatus]:
+    async def list_statuses(self, definition_id: int) -> list[WorkflowStatus]:
         """All statuses of a definition, ordered by sequence."""
         ...
 
     @abstractmethod
-    async def get_status(self, status_id: UUID) -> WorkflowStatus | None:
+    async def get_status(self, status_id: int) -> WorkflowStatus | None:
         """Load one status by primary key."""
         ...
 
     @abstractmethod
-    async def get_statuses_by_ids(self, status_ids: list[UUID]) -> list[WorkflowStatus]:
+    async def get_statuses_by_ids(self, status_ids: list[int]) -> list[WorkflowStatus]:
         """Batch-load statuses by primary key, for the same reason as definitions."""
         ...
 
     @abstractmethod
-    async def get_initial_status(self, definition_id: UUID) -> WorkflowStatus | None:
+    async def get_initial_status(self, definition_id: int) -> WorkflowStatus | None:
         """The status new instances start in, or None when none is flagged."""
         ...
 
     @abstractmethod
     async def exists_status_code(
-        self, definition_id: UUID, code: str, exclude_id: UUID | None = None
+        self, definition_id: int, code: str, exclude_id: int | None = None
     ) -> bool:
         """Check whether a status code is already used within one definition."""
         ...
@@ -102,12 +101,12 @@ class IWorkflowDefinitionRepository(IRepository[WorkflowDefinition]):
         ...
 
     @abstractmethod
-    async def delete_status(self, status_id: UUID) -> None:
+    async def delete_status(self, status_id: int) -> None:
         """Delete a status by primary key."""
         ...
 
     @abstractmethod
-    async def count_transitions_touching_status(self, status_id: UUID) -> int:
+    async def count_transitions_touching_status(self, status_id: int) -> int:
         """
         How many transitions reference a status as source or target.
 
@@ -117,39 +116,39 @@ class IWorkflowDefinitionRepository(IRepository[WorkflowDefinition]):
         ...
 
     @abstractmethod
-    async def count_instances_in_status(self, status_id: UUID) -> int:
+    async def count_instances_in_status(self, status_id: int) -> int:
         """How many live instances currently sit in a status."""
         ...
 
     # ─── Transitions ───
 
     @abstractmethod
-    async def list_transitions(self, definition_id: UUID) -> list[WorkflowTransition]:
+    async def list_transitions(self, definition_id: int) -> list[WorkflowTransition]:
         """All transitions of a definition, ordered by priority."""
         ...
 
     @abstractmethod
     async def list_transitions_from(
-        self, definition_id: UUID, from_status_id: UUID
+        self, definition_id: int, from_status_id: int
     ) -> list[WorkflowTransition]:
         """Transitions leaving one status, ordered by priority."""
         ...
 
     @abstractmethod
-    async def get_transition(self, transition_id: UUID) -> WorkflowTransition | None:
+    async def get_transition(self, transition_id: int) -> WorkflowTransition | None:
         """Load one transition by primary key."""
         ...
 
     @abstractmethod
     async def find_transition(
-        self, definition_id: UUID, from_status_id: UUID, action_code: str
+        self, definition_id: int, from_status_id: int, action_code: str
     ) -> WorkflowTransition | None:
         """The transition an action triggers from a state, or None if disallowed."""
         ...
 
     @abstractmethod
     async def exists_transition(
-        self, definition_id: UUID, from_status_id: UUID, action_code: str
+        self, definition_id: int, from_status_id: int, action_code: str
     ) -> bool:
         """Check whether an action is already wired up from a state."""
         ...
@@ -162,6 +161,6 @@ class IWorkflowDefinitionRepository(IRepository[WorkflowDefinition]):
         ...
 
     @abstractmethod
-    async def delete_transition(self, transition_id: UUID) -> None:
+    async def delete_transition(self, transition_id: int) -> None:
         """Delete a transition by primary key."""
         ...

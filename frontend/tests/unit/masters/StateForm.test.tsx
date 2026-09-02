@@ -14,10 +14,10 @@ import {
   waitFor,
 } from '../../test-utils';
 
-// react-hook-form's zod schema validates country_id with `z.string().uuid()`,
-// so fixture ids must actually be UUID-shaped or submission silently fails
+// country_id is a numeric bigint FK, validated with `z.number().int().positive()`,
+// so a fixture id must be a positive number or submission silently fails
 // validation instead of calling onSubmit.
-const COUNTRY_ID = '11111111-1111-1111-1111-111111111111';
+const COUNTRY_ID = 11111111;
 
 const mockCountriesList = () =>
   server.use(
@@ -114,7 +114,7 @@ describe('StateForm', () => {
       <StateForm
         visible
         state={{
-          id: '1',
+          id: 1,
           code: 'IN-MH',
           name: 'Maharashtra',
           country_id: COUNTRY_ID,

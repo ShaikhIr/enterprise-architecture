@@ -7,8 +7,6 @@ so the uniqueness and partial-update rules every master shares are pinned down
 for this one too, rather than assumed by analogy with Country/State.
 """
 
-from uuid import uuid4
-
 import pytest
 from master_fakes import FakeTaskTypeRepository
 
@@ -33,7 +31,7 @@ def service(repo: FakeTaskTypeRepository) -> TaskTypeService:
 
 @pytest.fixture
 def actor() -> User:
-    return User(id=uuid4(), username="alice")
+    return User(id=1, username="alice")
 
 
 class TestCreate:
@@ -91,7 +89,7 @@ class TestUpdate:
         self, service: TaskTypeService, actor: User
     ) -> None:
         with pytest.raises(EntityNotFoundError):
-            await service.update_task_type(uuid4(), TaskTypeUpdate(name="X"), actor)
+            await service.update_task_type(999_999, TaskTypeUpdate(name="X"), actor)
 
 
 class TestDelete:
@@ -110,4 +108,4 @@ class TestDelete:
         self, service: TaskTypeService
     ) -> None:
         with pytest.raises(EntityNotFoundError):
-            await service.delete_task_type(uuid4())
+            await service.delete_task_type(999_999)

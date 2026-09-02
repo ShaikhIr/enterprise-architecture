@@ -3,7 +3,6 @@ Pydantic schemas for the Country master API.
 """
 
 from datetime import datetime
-from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -53,7 +52,7 @@ class CountryUpdate(BaseModel):
 class CountryResponse(BaseModel):
     """Country read response."""
 
-    id: UUID
+    id: int
     code: str
     name: str
     iso3_code: str | None

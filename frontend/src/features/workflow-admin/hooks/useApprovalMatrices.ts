@@ -37,7 +37,7 @@ export const useUpdateApprovalMatrix = () => {
       matrixId,
       request,
     }: {
-      matrixId: string;
+      matrixId: number;
       request: UpdateApprovalMatrixRequest;
     }) => approvalMatrixApi.updateMatrix(matrixId, request),
     onSuccess: () => {
@@ -49,7 +49,7 @@ export const useUpdateApprovalMatrix = () => {
 export const useDeleteApprovalMatrix = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (matrixId: string) => approvalMatrixApi.deleteMatrix(matrixId),
+    mutationFn: (matrixId: number) => approvalMatrixApi.deleteMatrix(matrixId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: MATRICES_KEY });
     },

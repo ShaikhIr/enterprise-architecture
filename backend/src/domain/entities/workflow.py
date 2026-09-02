@@ -12,7 +12,6 @@ are never updated, so `modified_by` / `modified_date` would always be noise.
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
-from uuid import UUID, uuid4
 
 from src.domain.entities.base_entity import BaseEntity
 from src.domain.enums.workflow_enums import WorkflowActionType
@@ -38,7 +37,7 @@ class WorkflowDefinition(BaseEntity):
 class WorkflowStatus(BaseEntity):
     """One state within a workflow definition."""
 
-    workflow_definition_id: UUID
+    workflow_definition_id: int
     code: str
     name: str
     is_initial: bool = False
@@ -50,9 +49,9 @@ class WorkflowStatus(BaseEntity):
 class WorkflowTransition(BaseEntity):
     """A permitted move between two states, triggered by an action code."""
 
-    workflow_definition_id: UUID
-    from_status_id: UUID
-    to_status_id: UUID
+    workflow_definition_id: int
+    from_status_id: int
+    to_status_id: int
     action_code: str
     # What this move means for the approval chain. Free-text `action_code` cannot
     # carry that meaning, so the designer declares it here.
@@ -67,11 +66,11 @@ class WorkflowTransition(BaseEntity):
 class WorkflowInstance(BaseEntity):
     """A running (or finished) execution of a definition against one record."""
 
-    workflow_definition_id: UUID
+    workflow_definition_id: int
     entity_type: str
-    entity_id: UUID
-    current_status_id: UUID
-    initiated_by: UUID
+    entity_id: int
+    current_status_id: int
+    initiated_by: int
     priority: int = 0
     due_date: datetime | None = None
     started_at: datetime = field(default_factory=lambda: datetime.now(UTC))
@@ -92,7 +91,7 @@ class WorkflowInstance(BaseEntity):
         """True while an approval level is open."""
         return self.approval_level > 0
 
-    def move_to(self, status_id: UUID, *, is_terminal: bool) -> None:
+    def move_to(self, status_id: int, *, is_terminal: bool) -> None:
         """Advance to a new state, stamping completion when it is terminal."""
         self.current_status_id = status_id
         if is_terminal:
@@ -103,12 +102,12 @@ class WorkflowInstance(BaseEntity):
 class WorkflowHistoryEntry:
     """Immutable record of one executed transition."""
 
-    instance_id: UUID
-    to_status_id: UUID
+    instance_id: int
+    to_status_id: int
     action_code: str
-    id: UUID = field(default_factory=uuid4)
-    from_status_id: UUID | None = None
-    actor_id: UUID | None = None
+    id: int = field(default=0)
+    from_status_id: int | None = None
+    actor_id: int | None = None
     actor_username: str = ""
     comments: str = ""
     extra_data: dict[str, Any] = field(default_factory=dict)

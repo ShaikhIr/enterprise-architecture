@@ -15,17 +15,17 @@ import {
 } from '../../test-utils';
 
 // RuleForm's zod schema validates legislation_id and country_id with
-// `z.string().uuid()`, so fixture ids must actually be UUID-shaped or
+// `z.number().int().positive()`, so fixture ids are positive numbers or
 // submission silently fails validation instead of calling onSubmit.
-const LEGISLATION_ID = '55555555-5555-5555-5555-555555555555';
-const COUNTRY_ID = '11111111-1111-1111-1111-111111111111';
+const LEGISLATION_ID = 55555555;
+const COUNTRY_ID = 11111111;
 
 const legislation = {
   id: LEGISLATION_ID,
   code: 'IN-FACT-1948',
   name: 'The Factories Act, 1948',
   description: '',
-  category_of_law_id: '33333333-3333-3333-3333-333333333333',
+  category_of_law_id: 33333333,
   country_id: COUNTRY_ID,
   state_id: null,
   legislation_number: null,

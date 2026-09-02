@@ -63,8 +63,8 @@ class ItemService:
     async def create_item(self, request: CreateItemRequest, actor: User) -> ItemResponse:
         if await self._repo.exists_by_code(request.code):
             raise ValueError(f"Item '{request.code}' already exists")
-        item = Item(id=uuid4(), ...)
-        created = await self._repo.create(item)
+        item = Item(...)  # no id — the DB assigns the bigint PK on insert
+        created = await self._repo.create(item)  # returns the entity with its DB-assigned id
         return self._to_response(created)
 ```
 
@@ -94,6 +94,12 @@ Every persisted domain entity is a `@dataclass` inheriting
 `created_date`, `modified_by`, `modified_date`, and `mark_modified()`. Every SQLAlchemy
 ORM model inheriting `src.infrastructure.database.models.base_model.BaseModel` gets the
 matching audit columns for free via `AuditMixin`, auto-populated on insert/update.
+
+`id` is a DB-generated autoincrement **bigint**, not a UUID. `BaseEntity.id` defaults to
+`0` (the unsaved sentinel); never assign it in a service — build the entity without an id,
+call `repo.create(...)`, and the DB assigns the real id on insert, which the repository's
+`_to_entity(model)` reads back into the returned entity. Passing `0` into an autoincrement
+PK column is a bug, so repository `create` methods never forward `entity.id` to the model.
 
 ```python
 @dataclass(kw_only=True)
@@ -148,7 +154,7 @@ from abc import ABC, abstractmethod
 
 class IItemRepository(ABC):
     @abstractmethod
-    async def get_by_id(self, item_id: UUID) -> Item | None: ...
+    async def get_by_id(self, item_id: int) -> Item | None: ...
 
     @abstractmethod
     async def create(self, item: Item) -> Item: ...
@@ -175,7 +181,7 @@ class ItemRepositoryImpl(IItemRepository):
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    async def get_by_id(self, item_id: UUID) -> Item | None:
+    async def get_by_id(self, item_id: int) -> Item | None:
         stmt = select(ItemModel).where(ItemModel.id == item_id)
         result = await self._session.execute(stmt)
         model = result.scalar_one_or_none()

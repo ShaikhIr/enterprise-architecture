@@ -23,7 +23,6 @@ and skipped rather than aborting the seed.
 import asyncio
 import sys
 from pathlib import Path
-from uuid import UUID, uuid4
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -116,7 +115,6 @@ async def seed() -> None:
             print(f"  [skip] Workflow '{WORKFLOW_CODE}' already exists")
         else:
             definition = WorkflowDefinitionModel(
-                id=uuid4(),
                 code=WORKFLOW_CODE,
                 name="Compliance Task Approval",
                 description=(
@@ -136,7 +134,8 @@ async def seed() -> None:
         definition_id = definition.id
 
         # ─── 2. States ───
-        state_ids: dict[str, UUID] = {}
+        state_ids: dict[str, int] = {}
+        new_states: dict[str, WorkflowStatusModel] = {}
         for code, name, is_initial, is_terminal, sequence in STATES:
             found = await session.execute(
                 select(WorkflowStatusModel).where(
@@ -151,7 +150,6 @@ async def seed() -> None:
                 continue
 
             state = WorkflowStatusModel(
-                id=uuid4(),
                 workflow_definition_id=definition_id,
                 code=code,
                 name=name,
@@ -162,10 +160,13 @@ async def seed() -> None:
                 modified_by=ACTOR,
             )
             session.add(state)
-            state_ids[code] = state.id
+            new_states[code] = state
             print(f"  [new]  State '{code}' created")
 
+        # Flush so the DB assigns each new state's bigint id, then record it.
         await session.flush()
+        for code, state in new_states.items():
+            state_ids[code] = state.id
 
         # ─── 3. Transitions ───
         for (
@@ -206,7 +207,6 @@ async def seed() -> None:
 
             session.add(
                 WorkflowTransitionModel(
-                    id=uuid4(),
                     workflow_definition_id=definition_id,
                     from_status_id=from_id,
                     to_status_id=to_id,
@@ -244,7 +244,6 @@ async def seed() -> None:
                 continue
 
             matrix = ApprovalMatrixModel(
-                id=uuid4(),
                 code=code,
                 name=name,
                 entity_type=ENTITY_TYPE,
@@ -260,7 +259,6 @@ async def seed() -> None:
             for field, operator, value, data_type, logical_group in rules:
                 session.add(
                     ApprovalRuleModel(
-                        id=uuid4(),
                         matrix_id=matrix.id,
                         field=field,
                         operator=operator,
@@ -283,7 +281,6 @@ async def seed() -> None:
                     continue
                 session.add(
                     ApprovalAssignmentModel(
-                        id=uuid4(),
                         matrix_id=matrix.id,
                         assignment_type="ROLE",
                         user_id=None,

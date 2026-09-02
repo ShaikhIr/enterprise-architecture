@@ -9,7 +9,6 @@ boundary with one scenario; these tests exercise every branch of
 wasn't supplied" re-validation directly.
 """
 
-from uuid import uuid4
 
 import pytest
 from master_fakes import (
@@ -64,7 +63,7 @@ def service(
 
 @pytest.fixture
 def actor() -> User:
-    return User(id=uuid4(), username="alice")
+    return User(id=1, username="alice")
 
 
 @pytest.fixture
@@ -117,7 +116,7 @@ class TestCreate:
     async def test_unknown_country_raises_not_found(
         self, service: LegislationService, actor: User, category: CategoryOfLaw
     ) -> None:
-        bogus = Country(id=uuid4(), code="XX", name="Nowhere")
+        bogus = Country(id=999_999, code="XX", name="Nowhere")
 
         with pytest.raises(EntityNotFoundError):
             await service.create_legislation(_payload(bogus, category), actor)
@@ -125,7 +124,7 @@ class TestCreate:
     async def test_unknown_category_raises_not_found(
         self, service: LegislationService, actor: User, country: Country
     ) -> None:
-        bogus = CategoryOfLaw(id=uuid4(), code="XX", name="Nothing")
+        bogus = CategoryOfLaw(id=999_998, code="XX", name="Nothing")
 
         with pytest.raises(EntityNotFoundError):
             await service.create_legislation(_payload(country, bogus), actor)
@@ -166,7 +165,7 @@ class TestCreate:
         country: Country,
         category: CategoryOfLaw,
     ) -> None:
-        bogus_state = State(id=uuid4(), code="XX", name="Nowhere", country_id=country.id)
+        bogus_state = State(id=999_997, code="XX", name="Nowhere", country_id=country.id)
 
         with pytest.raises(EntityNotFoundError):
             await service.create_legislation(_payload(country, category, bogus_state), actor)

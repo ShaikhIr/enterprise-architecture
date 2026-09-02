@@ -36,7 +36,7 @@ export const userApi = {
       return { items: page.users, total: page.total };
     }),
 
-  getUserById: async (userId: string): Promise<User> => {
+  getUserById: async (userId: number): Promise<User> => {
     const { data } = await apiClient.get<User>(`/users/${userId}`);
     return data;
   },
@@ -46,12 +46,12 @@ export const userApi = {
     return data;
   },
 
-  updateUser: async (userId: string, request: UpdateUserRequest): Promise<User> => {
+  updateUser: async (userId: number, request: UpdateUserRequest): Promise<User> => {
     const { data } = await apiClient.patch<User>(`/users/${userId}`, request);
     return data;
   },
 
-  getUserRoles: async (userId: string): Promise<UserRolesResponse> => {
+  getUserRoles: async (userId: number): Promise<UserRolesResponse> => {
     const { data } = await apiClient.get<UserRolesResponse>(`/users/${userId}/roles`);
     return data;
   },

@@ -16,7 +16,6 @@ transaction boundary.
 
 from collections import defaultdict
 from typing import Any
-from uuid import UUID
 
 from sqlalchemy import ColumnElement, Select, func, or_, select
 
@@ -58,7 +57,7 @@ class ApprovalMatrixRepositoryImpl(
 
     # ─── Matrix reads ───
 
-    async def get_by_id(self, entity_id: UUID) -> ApprovalMatrix | None:
+    async def get_by_id(self, entity_id: int) -> ApprovalMatrix | None:
         model = await self._get_model(entity_id)
         if model is None:
             return None
@@ -106,7 +105,7 @@ class ApprovalMatrixRepositoryImpl(
         result = await self._session.execute(stmt)
         return int(result.scalar_one())
 
-    async def exists_by_name(self, name: str, exclude_id: UUID | None = None) -> bool:
+    async def exists_by_name(self, name: str, exclude_id: int | None = None) -> bool:
         stmt = select(ApprovalMatrixModel.id).where(
             func.lower(ApprovalMatrixModel.name) == name.lower()
         )
@@ -133,7 +132,6 @@ class ApprovalMatrixRepositoryImpl(
 
     async def create(self, entity: ApprovalMatrix) -> ApprovalMatrix:
         model = ApprovalMatrixModel(
-            id=entity.id,
             code=entity.code,
             name=entity.name,
             entity_type=entity.entity_type,
@@ -145,6 +143,10 @@ class ApprovalMatrixRepositoryImpl(
         self._session.add(model)
         await self._session.flush()
 
+        # The parent id is DB-assigned, known only after the flush above. Copy it
+        # onto the aggregate so `_add_children` stamps the children's matrix_id FK
+        # with the real value rather than the pre-insert sentinel.
+        entity.id = model.id
         self._add_children(entity)
         await self._session.flush()
         return (await self._hydrate([model]))[0]
@@ -194,7 +196,6 @@ class ApprovalMatrixRepositoryImpl(
 
     async def create_task(self, task: ApprovalTask) -> ApprovalTask:
         model = ApprovalTaskModel(
-            id=task.id,
             instance_id=task.instance_id,
             matrix_id=task.matrix_id,
             assignee_id=task.assignee_id,
@@ -210,7 +211,7 @@ class ApprovalMatrixRepositoryImpl(
         await self._session.flush()
         return self._task_to_entity(model)
 
-    async def get_task(self, task_id: UUID) -> ApprovalTask | None:
+    async def get_task(self, task_id: int) -> ApprovalTask | None:
         model = await self._get_task_model(task_id)
         return self._task_to_entity(model) if model else None
 
@@ -230,7 +231,7 @@ class ApprovalMatrixRepositoryImpl(
         await self._session.flush()
         return self._task_to_entity(model)
 
-    async def list_tasks_for_instance(self, instance_id: UUID) -> list[ApprovalTask]:
+    async def list_tasks_for_instance(self, instance_id: int) -> list[ApprovalTask]:
         stmt = (
             select(ApprovalTaskModel)
             .where(ApprovalTaskModel.instance_id == instance_id)
@@ -239,7 +240,7 @@ class ApprovalMatrixRepositoryImpl(
         result = await self._session.execute(stmt)
         return [self._task_to_entity(m) for m in result.scalars().all()]
 
-    async def list_pending_tasks_for_user(self, user_id: UUID) -> list[ApprovalTask]:
+    async def list_pending_tasks_for_user(self, user_id: int) -> list[ApprovalTask]:
         stmt = (
             select(ApprovalTaskModel)
             .where(
@@ -254,7 +255,7 @@ class ApprovalMatrixRepositoryImpl(
         result = await self._session.execute(stmt)
         return [self._task_to_entity(m) for m in result.scalars().all()]
 
-    async def cancel_open_tasks_for_instance(self, instance_id: UUID) -> int:
+    async def cancel_open_tasks_for_instance(self, instance_id: int) -> int:
         stmt = select(ApprovalTaskModel).where(
             ApprovalTaskModel.instance_id == instance_id,
             ApprovalTaskModel.status == ApprovalTaskStatus.PENDING.value,
@@ -274,7 +275,6 @@ class ApprovalMatrixRepositoryImpl(
         for rule in entity.rules:
             self._session.add(
                 ApprovalRuleModel(
-                    id=rule.id,
                     matrix_id=entity.id,
                     field=rule.field,
                     operator=rule.operator.value,
@@ -288,7 +288,6 @@ class ApprovalMatrixRepositoryImpl(
         for assignment in entity.assignments:
             self._session.add(
                 ApprovalAssignmentModel(
-                    id=assignment.id,
                     matrix_id=entity.id,
                     assignment_type=assignment.assignment_type.value,
                     user_id=assignment.user_id,
@@ -313,7 +312,7 @@ class ApprovalMatrixRepositoryImpl(
             .where(ApprovalRuleModel.matrix_id.in_(matrix_ids))
             .order_by(ApprovalRuleModel.logical_group, ApprovalRuleModel.field)
         )
-        rules_by_matrix: dict[UUID, list[ApprovalRule]] = defaultdict(list)
+        rules_by_matrix: dict[int, list[ApprovalRule]] = defaultdict(list)
         for rule_model in rules_result.scalars().all():
             rules_by_matrix[rule_model.matrix_id].append(self._rule_to_entity(rule_model))
 
@@ -322,7 +321,7 @@ class ApprovalMatrixRepositoryImpl(
             .where(ApprovalAssignmentModel.matrix_id.in_(matrix_ids))
             .order_by(ApprovalAssignmentModel.level)
         )
-        assignments_by_matrix: dict[UUID, list[ApprovalAssignment]] = defaultdict(list)
+        assignments_by_matrix: dict[int, list[ApprovalAssignment]] = defaultdict(list)
         for assign_model in assign_result.scalars().all():
             assignments_by_matrix[assign_model.matrix_id].append(
                 self._assignment_to_entity(assign_model)
@@ -336,7 +335,7 @@ class ApprovalMatrixRepositoryImpl(
             aggregates.append(matrix)
         return aggregates
 
-    async def _get_task_model(self, task_id: UUID) -> ApprovalTaskModel | None:
+    async def _get_task_model(self, task_id: int) -> ApprovalTaskModel | None:
         stmt = select(ApprovalTaskModel).where(ApprovalTaskModel.id == task_id)
         result = await self._session.execute(stmt)
         return result.scalar_one_or_none()

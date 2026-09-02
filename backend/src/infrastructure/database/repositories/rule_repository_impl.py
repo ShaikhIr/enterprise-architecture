@@ -7,7 +7,6 @@ SqlAlchemyRepository; everything below is Rule-specific.
 """
 
 from typing import Any
-from uuid import UUID
 
 from sqlalchemy import ColumnElement, Select, func, or_, select
 
@@ -32,7 +31,6 @@ class RuleRepositoryImpl(SqlAlchemyRepository[Rule, RuleModel], IRuleRepository)
 
     async def create(self, rule: Rule) -> Rule:
         model = RuleModel(
-            id=rule.id,
             code=rule.code,
             name=rule.name,
             description=rule.description,
@@ -75,9 +73,9 @@ class RuleRepositoryImpl(SqlAlchemyRepository[Rule, RuleModel], IRuleRepository)
         limit: int = 100,
         search: str | None = None,
         is_active: bool | None = None,
-        country_id: UUID | None = None,
-        state_id: UUID | None = None,
-        legislation_id: UUID | None = None,
+        country_id: int | None = None,
+        state_id: int | None = None,
+        legislation_id: int | None = None,
     ) -> list[Rule]:
         stmt = self._apply_filters(
             select(RuleModel), search, is_active, country_id, state_id, legislation_id
@@ -90,9 +88,9 @@ class RuleRepositoryImpl(SqlAlchemyRepository[Rule, RuleModel], IRuleRepository)
         self,
         search: str | None = None,
         is_active: bool | None = None,
-        country_id: UUID | None = None,
-        state_id: UUID | None = None,
-        legislation_id: UUID | None = None,
+        country_id: int | None = None,
+        state_id: int | None = None,
+        legislation_id: int | None = None,
     ) -> int:
         stmt = self._apply_filters(
             select(func.count()).select_from(RuleModel),
@@ -112,9 +110,9 @@ class RuleRepositoryImpl(SqlAlchemyRepository[Rule, RuleModel], IRuleRepository)
         stmt: Select[Any],
         search: str | None,
         is_active: bool | None,
-        country_id: UUID | None,
-        state_id: UUID | None,
-        legislation_id: UUID | None,
+        country_id: int | None,
+        state_id: int | None,
+        legislation_id: int | None,
     ) -> Select[Any]:
         if search:
             pattern = f"%{search.strip()}%"

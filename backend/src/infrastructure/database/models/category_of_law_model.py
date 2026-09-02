@@ -2,10 +2,7 @@
 SQLAlchemy ORM model for the Category of Law master.
 """
 
-import uuid
-
-from sqlalchemy import Boolean, ForeignKey, String, Text, UniqueConstraint
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import BigInteger, Boolean, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.infrastructure.database.models.base_model import BaseModel
@@ -25,8 +22,8 @@ class CategoryOfLawModel(BaseModel):
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     description: Mapped[str] = mapped_column(Text, default="", nullable=False)
     # Nullable so a category can apply country-wide instead of per state.
-    state_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True),
+    state_id: Mapped[int | None] = mapped_column(
+        BigInteger,
         ForeignKey("states.id", ondelete="RESTRICT"),
         nullable=True,
         index=True,

@@ -7,8 +7,6 @@ to whichever it is — two categories can share a name if one is central and the
 other belongs to a state, but not two centrals or two in the same state.
 """
 
-from uuid import uuid4
-
 import pytest
 from master_fakes import FakeCategoryOfLawRepository, FakeStateRepository
 
@@ -45,12 +43,12 @@ def service(
 
 @pytest.fixture
 def actor() -> User:
-    return User(id=uuid4(), username="alice")
+    return User(id=1, username="alice")
 
 
 @pytest.fixture
 async def state(state_repo: FakeStateRepository) -> State:
-    return await state_repo.create(State(code="IN-MH", name="Maharashtra", country_id=uuid4()))
+    return await state_repo.create(State(code="IN-MH", name="Maharashtra", country_id=999_999))
 
 
 class TestCreate:
@@ -68,7 +66,7 @@ class TestCreate:
     ) -> None:
         with pytest.raises(EntityNotFoundError):
             await service.create_category(
-                CategoryOfLawCreate(code="LABOUR", name="Labour Law", state_id=uuid4()),
+                CategoryOfLawCreate(code="LABOUR", name="Labour Law", state_id=999_999),
                 actor,
             )
 
@@ -144,7 +142,7 @@ class TestUpdate:
 
         with pytest.raises(EntityNotFoundError):
             await service.update_category(
-                created.id, CategoryOfLawUpdate(state_id=uuid4()), actor
+                created.id, CategoryOfLawUpdate(state_id=999_999), actor
             )
 
     async def test_description_only_update_leaves_scope_untouched(

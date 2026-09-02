@@ -18,7 +18,6 @@ transaction boundary (see `get_db_session`).
 
 from abc import ABC, abstractmethod
 from typing import Generic, TypeVar
-from uuid import UUID
 
 from sqlalchemy import ColumnElement, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -74,7 +73,7 @@ class SqlAlchemyRepository(ABC, Generic[TEntity, TModel]):
 
     # ─── Reads ───
 
-    async def get_by_id(self, entity_id: UUID) -> TEntity | None:
+    async def get_by_id(self, entity_id: int) -> TEntity | None:
         """Retrieve a single record by primary key."""
         model = await self._get_model(entity_id)
         return self._to_entity(model) if model else None
@@ -86,7 +85,7 @@ class SqlAlchemyRepository(ABC, Generic[TEntity, TModel]):
         model = result.scalar_one_or_none()
         return self._to_entity(model) if model else None
 
-    async def exists_by_code(self, code: str, exclude_id: UUID | None = None) -> bool:
+    async def exists_by_code(self, code: str, exclude_id: int | None = None) -> bool:
         """Check whether a business code is taken, optionally ignoring one row."""
         stmt = select(self._model.id).where(self._code_equals(code))
         if exclude_id is not None:
@@ -96,7 +95,7 @@ class SqlAlchemyRepository(ABC, Generic[TEntity, TModel]):
 
     # ─── Writes ───
 
-    async def delete(self, entity_id: UUID) -> None:
+    async def delete(self, entity_id: int) -> None:
         """Delete a record by primary key. Silent when already gone."""
         model = await self._get_model(entity_id)
         if model:
@@ -105,13 +104,13 @@ class SqlAlchemyRepository(ABC, Generic[TEntity, TModel]):
 
     # ─── Internals for subclasses ───
 
-    async def _get_model(self, entity_id: UUID) -> TModel | None:
+    async def _get_model(self, entity_id: int) -> TModel | None:
         """Load a row by primary key, or None."""
         stmt = select(self._model).where(self._model.id == entity_id)
         result = await self._session.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def _require_model(self, entity_id: UUID) -> TModel:
+    async def _require_model(self, entity_id: int) -> TModel:
         """
         Load a row by primary key for update.
 

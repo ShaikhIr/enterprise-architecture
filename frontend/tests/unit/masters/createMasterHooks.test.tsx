@@ -9,7 +9,7 @@ import { createMasterHooks } from '@features/masters/hooks/createMasterHooks';
 import type { MasterListParams } from '@features/masters/models/common';
 
 interface Widget {
-  id: string;
+  id: number;
   name: string;
 }
 
@@ -24,10 +24,10 @@ const buildFakeApi = (): MasterApi<
 > => ({
   list: vi
     .fn()
-    .mockResolvedValue({ items: [{ id: '1', name: 'Widget' }], total: 1, skip: 0, limit: 100 }),
+    .mockResolvedValue({ items: [{ id: 1, name: 'Widget' }], total: 1, skip: 0, limit: 100 }),
   getById: vi.fn(),
-  create: vi.fn().mockResolvedValue({ id: '2', name: 'New Widget' }),
-  update: vi.fn().mockResolvedValue({ id: '1', name: 'Renamed' }),
+  create: vi.fn().mockResolvedValue({ id: 2, name: 'New Widget' }),
+  update: vi.fn().mockResolvedValue({ id: 1, name: 'Renamed' }),
   remove: vi.fn().mockResolvedValue(undefined),
 });
 
@@ -50,7 +50,7 @@ describe('createMasterHooks', () => {
     const { result } = renderHook(() => useList(), { wrapper: wrapperWith(queryClient) });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(result.current.data?.items).toEqual([{ id: '1', name: 'Widget' }]);
+    expect(result.current.data?.items).toEqual([{ id: 1, name: 'Widget' }]);
     expect(api.list).toHaveBeenCalledWith(undefined);
   });
 
@@ -87,10 +87,10 @@ describe('createMasterHooks', () => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
     const { result } = renderHook(() => useUpdate(), { wrapper: wrapperWith(queryClient) });
-    result.current.mutate({ id: '1', request: { name: 'Renamed' } });
+    result.current.mutate({ id: 1, request: { name: 'Renamed' } });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(api.update).toHaveBeenCalledWith('1', { name: 'Renamed' });
+    expect(api.update).toHaveBeenCalledWith(1, { name: 'Renamed' });
   });
 
   it('useDelete calls api.remove with the id and invalidates on success', async () => {
@@ -100,10 +100,10 @@ describe('createMasterHooks', () => {
     const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
 
     const { result } = renderHook(() => useDelete(), { wrapper: wrapperWith(queryClient) });
-    result.current.mutate('1');
+    result.current.mutate(1);
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(api.remove).toHaveBeenCalledWith('1');
+    expect(api.remove).toHaveBeenCalledWith(1);
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: DEPENDENT_KEY });
   });
 

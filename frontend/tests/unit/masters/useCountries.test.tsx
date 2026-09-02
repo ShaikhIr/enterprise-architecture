@@ -22,9 +22,9 @@ const wrapperWith = (queryClient: QueryClient) => {
 };
 
 const country = (
-  overrides: Partial<{ id: string; code: string; name: string; is_active: boolean }>,
+  overrides: Partial<{ id: number; code: string; name: string; is_active: boolean }>,
 ) => ({
-  id: '1',
+  id: 1,
   code: 'IN',
   name: 'India',
   iso3_code: null,
@@ -54,9 +54,7 @@ describe('useCountries (createMasterHooks instantiated for Country)', () => {
   });
 
   it('invalidates the states, legislations and rules caches after a create (dependent keys)', async () => {
-    server.use(
-      http.post('/api/v1/masters/countries', () => HttpResponse.json(country({ id: '2' }))),
-    );
+    server.use(http.post('/api/v1/masters/countries', () => HttpResponse.json(country({ id: 2 }))));
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     await queryClient.prefetchQuery({
       queryKey: ['masters', 'states', {}],
@@ -87,7 +85,7 @@ describe('useCountries (createMasterHooks instantiated for Country)', () => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
     const { result } = renderHook(() => useDeleteCountry(), { wrapper: wrapperWith(queryClient) });
-    result.current.mutate('1');
+    result.current.mutate(1);
 
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect((result.current.error as { response?: { status?: number } })?.response?.status).toBe(
@@ -107,7 +105,7 @@ describe('useCountryLookup', () => {
             ? [country({})]
             : [
                 country({}),
-                country({ id: '2', code: 'US', name: 'United States', is_active: false }),
+                country({ id: 2, code: 'US', name: 'United States', is_active: false }),
               ];
         return HttpResponse.json({ countries: items, total: items.length, skip: 0, limit: 100 });
       }),
@@ -117,7 +115,7 @@ describe('useCountryLookup', () => {
     const { result } = renderHook(() => useCountryLookup(), { wrapper: wrapperWith(queryClient) });
 
     await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(result.current.options).toEqual([{ label: 'India (IN)', value: '1' }]);
-    expect(result.current.labelFor('2')).toBe('United States (US)');
+    expect(result.current.options).toEqual([{ label: 'India (IN)', value: 1 }]);
+    expect(result.current.labelFor(2)).toBe('United States (US)');
   });
 });

@@ -35,7 +35,7 @@ const defaultFilters: DataTableFilterMeta = {
 
 export const CategoriesOfLawPage = () => {
   const [filters, setFilters] = useState<DataTableFilterMeta>(defaultFilters);
-  const [stateId, setStateId] = useState<string | null>(null);
+  const [stateId, setStateId] = useState<number | null>(null);
 
   const states = useStateLookup();
   const { data, isLoading, refetch, isRefetching } = useCategoriesOfLaw({

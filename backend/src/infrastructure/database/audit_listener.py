@@ -33,7 +33,6 @@ import logging
 from collections.abc import Iterator
 from datetime import UTC, datetime
 from typing import Any
-from uuid import UUID, uuid4
 
 from sqlalchemy import event, inspect
 from sqlalchemy.orm import Session
@@ -79,11 +78,8 @@ def _serialize_value(value: Any) -> str | None:
         return None
     if isinstance(value, datetime):
         return value.isoformat()
-    # Checked before the UUID branch: bytes also exposes `.hex`.
     if isinstance(value, bytes):
         return "<binary>"
-    if isinstance(value, UUID):
-        return str(value)
     return str(value)
 
 
@@ -169,10 +165,9 @@ def _create_audit_entry(
     if changed_columns:
         extra_data = json.dumps({"changed_columns": changed_columns})
 
-    # actor_id and tenant_id are UUID(as_uuid=True) columns: pass the UUID
-    # through rather than str(), or asyncpg rejects the parameter.
+    # actor_id and tenant_id are bigint FK columns; pass the int through. The
+    # row id is DB-assigned (autoincrement), so it is not set here.
     return AuditLogModel(
-        id=uuid4(),
         actor_id=ctx.actor_id,
         actor_username=ctx.actor_username,
         action=action,

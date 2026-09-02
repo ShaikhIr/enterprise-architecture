@@ -26,7 +26,7 @@ const schema = z.object({
     .min(2, 'Code must be at least 2 characters')
     .max(20, 'Code must be at most 20 characters'),
   name: z.string().min(1, 'Name is required').max(255),
-  country_id: z.string().uuid('Select a country'),
+  country_id: z.number().int().positive('Select a country'),
   is_union_territory: z.boolean(),
   is_active: z.boolean(),
 });
@@ -36,7 +36,7 @@ type FormData = z.infer<typeof schema>;
 const EMPTY: FormData = {
   code: '',
   name: '',
-  country_id: '',
+  country_id: 0,
   is_union_territory: false,
   is_active: true,
 };

@@ -7,7 +7,6 @@ SqlAlchemyRepository; everything below is Legislation-specific.
 """
 
 from typing import Any
-from uuid import UUID
 
 from sqlalchemy import ColumnElement, Select, func, or_, select
 
@@ -35,7 +34,6 @@ class LegislationRepositoryImpl(
 
     async def create(self, legislation: Legislation) -> Legislation:
         model = LegislationModel(
-            id=legislation.id,
             code=legislation.code,
             name=legislation.name,
             description=legislation.description,
@@ -78,9 +76,9 @@ class LegislationRepositoryImpl(
         limit: int = 100,
         search: str | None = None,
         is_active: bool | None = None,
-        country_id: UUID | None = None,
-        state_id: UUID | None = None,
-        category_of_law_id: UUID | None = None,
+        country_id: int | None = None,
+        state_id: int | None = None,
+        category_of_law_id: int | None = None,
     ) -> list[Legislation]:
         stmt = self._apply_filters(
             select(LegislationModel),
@@ -98,9 +96,9 @@ class LegislationRepositoryImpl(
         self,
         search: str | None = None,
         is_active: bool | None = None,
-        country_id: UUID | None = None,
-        state_id: UUID | None = None,
-        category_of_law_id: UUID | None = None,
+        country_id: int | None = None,
+        state_id: int | None = None,
+        category_of_law_id: int | None = None,
     ) -> int:
         stmt = self._apply_filters(
             select(func.count()).select_from(LegislationModel),
@@ -113,7 +111,7 @@ class LegislationRepositoryImpl(
         result = await self._session.execute(stmt)
         return int(result.scalar_one())
 
-    async def has_dependents(self, legislation_id: UUID) -> bool:
+    async def has_dependents(self, legislation_id: int) -> bool:
         """True if any rule still references this legislation."""
         stmt = (
             select(RuleModel.id)
@@ -130,9 +128,9 @@ class LegislationRepositoryImpl(
         stmt: Select[Any],
         search: str | None,
         is_active: bool | None,
-        country_id: UUID | None,
-        state_id: UUID | None,
-        category_of_law_id: UUID | None,
+        country_id: int | None,
+        state_id: int | None,
+        category_of_law_id: int | None,
     ) -> Select[Any]:
         if search:
             pattern = f"%{search.strip()}%"

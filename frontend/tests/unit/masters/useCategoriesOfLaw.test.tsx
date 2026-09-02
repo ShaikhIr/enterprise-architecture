@@ -34,19 +34,19 @@ describe('useCategoriesOfLaw dependent-key wiring', () => {
     );
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
-    const { result } = renderHook(() => useCategoriesOfLaw({ state_id: 'state-1' }), {
+    const { result } = renderHook(() => useCategoriesOfLaw({ state_id: 601 }), {
       wrapper: wrapperWith(queryClient),
     });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(captured?.searchParams.get('state_id')).toBe('state-1');
+    expect(captured?.searchParams.get('state_id')).toBe('601');
   });
 
   it('invalidates only the legislations cache after a create (single dependent)', async () => {
     server.use(
       http.post('/api/v1/masters/categories-of-law', () =>
         HttpResponse.json({
-          id: '1',
+          id: 1,
           code: 'LABOUR',
           name: 'Labour Law',
           description: '',

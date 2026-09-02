@@ -15,7 +15,7 @@ export type PermissionAction =
   | 'APPROVE';
 
 export interface Permission {
-  id: string;
+  id: number;
   code: string;
   name: string;
   description: string;
@@ -26,14 +26,14 @@ export interface Permission {
 }
 
 export interface Role {
-  id: string;
+  id: number;
   code: string;
   name: string;
   description: string;
   is_system: boolean;
   is_active: boolean;
-  tenant_id: string | null;
-  parent_role_id: string | null;
+  tenant_id: number | null;
+  parent_role_id: number | null;
   permissions: Permission[];
 }
 
@@ -62,22 +62,22 @@ export interface FieldPermissionsResponse {
 }
 
 export interface RoleAssignment {
-  id: string;
-  user_id: string;
-  role_id: string;
-  tenant_id: string | null;
+  id: number;
+  user_id: number;
+  role_id: number;
+  tenant_id: number | null;
   is_active: boolean;
   created_date: string;
 }
 
 export interface AuditLogEntry {
-  id: string;
-  actor_id: string | null;
+  id: number;
+  actor_id: number | null;
   actor_username: string;
   action: string;
   resource_type: string;
   resource_id: string;
-  tenant_id: string | null;
+  tenant_id: number | null;
   old_value: string | null;
   new_value: string | null;
   ip_address: string;

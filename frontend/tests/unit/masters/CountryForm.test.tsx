@@ -7,7 +7,7 @@ import type { Country } from '@features/masters/models/Country';
 import { renderWithProviders, screen, waitFor } from '../../test-utils';
 
 const existingCountry: Country = {
-  id: '1',
+  id: 1,
   code: 'IN',
   name: 'India',
   iso3_code: 'IND',

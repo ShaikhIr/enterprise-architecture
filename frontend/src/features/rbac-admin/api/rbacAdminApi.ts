@@ -23,7 +23,7 @@ const BASE = '/rbac';
 export const rbacAdminApi = {
   // ─── Roles ───
 
-  async listRoles(tenantId?: string): Promise<RoleListResponse> {
+  async listRoles(tenantId?: number): Promise<RoleListResponse> {
     const params = tenantId ? { tenant_id: tenantId } : {};
     const response = await apiClient.get<RoleListResponse>(`${BASE}/roles`, { params });
     return response.data;
@@ -34,7 +34,7 @@ export const rbacAdminApi = {
     return response.data;
   },
 
-  async updateRole(roleId: string, data: UpdateRoleRequest): Promise<Role> {
+  async updateRole(roleId: number, data: UpdateRoleRequest): Promise<Role> {
     const response = await apiClient.patch<Role>(`${BASE}/roles/${roleId}`, data);
     return response.data;
   },

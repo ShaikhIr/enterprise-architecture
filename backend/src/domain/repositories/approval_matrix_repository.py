@@ -8,7 +8,6 @@ save) and removes any window where a matrix is readable with a partial rule set.
 """
 
 from abc import abstractmethod
-from uuid import UUID
 
 from src.domain.entities.approval_matrix import ApprovalMatrix, ApprovalTask
 from src.domain.repositories.base_repository import IRepository
@@ -42,7 +41,7 @@ class IApprovalMatrixRepository(IRepository[ApprovalMatrix]):
         ...
 
     @abstractmethod
-    async def exists_by_name(self, name: str, exclude_id: UUID | None = None) -> bool:
+    async def exists_by_name(self, name: str, exclude_id: int | None = None) -> bool:
         """Check whether a matrix name is taken, optionally ignoring one row."""
         ...
 
@@ -66,7 +65,7 @@ class IApprovalMatrixRepository(IRepository[ApprovalMatrix]):
         ...
 
     @abstractmethod
-    async def get_task(self, task_id: UUID) -> ApprovalTask | None:
+    async def get_task(self, task_id: int) -> ApprovalTask | None:
         """Load one approval task by primary key."""
         ...
 
@@ -76,17 +75,17 @@ class IApprovalMatrixRepository(IRepository[ApprovalMatrix]):
         ...
 
     @abstractmethod
-    async def list_tasks_for_instance(self, instance_id: UUID) -> list[ApprovalTask]:
+    async def list_tasks_for_instance(self, instance_id: int) -> list[ApprovalTask]:
         """All tasks raised for one workflow instance, ordered by level."""
         ...
 
     @abstractmethod
-    async def list_pending_tasks_for_user(self, user_id: UUID) -> list[ApprovalTask]:
+    async def list_pending_tasks_for_user(self, user_id: int) -> list[ApprovalTask]:
         """Open tasks assigned to a user, oldest due date first."""
         ...
 
     @abstractmethod
-    async def cancel_open_tasks_for_instance(self, instance_id: UUID) -> int:
+    async def cancel_open_tasks_for_instance(self, instance_id: int) -> int:
         """
         Cancel every still-open task on an instance, returning how many changed.
 

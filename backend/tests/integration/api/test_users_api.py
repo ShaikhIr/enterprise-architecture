@@ -14,7 +14,7 @@ from src.domain.entities.user import User
 
 USERS = "/api/v1/users"
 ROLES = "/api/v1/rbac/roles"
-UNKNOWN_ID = "00000000-0000-0000-0000-000000000000"
+UNKNOWN_ID = 999999
 
 
 async def _create_user(

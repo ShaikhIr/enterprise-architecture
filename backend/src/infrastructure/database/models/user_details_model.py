@@ -3,10 +3,7 @@ SQLAlchemy ORM model for the UserDetails entity.
 Maps to the 'user_details' table. One-to-one with users table.
 """
 
-import uuid
-
-from sqlalchemy import ForeignKey, String
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import BigInteger, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.infrastructure.database.models.base_model import BaseModel
@@ -17,8 +14,8 @@ class UserDetailsModel(BaseModel):
 
     __tablename__ = "user_details"
 
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+    user_id: Mapped[int] = mapped_column(
+        BigInteger,
         ForeignKey("users.id", ondelete="CASCADE"),
         unique=True,
         nullable=False,

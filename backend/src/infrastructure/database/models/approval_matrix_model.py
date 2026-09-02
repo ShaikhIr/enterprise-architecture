@@ -6,10 +6,10 @@ what lets the repository implement "update" as a wholesale replace of both child
 collections. Approval tasks point at a workflow instance and cascade with it.
 """
 
-import uuid
 from datetime import datetime
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     DateTime,
     ForeignKey,
@@ -18,7 +18,6 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.infrastructure.database.models.base_model import BaseModel
@@ -45,8 +44,8 @@ class ApprovalRuleModel(BaseModel):
 
     __tablename__ = "approval_rules"
 
-    matrix_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+    matrix_id: Mapped[int] = mapped_column(
+        BigInteger,
         ForeignKey("approval_matrices.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
@@ -69,21 +68,21 @@ class ApprovalAssignmentModel(BaseModel):
 
     __tablename__ = "approval_assignments"
 
-    matrix_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+    matrix_id: Mapped[int] = mapped_column(
+        BigInteger,
         ForeignKey("approval_matrices.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
     assignment_type: Mapped[str] = mapped_column(String(20), nullable=False)
-    user_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True),
+    user_id: Mapped[int | None] = mapped_column(
+        BigInteger,
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=True,
         index=True,
     )
-    role_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True),
+    role_id: Mapped[int | None] = mapped_column(
+        BigInteger,
         ForeignKey("roles.id", ondelete="CASCADE"),
         nullable=True,
         index=True,
@@ -104,20 +103,20 @@ class ApprovalTaskModel(BaseModel):
         ),
     )
 
-    instance_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+    instance_id: Mapped[int] = mapped_column(
+        BigInteger,
         ForeignKey("workflow_instances.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
-    matrix_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True),
+    matrix_id: Mapped[int | None] = mapped_column(
+        BigInteger,
         ForeignKey("approval_matrices.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
     )
-    assignee_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+    assignee_id: Mapped[int] = mapped_column(
+        BigInteger,
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
         index=True,

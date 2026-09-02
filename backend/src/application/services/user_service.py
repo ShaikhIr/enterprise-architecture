@@ -7,7 +7,6 @@ application layer stays free of infrastructure.
 """
 
 from typing import Any
-from uuid import UUID, uuid4
 
 from src.api.v1.schemas.user_request import CreateUserRequest, UpdateUserRequest
 from src.api.v1.schemas.user_response import UserDetailResponse, UserListResponse, UserResponse
@@ -85,7 +84,6 @@ class UserService:
             raise ValueError(f"Username '{request.username}' already exists")
 
         user = User(
-            id=uuid4(),
             username=request.username,
             password_hash=self._hasher.hash(request.password),
             is_validate_ad=request.is_validate_ad,
@@ -102,7 +100,7 @@ class UserService:
 
     # ─── Get User by ID ───
 
-    async def get_user(self, user_id: UUID) -> User:
+    async def get_user(self, user_id: int) -> User:
         """Get a user by ID. Raises ValueError if not found."""
         user = await self._users.get_by_id(user_id)
         if user is None:
@@ -112,7 +110,7 @@ class UserService:
     # ─── Update User ───
 
     async def update_user(
-        self, user_id: UUID, request: UpdateUserRequest, actor: User
+        self, user_id: int, request: UpdateUserRequest, actor: User
     ) -> UserResponse:
         """Update user properties and optionally reassign role."""
         user = await self._users.get_by_id(user_id)
@@ -138,7 +136,7 @@ class UserService:
 
     # ─── Get Full Details ───
 
-    async def get_user_details(self, user_id: UUID) -> UserDetailResponse:
+    async def get_user_details(self, user_id: int) -> UserDetailResponse:
         """Get full user profile including all employee AD fields."""
         user = await self._users.get_by_id(user_id)
         if user is None:
@@ -186,19 +184,19 @@ class UserService:
 
     # ─── Get User Roles ───
 
-    async def get_user_roles(self, user_id: UUID) -> dict[str, Any]:
+    async def get_user_roles(self, user_id: int) -> dict[str, Any]:
         """Get all active roles and their permissions assigned to a user."""
         assignments = await self._assignments.list_active_for_user(user_id)
         if not assignments:
-            return {"user_id": str(user_id), "roles": []}
+            return {"user_id": user_id, "roles": []}
 
         roles = await self._roles.list_by_ids([a.role_id for a in assignments])
 
         return {
-            "user_id": str(user_id),
+            "user_id": user_id,
             "roles": [
                 {
-                    "id": str(role.id),
+                    "id": role.id,
                     "code": role.code,
                     "name": role.name,
                     "permissions": [
@@ -221,7 +219,7 @@ class UserService:
     # ─── Get Login History ───
 
     async def get_login_history(
-        self, user_id: UUID, limit: int = 20
+        self, user_id: int, limit: int = 20
     ) -> list[dict[str, Any]]:
         """Get the login/logout audit trail for a user."""
         entries = await self._audit.query(
@@ -252,12 +250,11 @@ class UserService:
     # ─── Private Helpers ───
 
     async def _assign_role(
-        self, user_id: UUID, role_id: UUID, actor_username: str
+        self, user_id: int, role_id: int, actor_username: str
     ) -> None:
         """Assign a single role to a user."""
         await self._assignments.create(
             RoleAssignment(
-                id=uuid4(),
                 user_id=user_id,
                 role_id=role_id,
                 tenant_id=None,

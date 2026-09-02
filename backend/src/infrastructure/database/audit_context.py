@@ -31,18 +31,17 @@ database session, so the listener sees the identity at flush time.
 
 from contextvars import ContextVar, Token
 from dataclasses import dataclass, field, replace
-from uuid import UUID
 
 
 @dataclass(frozen=True)
 class AuditContext:
     """Immutable snapshot of who is performing the current operation."""
 
-    actor_id: UUID | None = field(default=None)
+    actor_id: int | None = field(default=None)
     actor_username: str = field(default="system")
     ip_address: str = field(default="")
     user_agent: str = field(default="")
-    tenant_id: UUID | None = field(default=None)
+    tenant_id: int | None = field(default=None)
 
 
 # Default context for background jobs / system operations
@@ -56,11 +55,11 @@ _audit_context_var: ContextVar[AuditContext] = ContextVar(
 
 def set_audit_context(
     *,
-    actor_id: UUID | None = None,
+    actor_id: int | None = None,
     actor_username: str = "system",
     ip_address: str = "",
     user_agent: str = "",
-    tenant_id: UUID | None = None,
+    tenant_id: int | None = None,
 ) -> Token[AuditContext]:
     """
     Replace the audit context for the current request/task.
@@ -81,9 +80,9 @@ def set_audit_context(
 
 def set_audit_actor(
     *,
-    actor_id: UUID | None,
+    actor_id: int | None,
     actor_username: str,
-    tenant_id: UUID | None = None,
+    tenant_id: int | None = None,
 ) -> None:
     """
     Attach the resolved actor to the context already seeded by the middleware.

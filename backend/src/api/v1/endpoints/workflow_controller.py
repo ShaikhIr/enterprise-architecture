@@ -8,7 +8,6 @@ is separable from permission to act on one.
 Thin controller — all business logic sits in WorkflowService.
 """
 
-from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
 
@@ -127,7 +126,7 @@ async def create_definition(
     dependencies=[Depends(require_api_permission(RESOURCE, "READ"))],
 )
 async def get_definition(
-    definition_id: UUID,
+    definition_id: int,
     service: WorkflowService = Depends(get_workflow_service),
 ) -> WorkflowDefinitionDetailResponse:
     """GET /api/v1/workflow/definitions/{definition_id}"""
@@ -141,7 +140,7 @@ async def get_definition(
     dependencies=[Depends(require_api_permission(RESOURCE, "UPDATE"))],
 )
 async def update_definition(
-    definition_id: UUID,
+    definition_id: int,
     request: WorkflowDefinitionUpdate,
     current_user: User = Depends(get_current_active_user),
     service: WorkflowService = Depends(get_workflow_service),
@@ -159,7 +158,7 @@ async def update_definition(
     dependencies=[Depends(require_api_permission(RESOURCE, "DELETE"))],
 )
 async def delete_definition(
-    definition_id: UUID,
+    definition_id: int,
     service: WorkflowService = Depends(get_workflow_service),
 ) -> None:
     """DELETE /api/v1/workflow/definitions/{definition_id}"""
@@ -176,7 +175,7 @@ async def delete_definition(
     dependencies=[Depends(require_api_permission(RESOURCE, "READ"))],
 )
 async def list_statuses(
-    definition_id: UUID,
+    definition_id: int,
     service: WorkflowService = Depends(get_workflow_service),
 ) -> list[WorkflowStatusResponse]:
     """GET /api/v1/workflow/definitions/{definition_id}/statuses"""
@@ -191,7 +190,7 @@ async def list_statuses(
     dependencies=[Depends(require_api_permission(RESOURCE, "CREATE"))],
 )
 async def create_status(
-    definition_id: UUID,
+    definition_id: int,
     request: WorkflowStatusCreate,
     current_user: User = Depends(get_current_active_user),
     service: WorkflowService = Depends(get_workflow_service),
@@ -209,7 +208,7 @@ async def create_status(
     dependencies=[Depends(require_api_permission(RESOURCE, "UPDATE"))],
 )
 async def update_status(
-    status_id: UUID,
+    status_id: int,
     request: WorkflowStatusUpdate,
     current_user: User = Depends(get_current_active_user),
     service: WorkflowService = Depends(get_workflow_service),
@@ -227,7 +226,7 @@ async def update_status(
     dependencies=[Depends(require_api_permission(RESOURCE, "DELETE"))],
 )
 async def delete_status(
-    status_id: UUID,
+    status_id: int,
     service: WorkflowService = Depends(get_workflow_service),
 ) -> None:
     """DELETE /api/v1/workflow/statuses/{status_id}"""
@@ -244,7 +243,7 @@ async def delete_status(
     dependencies=[Depends(require_api_permission(RESOURCE, "READ"))],
 )
 async def list_transitions(
-    definition_id: UUID,
+    definition_id: int,
     service: WorkflowService = Depends(get_workflow_service),
 ) -> list[WorkflowTransitionResponse]:
     """GET /api/v1/workflow/definitions/{definition_id}/transitions"""
@@ -259,7 +258,7 @@ async def list_transitions(
     dependencies=[Depends(require_api_permission(RESOURCE, "CREATE"))],
 )
 async def create_transition(
-    definition_id: UUID,
+    definition_id: int,
     request: WorkflowTransitionCreate,
     current_user: User = Depends(get_current_active_user),
     service: WorkflowService = Depends(get_workflow_service),
@@ -277,7 +276,7 @@ async def create_transition(
     dependencies=[Depends(require_api_permission(RESOURCE, "DELETE"))],
 )
 async def delete_transition(
-    transition_id: UUID,
+    transition_id: int,
     service: WorkflowService = Depends(get_workflow_service),
 ) -> None:
     """DELETE /api/v1/workflow/transitions/{transition_id}"""

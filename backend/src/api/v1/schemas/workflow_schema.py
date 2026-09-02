@@ -10,7 +10,6 @@ and `Commission_Claim` cannot both exist as separate workflows.
 
 from datetime import datetime
 from typing import Any
-from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -69,7 +68,7 @@ class WorkflowDefinitionUpdate(BaseModel):
 class WorkflowDefinitionResponse(BaseModel):
     """Workflow definition read response."""
 
-    id: UUID
+    id: int
     code: str
     name: str
     description: str
@@ -139,8 +138,8 @@ class WorkflowStatusUpdate(BaseModel):
 class WorkflowStatusResponse(BaseModel):
     """Workflow state read response."""
 
-    id: UUID
-    workflow_definition_id: UUID
+    id: int
+    workflow_definition_id: int
     code: str
     name: str
     is_initial: bool
@@ -156,8 +155,8 @@ class WorkflowStatusResponse(BaseModel):
 class WorkflowTransitionCreate(BaseModel):
     """Wire an action from one state to another."""
 
-    from_status_id: UUID
-    to_status_id: UUID
+    from_status_id: int
+    to_status_id: int
     action_code: str = Field(..., min_length=2, max_length=50, examples=["APPROVE"])
     action_type: WorkflowActionType = Field(
         default=WorkflowActionType.CUSTOM,
@@ -181,10 +180,10 @@ class WorkflowTransitionCreate(BaseModel):
 class WorkflowTransitionResponse(BaseModel):
     """Workflow transition read response."""
 
-    id: UUID
-    workflow_definition_id: UUID
-    from_status_id: UUID
-    to_status_id: UUID
+    id: int
+    workflow_definition_id: int
+    from_status_id: int
+    to_status_id: int
     action_code: str
     action_type: WorkflowActionType
     guard_expression: str | None
@@ -211,7 +210,7 @@ class WorkflowStartRequest(BaseModel):
 
     definition_code: str = Field(..., min_length=2, max_length=100)
     entity_type: str = Field(..., min_length=2, max_length=100)
-    entity_id: UUID
+    entity_id: int
     priority: int = Field(default=0, ge=0)
     metadata: dict[str, Any] = Field(
         default_factory=dict,
@@ -249,17 +248,17 @@ class WorkflowInstanceResponse(BaseModel):
     have to fetch the definition to render a row.
     """
 
-    id: UUID
-    workflow_definition_id: UUID
+    id: int
+    workflow_definition_id: int
     definition_code: str
     definition_name: str
     entity_type: str
-    entity_id: UUID
-    current_status_id: UUID
+    entity_id: int
+    current_status_id: int
     current_status_code: str
     current_status_name: str
     is_terminal: bool
-    initiated_by: UUID
+    initiated_by: int
     priority: int
     due_date: datetime | None
     started_at: datetime
@@ -288,7 +287,7 @@ class WorkflowAvailableActionResponse(BaseModel):
     # Exposed so a caller can tell an approval from a rejection without having to
     # pattern-match the free-text action code.
     action_type: WorkflowActionType
-    to_status_id: UUID
+    to_status_id: int
     to_status_code: str
     to_status_name: str
     requires_comment: bool
@@ -298,14 +297,14 @@ class WorkflowAvailableActionResponse(BaseModel):
 class WorkflowHistoryResponse(BaseModel):
     """One executed transition from the audit trail."""
 
-    id: UUID
-    instance_id: UUID
-    from_status_id: UUID | None
+    id: int
+    instance_id: int
+    from_status_id: int | None
     from_status_code: str | None
-    to_status_id: UUID
+    to_status_id: int
     to_status_code: str | None
     action_code: str
-    actor_id: UUID | None
+    actor_id: int | None
     actor_username: str
     comments: str
     ip_address: str

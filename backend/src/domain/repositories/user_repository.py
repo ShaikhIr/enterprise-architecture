@@ -5,7 +5,6 @@ The domain layer owns this interface; infrastructure implements it.
 """
 
 from abc import ABC, abstractmethod
-from uuid import UUID
 
 from src.domain.entities.user import User
 
@@ -14,7 +13,7 @@ class IUserRepository(ABC):
     """Abstract repository for User aggregate persistence."""
 
     @abstractmethod
-    async def get_by_id(self, user_id: UUID) -> User | None:
+    async def get_by_id(self, user_id: int) -> User | None:
         """Retrieve a user by their unique identifier."""
         ...
 
@@ -34,7 +33,7 @@ class IUserRepository(ABC):
         ...
 
     @abstractmethod
-    async def delete(self, user_id: UUID) -> None:
+    async def delete(self, user_id: int) -> None:
         """Delete a user by ID."""
         ...
 

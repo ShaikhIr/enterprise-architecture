@@ -1,7 +1,7 @@
 /**
  * Create / edit dialog for a legislation.
  *
- * Country and category are required; state is optional and empty means central
+ * Country and category are required; state is optional and null means central
  * legislation. The state picker is narrowed to the chosen country, so a
  * Maharashtra state cannot be attached to a UK legislation.
  */
@@ -25,8 +25,8 @@ import { useStateLookup } from '../hooks/useStates';
 import type { CreateLegislationRequest, Legislation } from '../models/Legislation';
 import { fromIsoDate, toIsoDate } from '../utils/isoDate';
 
-/** Sentinel for "central"; a Dropdown cannot hold null as a value. */
-const CENTRAL = '';
+/** Sentinel for "central": null, since the field carries no state. */
+const CENTRAL = null;
 
 const schema = z.object({
   code: z
@@ -35,9 +35,9 @@ const schema = z.object({
     .max(50, 'Code must be at most 50 characters'),
   name: z.string().min(1, 'Name is required').max(500),
   description: z.string().max(4000),
-  category_of_law_id: z.string().uuid('Select a category of law'),
-  country_id: z.string().uuid('Select a country'),
-  state_id: z.string(),
+  category_of_law_id: z.number().int().positive('Select a category of law'),
+  country_id: z.number().int().positive('Select a country'),
+  state_id: z.number().int().positive().nullable(),
   legislation_number: z.string().max(100),
   effective_date: z.date().nullable(),
   is_active: z.boolean(),
@@ -49,8 +49,8 @@ const EMPTY: FormData = {
   code: '',
   name: '',
   description: '',
-  category_of_law_id: '',
-  country_id: '',
+  category_of_law_id: 0,
+  country_id: 0,
   state_id: CENTRAL,
   legislation_number: '',
   effective_date: null,
@@ -87,7 +87,10 @@ export const LegislationForm = ({
   const countryId = useWatch({ control, name: 'country_id' });
   const states = useStateLookup(countryId || undefined);
 
-  const stateOptions = [{ label: 'Central (no state)', value: CENTRAL }, ...states.options];
+  const stateOptions = [
+    { label: 'Central (no state)', value: CENTRAL as number | null },
+    ...states.options,
+  ];
 
   useEffect(() => {
     if (!visible) return;
@@ -120,7 +123,7 @@ export const LegislationForm = ({
       description: data.description.trim(),
       category_of_law_id: data.category_of_law_id,
       country_id: data.country_id,
-      state_id: data.state_id === CENTRAL ? null : data.state_id,
+      state_id: data.state_id,
       legislation_number: data.legislation_number.trim() || null,
       effective_date: toIsoDate(data.effective_date),
       is_active: data.is_active,
@@ -188,6 +191,7 @@ export const LegislationForm = ({
                   options={stateOptions}
                   onChange={(e) => field.onChange(e.value ?? CENTRAL)}
                   filter
+                  showClear
                   className="w-full"
                   aria-label="Owning state"
                 />

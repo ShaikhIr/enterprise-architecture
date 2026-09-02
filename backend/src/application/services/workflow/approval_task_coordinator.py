@@ -29,7 +29,6 @@ choice:
 
 import logging
 from typing import Any
-from uuid import UUID
 
 from src.application.services.workflow.approval_matrix_resolver import (
     ApprovalMatrixResolver,
@@ -87,7 +86,7 @@ class ApprovalTaskCoordinator:
         *,
         instance: WorkflowInstance,
         action_type: WorkflowActionType,
-        actor_id: UUID,
+        actor_id: int,
         actor_username: str,
         comments: str,
         reached_terminal_state: bool,
@@ -241,8 +240,8 @@ class ApprovalTaskCoordinator:
     async def _settle_level(
         self,
         *,
-        instance_id: UUID,
-        actor_id: UUID,
+        instance_id: int,
+        actor_id: int,
         actor_username: str,
         action_type: WorkflowActionType,
         comments: str,
@@ -305,7 +304,7 @@ class ApprovalTaskCoordinator:
 
     async def _eligible_assignees(
         self, assignments: list[ApprovalAssignment]
-    ) -> list[UUID]:
+    ) -> list[int]:
         """
         Expand a level's assignments into distinct user ids.
 
@@ -313,11 +312,11 @@ class ApprovalTaskCoordinator:
         assigned roles, or being named directly as well as via a role — and
         `uq_approval_tasks_instance_assignee_level` would reject the second task.
         """
-        assignee_ids: list[UUID] = []
-        seen: set[UUID] = set()
+        assignee_ids: list[int] = []
+        seen: set[int] = set()
 
         for assignment in assignments:
-            candidates: list[UUID] = []
+            candidates: list[int] = []
             if assignment.assignment_type == AssignmentType.USER:
                 if assignment.user_id is not None:
                     candidates = [assignment.user_id]

@@ -5,7 +5,7 @@
  */
 
 export interface WorkflowDefinition {
-  id: string;
+  id: number;
   code: string;
   name: string;
   description: string;
@@ -26,8 +26,8 @@ export interface WorkflowDefinitionListResponse {
 }
 
 export interface WorkflowStatus {
-  id: string;
-  workflow_definition_id: string;
+  id: number;
+  workflow_definition_id: number;
   code: string;
   name: string;
   is_initial: boolean;
@@ -68,10 +68,10 @@ export const WORKFLOW_ACTION_TYPE_EFFECTS: Record<WorkflowActionType, string> = 
 };
 
 export interface WorkflowTransition {
-  id: string;
-  workflow_definition_id: string;
-  from_status_id: string;
-  to_status_id: string;
+  id: number;
+  workflow_definition_id: number;
+  from_status_id: number;
+  to_status_id: number;
   action_code: string;
   action_type: WorkflowActionType;
   guard_expression: string | null;
@@ -108,8 +108,8 @@ export interface CreateWorkflowStatusRequest {
 export type UpdateWorkflowStatusRequest = Partial<CreateWorkflowStatusRequest>;
 
 export interface CreateWorkflowTransitionRequest {
-  from_status_id: string;
-  to_status_id: string;
+  from_status_id: number;
+  to_status_id: number;
   action_code: string;
   action_type: WorkflowActionType;
   guard_expression?: string | null;
@@ -121,17 +121,17 @@ export interface CreateWorkflowTransitionRequest {
 // ─── Runtime ───
 
 export interface WorkflowInstance {
-  id: string;
-  workflow_definition_id: string;
+  id: number;
+  workflow_definition_id: number;
   definition_code: string;
   definition_name: string;
   entity_type: string;
-  entity_id: string;
-  current_status_id: string;
+  entity_id: number;
+  current_status_id: number;
   current_status_code: string;
   current_status_name: string;
   is_terminal: boolean;
-  initiated_by: string;
+  initiated_by: number;
   priority: number;
   due_date: string | null;
   started_at: string;
@@ -153,7 +153,7 @@ export interface WorkflowInstanceListResponse {
 export interface WorkflowAvailableAction {
   action_code: string;
   action_type: WorkflowActionType;
-  to_status_id: string;
+  to_status_id: number;
   to_status_code: string;
   to_status_name: string;
   requires_comment: boolean;
@@ -161,14 +161,14 @@ export interface WorkflowAvailableAction {
 }
 
 export interface WorkflowHistoryEntry {
-  id: string;
-  instance_id: string;
-  from_status_id: string | null;
+  id: number;
+  instance_id: number;
+  from_status_id: number | null;
   from_status_code: string | null;
-  to_status_id: string;
+  to_status_id: number;
   to_status_code: string | null;
   action_code: string;
-  actor_id: string | null;
+  actor_id: number | null;
   actor_username: string;
   comments: string;
   ip_address: string;
@@ -178,7 +178,7 @@ export interface WorkflowHistoryEntry {
 export interface StartWorkflowRequest {
   definition_code: string;
   entity_type: string;
-  entity_id: string;
+  entity_id: number;
   priority?: number;
   metadata?: Record<string, unknown>;
 }

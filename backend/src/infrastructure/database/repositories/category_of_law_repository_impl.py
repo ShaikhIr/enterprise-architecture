@@ -7,7 +7,6 @@ SqlAlchemyRepository; everything below is CategoryOfLaw-specific.
 """
 
 from typing import Any
-from uuid import UUID
 
 from sqlalchemy import ColumnElement, Select, func, or_, select
 
@@ -35,7 +34,6 @@ class CategoryOfLawRepositoryImpl(
 
     async def create(self, category: CategoryOfLaw) -> CategoryOfLaw:
         model = CategoryOfLawModel(
-            id=category.id,
             code=category.code,
             name=category.name,
             description=category.description,
@@ -70,7 +68,7 @@ class CategoryOfLawRepositoryImpl(
         limit: int = 100,
         search: str | None = None,
         is_active: bool | None = None,
-        state_id: UUID | None = None,
+        state_id: int | None = None,
     ) -> list[CategoryOfLaw]:
         stmt = self._apply_filters(
             select(CategoryOfLawModel), search, is_active, state_id
@@ -83,7 +81,7 @@ class CategoryOfLawRepositoryImpl(
         self,
         search: str | None = None,
         is_active: bool | None = None,
-        state_id: UUID | None = None,
+        state_id: int | None = None,
     ) -> int:
         stmt = self._apply_filters(
             select(func.count()).select_from(CategoryOfLawModel),
@@ -95,7 +93,7 @@ class CategoryOfLawRepositoryImpl(
         return int(result.scalar_one())
 
     async def exists_by_name(
-        self, name: str, state_id: UUID | None, exclude_id: UUID | None = None
+        self, name: str, state_id: int | None, exclude_id: int | None = None
     ) -> bool:
         stmt = select(CategoryOfLawModel.id).where(
             func.lower(CategoryOfLawModel.name) == name.lower()
@@ -109,7 +107,7 @@ class CategoryOfLawRepositoryImpl(
         result = await self._session.execute(stmt)
         return result.scalar_one_or_none() is not None
 
-    async def has_dependents(self, category_of_law_id: UUID) -> bool:
+    async def has_dependents(self, category_of_law_id: int) -> bool:
         """True if any legislation still references this category."""
         stmt = (
             select(LegislationModel.id)
@@ -126,7 +124,7 @@ class CategoryOfLawRepositoryImpl(
         stmt: Select[Any],
         search: str | None,
         is_active: bool | None,
-        state_id: UUID | None,
+        state_id: int | None,
     ) -> Select[Any]:
         if search:
             pattern = f"%{search.strip()}%"

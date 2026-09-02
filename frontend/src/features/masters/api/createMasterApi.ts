@@ -14,10 +14,10 @@ import type { MasterListParams, MasterPage } from '../models/common';
 /** CRUD surface shared by every master, typed per entity. */
 export interface MasterApi<TEntity, TCreate, TUpdate, TParams> {
   list: (params?: TParams) => Promise<MasterPage<TEntity>>;
-  getById: (id: string) => Promise<TEntity>;
+  getById: (id: number) => Promise<TEntity>;
   create: (request: TCreate) => Promise<TEntity>;
-  update: (id: string, request: TUpdate) => Promise<TEntity>;
-  remove: (id: string) => Promise<void>;
+  update: (id: number, request: TUpdate) => Promise<TEntity>;
+  remove: (id: number) => Promise<void>;
 }
 
 /**
@@ -46,7 +46,7 @@ export const createMasterApi = <TEntity, TCreate, TUpdate, TParams extends Maste
     };
   },
 
-  getById: async (id: string): Promise<TEntity> => {
+  getById: async (id: number): Promise<TEntity> => {
     const { data } = await apiClient.get<TEntity>(`${basePath}/${id}`);
     return data;
   },
@@ -56,12 +56,12 @@ export const createMasterApi = <TEntity, TCreate, TUpdate, TParams extends Maste
     return data;
   },
 
-  update: async (id: string, request: TUpdate): Promise<TEntity> => {
+  update: async (id: number, request: TUpdate): Promise<TEntity> => {
     const { data } = await apiClient.patch<TEntity>(`${basePath}/${id}`, request);
     return data;
   },
 
-  remove: async (id: string): Promise<void> => {
+  remove: async (id: number): Promise<void> => {
     await apiClient.delete(`${basePath}/${id}`);
   },
 });

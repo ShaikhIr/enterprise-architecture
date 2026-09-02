@@ -3,7 +3,6 @@ Task Type Application Service.
 Orchestrates task type master CRUD.
 """
 
-from uuid import UUID, uuid4
 
 from src.api.v1.schemas.task_type_schema import (
     TaskTypeCreate,
@@ -57,7 +56,7 @@ class TaskTypeService:
 
     # ─── Get ───
 
-    async def get_task_type(self, task_type_id: UUID) -> TaskTypeResponse:
+    async def get_task_type(self, task_type_id: int) -> TaskTypeResponse:
         """Get a single task type. Raises EntityNotFoundError if missing."""
         return self._to_response(await self._require(task_type_id))
 
@@ -73,7 +72,6 @@ class TaskTypeService:
             raise DuplicateEntityError(ENTITY, "name", request.name)
 
         task_type = TaskType(
-            id=uuid4(),
             code=request.code,
             name=request.name,
             description=request.description,
@@ -87,7 +85,7 @@ class TaskTypeService:
     # ─── Update ───
 
     async def update_task_type(
-        self, task_type_id: UUID, request: TaskTypeUpdate, actor: User
+        self, task_type_id: int, request: TaskTypeUpdate, actor: User
     ) -> TaskTypeResponse:
         """Apply a partial update to a task type."""
         task_type = await self._require(task_type_id)
@@ -112,14 +110,14 @@ class TaskTypeService:
 
     # ─── Delete ───
 
-    async def delete_task_type(self, task_type_id: UUID) -> None:
+    async def delete_task_type(self, task_type_id: int) -> None:
         """Delete a task type."""
         await self._require(task_type_id)
         await self._repo.delete(task_type_id)
 
     # ─── Internals ───
 
-    async def _require(self, task_type_id: UUID) -> TaskType:
+    async def _require(self, task_type_id: int) -> TaskType:
         task_type = await self._repo.get_by_id(task_type_id)
         if task_type is None:
             raise EntityNotFoundError(ENTITY, task_type_id)

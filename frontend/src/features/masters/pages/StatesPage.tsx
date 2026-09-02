@@ -32,7 +32,7 @@ const defaultFilters: DataTableFilterMeta = {
 
 export const StatesPage = () => {
   const [filters, setFilters] = useState<DataTableFilterMeta>(defaultFilters);
-  const [countryId, setCountryId] = useState<string | null>(null);
+  const [countryId, setCountryId] = useState<number | null>(null);
 
   const countries = useCountryLookup();
   const { data, isLoading, refetch, isRefetching } = useStates({

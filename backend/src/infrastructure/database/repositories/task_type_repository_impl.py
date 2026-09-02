@@ -7,7 +7,6 @@ SqlAlchemyRepository; everything below is TaskType-specific.
 """
 
 from typing import Any
-from uuid import UUID
 
 from sqlalchemy import ColumnElement, Select, func, or_, select
 
@@ -34,7 +33,6 @@ class TaskTypeRepositoryImpl(
 
     async def create(self, task_type: TaskType) -> TaskType:
         model = TaskTypeModel(
-            id=task_type.id,
             code=task_type.code,
             name=task_type.name,
             description=task_type.description,
@@ -84,7 +82,7 @@ class TaskTypeRepositoryImpl(
         result = await self._session.execute(stmt)
         return int(result.scalar_one())
 
-    async def exists_by_name(self, name: str, exclude_id: UUID | None = None) -> bool:
+    async def exists_by_name(self, name: str, exclude_id: int | None = None) -> bool:
         stmt = select(TaskTypeModel.id).where(
             func.lower(TaskTypeModel.name) == name.lower()
         )

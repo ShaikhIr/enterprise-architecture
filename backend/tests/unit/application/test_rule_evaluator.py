@@ -8,7 +8,6 @@ it the cheapest place in the engine to pin behaviour down precisely.
 
 from decimal import Decimal
 from typing import Any
-from uuid import uuid4
 
 import pytest
 
@@ -25,8 +24,7 @@ def rule(
     logical_group: str = "default",
 ) -> ApprovalRule:
     return ApprovalRule(
-        id=uuid4(),
-        matrix_id=uuid4(),
+        matrix_id=1,
         field=field,
         operator=operator,
         value=value,

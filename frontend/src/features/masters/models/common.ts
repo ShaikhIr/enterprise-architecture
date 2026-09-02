@@ -13,7 +13,7 @@
 
 /** Identity and audit columns every master carries, via the backend AuditMixin. */
 export interface AuditedRecord {
-  id: string;
+  id: number;
   created_by: string;
   created_date: string;
   modified_by: string;

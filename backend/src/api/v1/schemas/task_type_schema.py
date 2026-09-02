@@ -3,7 +3,6 @@ Pydantic schemas for the Task Type master API.
 """
 
 from datetime import datetime
-from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -51,7 +50,7 @@ class TaskTypeUpdate(BaseModel):
 class TaskTypeResponse(BaseModel):
     """Task type read response."""
 
-    id: UUID
+    id: int
     code: str
     name: str
     description: str

@@ -10,7 +10,6 @@ transaction boundary.
 """
 
 from typing import Any
-from uuid import UUID
 
 from sqlalchemy import ColumnElement, Select, func, or_, select
 
@@ -50,7 +49,6 @@ class WorkflowDefinitionRepositoryImpl(
 
     async def create(self, entity: WorkflowDefinition) -> WorkflowDefinition:
         model = WorkflowDefinitionModel(
-            id=entity.id,
             code=entity.code,
             name=entity.name,
             description=entity.description,
@@ -111,7 +109,7 @@ class WorkflowDefinitionRepositoryImpl(
         result = await self._session.execute(stmt)
         return int(result.scalar_one())
 
-    async def exists_by_name(self, name: str, exclude_id: UUID | None = None) -> bool:
+    async def exists_by_name(self, name: str, exclude_id: int | None = None) -> bool:
         stmt = select(WorkflowDefinitionModel.id).where(
             func.lower(WorkflowDefinitionModel.name) == name.lower()
         )
@@ -121,7 +119,7 @@ class WorkflowDefinitionRepositoryImpl(
         return result.scalar_one_or_none() is not None
 
     async def get_definitions_by_ids(
-        self, definition_ids: list[UUID]
+        self, definition_ids: list[int]
     ) -> list[WorkflowDefinition]:
         if not definition_ids:
             return []
@@ -133,7 +131,7 @@ class WorkflowDefinitionRepositoryImpl(
 
     # ─── Statuses ───
 
-    async def list_statuses(self, definition_id: UUID) -> list[WorkflowStatus]:
+    async def list_statuses(self, definition_id: int) -> list[WorkflowStatus]:
         stmt = (
             select(WorkflowStatusModel)
             .where(WorkflowStatusModel.workflow_definition_id == definition_id)
@@ -142,11 +140,11 @@ class WorkflowDefinitionRepositoryImpl(
         result = await self._session.execute(stmt)
         return [self._status_to_entity(m) for m in result.scalars().all()]
 
-    async def get_status(self, status_id: UUID) -> WorkflowStatus | None:
+    async def get_status(self, status_id: int) -> WorkflowStatus | None:
         model = await self._get_status_model(status_id)
         return self._status_to_entity(model) if model else None
 
-    async def get_statuses_by_ids(self, status_ids: list[UUID]) -> list[WorkflowStatus]:
+    async def get_statuses_by_ids(self, status_ids: list[int]) -> list[WorkflowStatus]:
         if not status_ids:
             return []
         stmt = select(WorkflowStatusModel).where(
@@ -155,7 +153,7 @@ class WorkflowDefinitionRepositoryImpl(
         result = await self._session.execute(stmt)
         return [self._status_to_entity(m) for m in result.scalars().all()]
 
-    async def get_initial_status(self, definition_id: UUID) -> WorkflowStatus | None:
+    async def get_initial_status(self, definition_id: int) -> WorkflowStatus | None:
         stmt = (
             select(WorkflowStatusModel)
             .where(
@@ -170,7 +168,7 @@ class WorkflowDefinitionRepositoryImpl(
         return self._status_to_entity(model) if model else None
 
     async def exists_status_code(
-        self, definition_id: UUID, code: str, exclude_id: UUID | None = None
+        self, definition_id: int, code: str, exclude_id: int | None = None
     ) -> bool:
         stmt = select(WorkflowStatusModel.id).where(
             WorkflowStatusModel.workflow_definition_id == definition_id,
@@ -183,7 +181,6 @@ class WorkflowDefinitionRepositoryImpl(
 
     async def create_status(self, status: WorkflowStatus) -> WorkflowStatus:
         model = WorkflowStatusModel(
-            id=status.id,
             workflow_definition_id=status.workflow_definition_id,
             code=status.code,
             name=status.name,
@@ -213,13 +210,13 @@ class WorkflowDefinitionRepositoryImpl(
         await self._session.flush()
         return self._status_to_entity(model)
 
-    async def delete_status(self, status_id: UUID) -> None:
+    async def delete_status(self, status_id: int) -> None:
         model = await self._get_status_model(status_id)
         if model:
             await self._session.delete(model)
             await self._session.flush()
 
-    async def count_transitions_touching_status(self, status_id: UUID) -> int:
+    async def count_transitions_touching_status(self, status_id: int) -> int:
         stmt = (
             select(func.count())
             .select_from(WorkflowTransitionModel)
@@ -233,7 +230,7 @@ class WorkflowDefinitionRepositoryImpl(
         result = await self._session.execute(stmt)
         return int(result.scalar_one())
 
-    async def count_instances_in_status(self, status_id: UUID) -> int:
+    async def count_instances_in_status(self, status_id: int) -> int:
         stmt = (
             select(func.count())
             .select_from(WorkflowInstanceModel)
@@ -244,7 +241,7 @@ class WorkflowDefinitionRepositoryImpl(
 
     # ─── Transitions ───
 
-    async def list_transitions(self, definition_id: UUID) -> list[WorkflowTransition]:
+    async def list_transitions(self, definition_id: int) -> list[WorkflowTransition]:
         stmt = (
             select(WorkflowTransitionModel)
             .where(WorkflowTransitionModel.workflow_definition_id == definition_id)
@@ -256,7 +253,7 @@ class WorkflowDefinitionRepositoryImpl(
         return [self._transition_to_entity(m) for m in result.scalars().all()]
 
     async def list_transitions_from(
-        self, definition_id: UUID, from_status_id: UUID
+        self, definition_id: int, from_status_id: int
     ) -> list[WorkflowTransition]:
         stmt = (
             select(WorkflowTransitionModel)
@@ -271,12 +268,12 @@ class WorkflowDefinitionRepositoryImpl(
         result = await self._session.execute(stmt)
         return [self._transition_to_entity(m) for m in result.scalars().all()]
 
-    async def get_transition(self, transition_id: UUID) -> WorkflowTransition | None:
+    async def get_transition(self, transition_id: int) -> WorkflowTransition | None:
         model = await self._get_transition_model(transition_id)
         return self._transition_to_entity(model) if model else None
 
     async def find_transition(
-        self, definition_id: UUID, from_status_id: UUID, action_code: str
+        self, definition_id: int, from_status_id: int, action_code: str
     ) -> WorkflowTransition | None:
         stmt = (
             select(WorkflowTransitionModel)
@@ -293,7 +290,7 @@ class WorkflowDefinitionRepositoryImpl(
         return self._transition_to_entity(model) if model else None
 
     async def exists_transition(
-        self, definition_id: UUID, from_status_id: UUID, action_code: str
+        self, definition_id: int, from_status_id: int, action_code: str
     ) -> bool:
         stmt = select(WorkflowTransitionModel.id).where(
             WorkflowTransitionModel.workflow_definition_id == definition_id,
@@ -307,7 +304,6 @@ class WorkflowDefinitionRepositoryImpl(
         self, transition: WorkflowTransition
     ) -> WorkflowTransition:
         model = WorkflowTransitionModel(
-            id=transition.id,
             workflow_definition_id=transition.workflow_definition_id,
             from_status_id=transition.from_status_id,
             to_status_id=transition.to_status_id,
@@ -324,7 +320,7 @@ class WorkflowDefinitionRepositoryImpl(
         await self._session.flush()
         return self._transition_to_entity(model)
 
-    async def delete_transition(self, transition_id: UUID) -> None:
+    async def delete_transition(self, transition_id: int) -> None:
         model = await self._get_transition_model(transition_id)
         if model:
             await self._session.delete(model)
@@ -332,13 +328,13 @@ class WorkflowDefinitionRepositoryImpl(
 
     # ─── Internals ───
 
-    async def _get_status_model(self, status_id: UUID) -> WorkflowStatusModel | None:
+    async def _get_status_model(self, status_id: int) -> WorkflowStatusModel | None:
         stmt = select(WorkflowStatusModel).where(WorkflowStatusModel.id == status_id)
         result = await self._session.execute(stmt)
         return result.scalar_one_or_none()
 
     async def _get_transition_model(
-        self, transition_id: UUID
+        self, transition_id: int
     ) -> WorkflowTransitionModel | None:
         stmt = select(WorkflowTransitionModel).where(
             WorkflowTransitionModel.id == transition_id

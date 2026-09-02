@@ -3,7 +3,6 @@ User details repository implementation (Adapter).
 Implements IUserDetailsRepository using SQLAlchemy async.
 """
 
-from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,15 +18,15 @@ class UserDetailsRepositoryImpl(IUserDetailsRepository):
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    async def get_by_user_id(self, user_id: UUID) -> UserDetails | None:
+    async def get_by_user_id(self, user_id: int) -> UserDetails | None:
         stmt = select(UserDetailsModel).where(UserDetailsModel.user_id == user_id)
         result = await self._session.execute(stmt)
         model = result.scalar_one_or_none()
         return self._to_entity(model) if model else None
 
     async def get_many_by_user_ids(
-        self, user_ids: list[UUID]
-    ) -> dict[UUID, UserDetails]:
+        self, user_ids: list[int]
+    ) -> dict[int, UserDetails]:
         if not user_ids:
             return {}
         stmt = select(UserDetailsModel).where(UserDetailsModel.user_id.in_(user_ids))
@@ -36,7 +35,6 @@ class UserDetailsRepositoryImpl(IUserDetailsRepository):
 
     async def create(self, details: UserDetails) -> UserDetails:
         model = UserDetailsModel(
-            id=details.id,
             user_id=details.user_id,
             employee_id=details.employee_id,
             employee_name=details.employee_name,

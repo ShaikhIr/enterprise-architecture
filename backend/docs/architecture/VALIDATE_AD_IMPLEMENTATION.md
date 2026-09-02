@@ -277,7 +277,7 @@ Returns organizational hierarchy data. No request body required.
 
 | Column | Type | Default | Description |
 |--------|------|---------|-------------|
-| id | UUID | auto | Primary key |
+| id | BigInteger | auto (DB autoincrement) | Primary key |
 | username | VARCHAR(255) | - | Unique, maps to employee_id for AD users |
 | password_hash | VARCHAR(512) | - | BCrypt hash (unused for AD users after import) |
 | is_active | BOOLEAN | true | Account active flag |
@@ -292,8 +292,8 @@ Returns organizational hierarchy data. No request body required.
 
 | Column | Type | Description |
 |--------|------|-------------|
-| id | UUID | Primary key |
-| user_id | UUID (FK → users.id) | Unique, cascade delete |
+| id | BigInteger | Primary key (DB autoincrement) |
+| user_id | BigInteger (FK → users.id) | Unique, cascade delete |
 | employee_id | VARCHAR(50) | Darwin employee ID |
 | employee_name | VARCHAR(255) | Full name |
 | first_name | VARCHAR(255) | |

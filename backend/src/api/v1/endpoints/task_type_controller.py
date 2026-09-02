@@ -3,7 +3,6 @@ Task Type master API endpoints.
 Thin controller — delegates all business logic to TaskTypeService.
 """
 
-from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
 
@@ -73,7 +72,7 @@ async def create_task_type(
     dependencies=[Depends(require_api_permission(RESOURCE, "READ"))],
 )
 async def get_task_type(
-    task_type_id: UUID,
+    task_type_id: int,
     service: TaskTypeService = Depends(_get_task_type_service),
 ) -> TaskTypeResponse:
     """GET /api/v1/masters/task-types/{task_type_id}"""
@@ -87,7 +86,7 @@ async def get_task_type(
     dependencies=[Depends(require_api_permission(RESOURCE, "UPDATE"))],
 )
 async def update_task_type(
-    task_type_id: UUID,
+    task_type_id: int,
     request: TaskTypeUpdate,
     current_user: User = Depends(get_current_active_user),
     service: TaskTypeService = Depends(_get_task_type_service),
@@ -105,7 +104,7 @@ async def update_task_type(
     dependencies=[Depends(require_api_permission(RESOURCE, "DELETE"))],
 )
 async def delete_task_type(
-    task_type_id: UUID,
+    task_type_id: int,
     service: TaskTypeService = Depends(_get_task_type_service),
 ) -> None:
     """DELETE /api/v1/masters/task-types/{task_type_id}"""

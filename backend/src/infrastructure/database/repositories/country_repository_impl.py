@@ -7,7 +7,6 @@ SqlAlchemyRepository; everything below is Country-specific.
 """
 
 from typing import Any
-from uuid import UUID
 
 from sqlalchemy import ColumnElement, Select, func, or_, select
 
@@ -37,7 +36,6 @@ class CountryRepositoryImpl(
 
     async def create(self, country: Country) -> Country:
         model = CountryModel(
-            id=country.id,
             code=country.code,
             name=country.name,
             iso3_code=country.iso3_code,
@@ -91,7 +89,7 @@ class CountryRepositoryImpl(
         result = await self._session.execute(stmt)
         return int(result.scalar_one())
 
-    async def exists_by_name(self, name: str, exclude_id: UUID | None = None) -> bool:
+    async def exists_by_name(self, name: str, exclude_id: int | None = None) -> bool:
         stmt = select(CountryModel.id).where(
             func.lower(CountryModel.name) == name.lower()
         )
@@ -100,7 +98,7 @@ class CountryRepositoryImpl(
         result = await self._session.execute(stmt)
         return result.scalar_one_or_none() is not None
 
-    async def has_dependents(self, country_id: UUID) -> bool:
+    async def has_dependents(self, country_id: int) -> bool:
         """True if any state, legislation or rule still references this country."""
         for model in (StateModel, LegislationModel, RuleModel):
             stmt = select(model.id).where(model.country_id == country_id).limit(1)

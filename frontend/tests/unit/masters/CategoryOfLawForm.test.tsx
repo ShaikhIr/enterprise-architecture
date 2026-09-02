@@ -14,17 +14,16 @@ import {
   within,
 } from '../../test-utils';
 
-// CategoryOfLawForm's zod schema declares `state_id: z.string()` (not
-// `.uuid()`, since the empty-string sentinel must also pass validation), so
-// this id does not need to be UUID-shaped the way State/Legislation/Rule's
-// parent ids do.
-const STATE_ID = 'state-1';
+// CategoryOfLawForm's zod schema declares `state_id: z.number().int().positive().nullable()`
+// (the null sentinel is the "country-wide" choice), so this id is a positive
+// number like every other bigint FK.
+const STATE_ID = 501;
 
 const stateRecord = {
   id: STATE_ID,
   code: 'IN-MH',
   name: 'Maharashtra',
-  country_id: '11111111-1111-1111-1111-111111111111',
+  country_id: 11111111,
   is_union_territory: false,
   is_active: true,
   created_by: 'system',
@@ -115,7 +114,7 @@ describe('CategoryOfLawForm', () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn();
     const category: CategoryOfLaw = {
-      id: '1',
+      id: 1,
       code: 'TAX',
       name: 'Taxation',
       description: 'Central taxation matters',

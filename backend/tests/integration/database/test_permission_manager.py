@@ -14,7 +14,7 @@ integration tests asserting 200/403, which cannot distinguish "resolved the
 right permissions" from "resolved a merely-sufficient set".
 """
 
-from uuid import uuid4
+import secrets
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -32,8 +32,7 @@ from src.infrastructure.security.permission_manager import PermissionManager
 
 async def _make_user(session: AsyncSession) -> UserModel:
     user = UserModel(
-        id=uuid4(),
-        username=f"user-{uuid4().hex[:8]}",
+        username=f"user-{secrets.token_hex(4)}",
         password_hash="hash",
         is_active=True,
         is_blocked=False,
@@ -55,7 +54,6 @@ async def _make_role(
     is_active: bool = True,
 ) -> RoleModel:
     role = RoleModel(
-        id=uuid4(),
         code=code,
         name=code,
         is_system=False,
@@ -80,7 +78,6 @@ async def _make_permission(
     is_active: bool = True,
 ) -> PermissionModel:
     permission = PermissionModel(
-        id=uuid4(),
         code=code,
         name=code,
         scope=scope,
@@ -98,7 +95,6 @@ async def _make_permission(
 async def _grant(session: AsyncSession, role: RoleModel, permission: PermissionModel) -> None:
     session.add(
         RolePermissionModel(
-            id=uuid4(),
             role_id=role.id,
             permission_id=permission.id,
             created_by="test",
@@ -118,7 +114,6 @@ async def _assign(
 ) -> None:
     session.add(
         RoleAssignmentModel(
-            id=uuid4(),
             user_id=user.id,
             role_id=role.id,
             tenant_id=tenant_id,
@@ -311,7 +306,7 @@ class TestGetUserPermissions:
         manager = PermissionManager(db_session)
         user = await _make_user(db_session)
         tenant = TenantModel(
-            id=uuid4(), code="acme", name="Acme", is_active=True,
+            code="acme", name="Acme", is_active=True,
             created_by="test", modified_by="test",
         )
         db_session.add(tenant)
@@ -334,7 +329,7 @@ class TestGetUserPermissions:
         manager = PermissionManager(db_session)
         user = await _make_user(db_session)
         tenant = TenantModel(
-            id=uuid4(), code="acme", name="Acme", is_active=True,
+            code="acme", name="Acme", is_active=True,
             created_by="test", modified_by="test",
         )
         db_session.add(tenant)
@@ -356,11 +351,11 @@ class TestGetUserPermissions:
         manager = PermissionManager(db_session)
         user = await _make_user(db_session)
         tenant_a = TenantModel(
-            id=uuid4(), code="a", name="A", is_active=True,
+            code="a", name="A", is_active=True,
             created_by="test", modified_by="test",
         )
         tenant_b = TenantModel(
-            id=uuid4(), code="b", name="B", is_active=True,
+            code="b", name="B", is_active=True,
             created_by="test", modified_by="test",
         )
         db_session.add_all([tenant_a, tenant_b])

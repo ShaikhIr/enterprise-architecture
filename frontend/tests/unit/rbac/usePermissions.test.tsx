@@ -151,7 +151,7 @@ describe('useHasPermission', () => {
         menuKeys: [],
         menuPermissions: [
           {
-            id: 'p1',
+            id: 1,
             code: 'reports.export',
             name: '',
             description: '',

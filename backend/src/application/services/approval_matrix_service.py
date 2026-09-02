@@ -11,7 +11,6 @@ would win and who would be asked to approve, without writing anything.
 """
 
 from typing import Any
-from uuid import UUID, uuid4
 
 from src.api.v1.schemas.approval_matrix_schema import (
     ApprovalAssignmentInput,
@@ -78,7 +77,7 @@ class ApprovalMatrixService:
 
     # ─── Get ───
 
-    async def get_matrix(self, matrix_id: UUID) -> ApprovalMatrixResponse:
+    async def get_matrix(self, matrix_id: int) -> ApprovalMatrixResponse:
         """Get one matrix with its rules and levels."""
         return ApprovalMatrixResponse.model_validate(await self._require(matrix_id))
 
@@ -93,17 +92,18 @@ class ApprovalMatrixService:
         if await self._repo.exists_by_name(request.name):
             raise DuplicateEntityError(ENTITY, "name", request.name)
 
-        matrix_id = uuid4()
+        # The matrix id is DB-assigned on insert. Children are built with a 0
+        # matrix_id placeholder; the repository stamps the real parent id onto
+        # them after the parent flush (see ApprovalMatrixRepositoryImpl.create).
         matrix = ApprovalMatrix(
-            id=matrix_id,
             code=request.code,
             name=request.name,
             entity_type=request.entity_type,
             priority=request.priority,
             is_active=request.is_active,
-            rules=self._to_rules(request.rules, matrix_id, actor.username),
+            rules=self._to_rules(request.rules, 0, actor.username),
             assignments=self._to_assignments(
-                request.assignments, matrix_id, actor.username
+                request.assignments, 0, actor.username
             ),
             created_by=actor.username,
             modified_by=actor.username,
@@ -113,7 +113,7 @@ class ApprovalMatrixService:
     # ─── Update ───
 
     async def update_matrix(
-        self, matrix_id: UUID, request: ApprovalMatrixUpdate, actor: User
+        self, matrix_id: int, request: ApprovalMatrixUpdate, actor: User
     ) -> ApprovalMatrixResponse:
         """
         Apply a partial update to a matrix.
@@ -148,7 +148,7 @@ class ApprovalMatrixService:
 
     # ─── Delete ───
 
-    async def delete_matrix(self, matrix_id: UUID) -> None:
+    async def delete_matrix(self, matrix_id: int) -> None:
         """Delete a matrix; its rules and levels go with it."""
         await self._require(matrix_id)
         await self._repo.delete(matrix_id)
@@ -180,7 +180,7 @@ class ApprovalMatrixService:
 
     # ─── Internals ───
 
-    async def _require(self, matrix_id: UUID) -> ApprovalMatrix:
+    async def _require(self, matrix_id: int) -> ApprovalMatrix:
         matrix = await self._repo.get_by_id(matrix_id)
         if matrix is None:
             raise EntityNotFoundError(ENTITY, matrix_id)
@@ -188,11 +188,10 @@ class ApprovalMatrixService:
 
     @staticmethod
     def _to_rules(
-        inputs: list[ApprovalRuleInput], matrix_id: UUID, actor_username: str
+        inputs: list[ApprovalRuleInput], matrix_id: int, actor_username: str
     ) -> list[ApprovalRule]:
         return [
             ApprovalRule(
-                id=uuid4(),
                 matrix_id=matrix_id,
                 field=item.field,
                 operator=item.operator,
@@ -207,11 +206,10 @@ class ApprovalMatrixService:
 
     @staticmethod
     def _to_assignments(
-        inputs: list[ApprovalAssignmentInput], matrix_id: UUID, actor_username: str
+        inputs: list[ApprovalAssignmentInput], matrix_id: int, actor_username: str
     ) -> list[ApprovalAssignment]:
         return [
             ApprovalAssignment(
-                id=uuid4(),
                 matrix_id=matrix_id,
                 assignment_type=item.assignment_type,
                 user_id=item.user_id,

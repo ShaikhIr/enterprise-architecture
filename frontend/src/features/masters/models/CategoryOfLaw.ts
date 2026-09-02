@@ -10,19 +10,19 @@ export interface CategoryOfLaw extends MasterRecord {
   name: string;
   description: string;
   /** null means the category applies country-wide rather than to one state. */
-  state_id: string | null;
+  state_id: number | null;
 }
 
 export interface CreateCategoryOfLawRequest {
   code: string;
   name: string;
   description: string;
-  state_id: string | null;
+  state_id: number | null;
   is_active: boolean;
 }
 
 export type UpdateCategoryOfLawRequest = Partial<CreateCategoryOfLawRequest>;
 
 export interface CategoryOfLawListParams extends MasterListParams {
-  state_id?: string;
+  state_id?: number;
 }

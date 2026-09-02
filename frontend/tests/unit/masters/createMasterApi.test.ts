@@ -7,7 +7,7 @@ import type { MasterListParams } from '@features/masters/models/common';
 import { server } from '../../mocks/server';
 
 interface Widget {
-  id: string;
+  id: number;
   code: string;
   name: string;
 }
@@ -31,7 +31,7 @@ describe('createMasterApi', () => {
     server.use(
       http.get('/api/v1/masters/widgets', () =>
         HttpResponse.json({
-          widgets: [{ id: '1', code: 'W1', name: 'Widget One' }],
+          widgets: [{ id: 1, code: 'W1', name: 'Widget One' }],
           total: 1,
           skip: 0,
           limit: 100,
@@ -42,7 +42,7 @@ describe('createMasterApi', () => {
     const page = await widgetApi.list();
 
     expect(page).toEqual({
-      items: [{ id: '1', code: 'W1', name: 'Widget One' }],
+      items: [{ id: 1, code: 'W1', name: 'Widget One' }],
       total: 1,
       skip: 0,
       limit: 100,
@@ -80,37 +80,37 @@ describe('createMasterApi', () => {
   it('fetches a single record by id', async () => {
     server.use(
       http.get('/api/v1/masters/widgets/1', () =>
-        HttpResponse.json({ id: '1', code: 'W1', name: 'Widget One' }),
+        HttpResponse.json({ id: 1, code: 'W1', name: 'Widget One' }),
       ),
     );
 
-    const widget = await widgetApi.getById('1');
+    const widget = await widgetApi.getById(1);
 
-    expect(widget).toEqual({ id: '1', code: 'W1', name: 'Widget One' });
+    expect(widget).toEqual({ id: 1, code: 'W1', name: 'Widget One' });
   });
 
   it('posts a create request and returns the created record', async () => {
     server.use(
       http.post('/api/v1/masters/widgets', async ({ request }) => {
         const body = await request.json();
-        return HttpResponse.json({ id: '2', ...(body as object) }, { status: 201 });
+        return HttpResponse.json({ id: 2, ...(body as object) }, { status: 201 });
       }),
     );
 
     const created = await widgetApi.create({ code: 'W2', name: 'Widget Two' });
 
-    expect(created).toEqual({ id: '2', code: 'W2', name: 'Widget Two' });
+    expect(created).toEqual({ id: 2, code: 'W2', name: 'Widget Two' });
   });
 
   it('patches an update request to the record path and returns the updated record', async () => {
     server.use(
       http.patch('/api/v1/masters/widgets/1', async ({ request }) => {
         const body = await request.json();
-        return HttpResponse.json({ id: '1', code: 'W1', name: 'Widget One', ...(body as object) });
+        return HttpResponse.json({ id: 1, code: 'W1', name: 'Widget One', ...(body as object) });
       }),
     );
 
-    const updated = await widgetApi.update('1', { name: 'Renamed' });
+    const updated = await widgetApi.update(1, { name: 'Renamed' });
 
     expect(updated.name).toBe('Renamed');
   });
@@ -124,7 +124,7 @@ describe('createMasterApi', () => {
       }),
     );
 
-    await widgetApi.remove('1');
+    await widgetApi.remove(1);
 
     expect(deleteCalled).toBe(true);
   });
@@ -136,6 +136,6 @@ describe('createMasterApi', () => {
       ),
     );
 
-    await expect(widgetApi.remove('1')).rejects.toMatchObject({ response: { status: 409 } });
+    await expect(widgetApi.remove(1)).rejects.toMatchObject({ response: { status: 409 } });
   });
 });

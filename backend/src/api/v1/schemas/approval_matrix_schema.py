@@ -8,7 +8,6 @@ route records incorrectly rather than merely look incomplete.
 
 from datetime import datetime
 from typing import Any
-from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -40,7 +39,7 @@ class ApprovalRuleInput(BaseModel):
 class ApprovalRuleResponse(BaseModel):
     """Routing condition read response."""
 
-    id: UUID
+    id: int
     field: str
     operator: RuleOperator
     value: str
@@ -55,8 +54,8 @@ class ApprovalAssignmentInput(BaseModel):
 
     level: int = Field(default=1, ge=1, le=99)
     assignment_type: AssignmentType = Field(default=AssignmentType.ROLE)
-    user_id: UUID | None = Field(default=None)
-    role_id: UUID | None = Field(default=None)
+    user_id: int | None = Field(default=None)
+    role_id: int | None = Field(default=None)
 
     @model_validator(mode="after")
     def _require_matching_target(self) -> "ApprovalAssignmentInput":
@@ -76,11 +75,11 @@ class ApprovalAssignmentInput(BaseModel):
 class ApprovalAssignmentResponse(BaseModel):
     """Approval level read response."""
 
-    id: UUID
+    id: int
     level: int
     assignment_type: AssignmentType
-    user_id: UUID | None
-    role_id: UUID | None
+    user_id: int | None
+    role_id: int | None
 
     model_config = {"from_attributes": True}
 
@@ -140,7 +139,7 @@ class ApprovalMatrixUpdate(BaseModel):
 class ApprovalMatrixResponse(BaseModel):
     """Approval matrix read response, including its rules and levels."""
 
-    id: UUID
+    id: int
     code: str
     name: str
     entity_type: str
@@ -199,10 +198,10 @@ class ApprovalResolveResponse(BaseModel):
 class ApprovalTaskResponse(BaseModel):
     """One approval task in a user's queue."""
 
-    id: UUID
-    instance_id: UUID
-    matrix_id: UUID | None
-    assignee_id: UUID
+    id: int
+    instance_id: int
+    matrix_id: int | None
+    assignee_id: int
     level: int
     status: ApprovalTaskStatus
     action_taken: str | None

@@ -4,7 +4,6 @@ Orchestrates legislation master CRUD and keeps the jurisdiction chain
 (country -> state -> category of law) consistent.
 """
 
-from uuid import UUID, uuid4
 
 from src.api.v1.schemas.legislation_schema import (
     LegislationCreate,
@@ -58,9 +57,9 @@ class LegislationService:
         limit: int = 100,
         search: str | None = None,
         is_active: bool | None = None,
-        country_id: UUID | None = None,
-        state_id: UUID | None = None,
-        category_of_law_id: UUID | None = None,
+        country_id: int | None = None,
+        state_id: int | None = None,
+        category_of_law_id: int | None = None,
     ) -> LegislationListResponse:
         """Get a paginated page of legislations with optional filters."""
         legislations = await self._repo.list_all(
@@ -88,7 +87,7 @@ class LegislationService:
 
     # ─── Get ───
 
-    async def get_legislation(self, legislation_id: UUID) -> LegislationResponse:
+    async def get_legislation(self, legislation_id: int) -> LegislationResponse:
         """Get a single legislation. Raises EntityNotFoundError if missing."""
         return self._to_response(await self._require(legislation_id))
 
@@ -106,7 +105,6 @@ class LegislationService:
             raise DuplicateEntityError(ENTITY, "code", request.code)
 
         legislation = Legislation(
-            id=uuid4(),
             code=request.code,
             name=request.name,
             description=request.description,
@@ -125,7 +123,7 @@ class LegislationService:
     # ─── Update ───
 
     async def update_legislation(
-        self, legislation_id: UUID, request: LegislationUpdate, actor: User
+        self, legislation_id: int, request: LegislationUpdate, actor: User
     ) -> LegislationResponse:
         """Apply a partial update to a legislation."""
         legislation = await self._require(legislation_id)
@@ -172,7 +170,7 @@ class LegislationService:
 
     # ─── Delete ───
 
-    async def delete_legislation(self, legislation_id: UUID) -> None:
+    async def delete_legislation(self, legislation_id: int) -> None:
         """Delete a legislation, refusing while rules reference it."""
         await self._require(legislation_id)
         if await self._repo.has_dependents(legislation_id):
@@ -184,22 +182,22 @@ class LegislationService:
 
     # ─── Internals ───
 
-    async def _require(self, legislation_id: UUID) -> Legislation:
+    async def _require(self, legislation_id: int) -> Legislation:
         legislation = await self._repo.get_by_id(legislation_id)
         if legislation is None:
             raise EntityNotFoundError(ENTITY, legislation_id)
         return legislation
 
-    async def _require_country(self, country_id: UUID) -> None:
+    async def _require_country(self, country_id: int) -> None:
         if await self._country_repo.get_by_id(country_id) is None:
             raise EntityNotFoundError("Country", country_id)
 
-    async def _require_category(self, category_of_law_id: UUID) -> None:
+    async def _require_category(self, category_of_law_id: int) -> None:
         if await self._category_repo.get_by_id(category_of_law_id) is None:
             raise EntityNotFoundError("CategoryOfLaw", category_of_law_id)
 
     async def _require_state_in_country(
-        self, state_id: UUID | None, country_id: UUID | None
+        self, state_id: int | None, country_id: int | None
     ) -> None:
         """A central legislation has no state; a state one must match the country."""
         if state_id is None:

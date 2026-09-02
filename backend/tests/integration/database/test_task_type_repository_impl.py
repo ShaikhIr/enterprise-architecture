@@ -8,7 +8,7 @@ filters still round-trips and enforces uniqueness correctly, without inheriting
 any hidden coupling from the hierarchy the other five sit in.
 """
 
-from uuid import uuid4
+import secrets
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,8 +20,8 @@ from src.infrastructure.database.repositories.task_type_repository_impl import (
 
 def _task_type(**overrides: object) -> TaskType:
     defaults: dict[str, object] = {
-        "code": f"T{uuid4().hex[:8].upper()}",
-        "name": f"Task Type {uuid4().hex[:6]}",
+        "code": f"T{secrets.token_hex(4).upper()}",
+        "name": f"Task Type {secrets.token_hex(3)}",
         "created_by": "test",
         "modified_by": "test",
     }

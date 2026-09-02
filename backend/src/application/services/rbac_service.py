@@ -14,7 +14,6 @@ failure left earlier writes permanently applied.
 
 import json
 from typing import Any
-from uuid import UUID, uuid4
 
 from src.domain.entities.audit_log import AuditAction, AuditLog
 from src.domain.entities.role import (
@@ -53,12 +52,12 @@ class RbacService:
     async def _audit_log(
         self,
         *,
-        actor_id: UUID | None,
+        actor_id: int | None,
         actor_username: str,
         action: AuditAction,
         resource_type: str,
         resource_id: str,
-        tenant_id: UUID | None = None,
+        tenant_id: int | None = None,
         old_value: dict[str, Any] | None = None,
         new_value: dict[str, Any] | None = None,
         ip_address: str = "",
@@ -93,7 +92,7 @@ class RbacService:
         scope: str,
         resource: str,
         action: str,
-        actor_id: UUID,
+        actor_id: int,
         actor_username: str,
         ip_address: str,
     ) -> Permission:
@@ -103,7 +102,6 @@ class RbacService:
 
         created = await self._permissions.create(
             Permission(
-                id=uuid4(),
                 code=code,
                 name=name,
                 description=description or "",
@@ -134,7 +132,7 @@ class RbacService:
 
     # ─── Roles ───
 
-    async def list_roles(self, tenant_id: UUID | None = None) -> dict[str, Any]:
+    async def list_roles(self, tenant_id: int | None = None) -> dict[str, Any]:
         """List roles with their permissions."""
         roles = await self._roles.list_active(tenant_id=tenant_id)
         return {"roles": roles, "total": len(roles)}
@@ -145,9 +143,9 @@ class RbacService:
         code: str,
         name: str,
         description: str | None,
-        tenant_id: UUID | None,
-        parent_role_id: UUID | None,
-        actor_id: UUID,
+        tenant_id: int | None,
+        parent_role_id: int | None,
+        actor_id: int,
         actor_username: str,
         ip_address: str,
     ) -> Role:
@@ -157,7 +155,6 @@ class RbacService:
 
         created = await self._roles.create(
             Role(
-                id=uuid4(),
                 code=code,
                 name=name,
                 description=description or "",
@@ -185,12 +182,12 @@ class RbacService:
     async def update_role(
         self,
         *,
-        role_id: UUID,
+        role_id: int,
         name: str | None = None,
         description: str | None = None,
         is_active: bool | None = None,
-        parent_role_id: UUID | None = None,
-        actor_id: UUID,
+        parent_role_id: int | None = None,
+        actor_id: int,
         actor_username: str,
         ip_address: str,
     ) -> Role:
@@ -240,9 +237,9 @@ class RbacService:
     async def grant_permission(
         self,
         *,
-        role_id: UUID,
-        permission_id: UUID,
-        actor_id: UUID,
+        role_id: int,
+        permission_id: int,
+        actor_id: int,
         actor_username: str,
         ip_address: str,
     ) -> dict[str, Any]:
@@ -274,9 +271,9 @@ class RbacService:
     async def revoke_permission(
         self,
         *,
-        role_id: UUID,
-        permission_id: UUID,
-        actor_id: UUID,
+        role_id: int,
+        permission_id: int,
+        actor_id: int,
         actor_username: str,
         ip_address: str,
     ) -> dict[str, Any]:
@@ -305,10 +302,10 @@ class RbacService:
     async def assign_role(
         self,
         *,
-        user_id: UUID,
-        role_id: UUID,
-        tenant_id: UUID | None,
-        actor_id: UUID,
+        user_id: int,
+        role_id: int,
+        tenant_id: int | None,
+        actor_id: int,
         actor_username: str,
         ip_address: str,
     ) -> RoleAssignment:
@@ -322,7 +319,6 @@ class RbacService:
 
         created = await self._assignments.create(
             RoleAssignment(
-                id=uuid4(),
                 user_id=user_id,
                 role_id=role_id,
                 tenant_id=tenant_id,
@@ -351,10 +347,10 @@ class RbacService:
     async def revoke_role(
         self,
         *,
-        user_id: UUID,
-        role_id: UUID,
-        tenant_id: UUID | None,
-        actor_id: UUID,
+        user_id: int,
+        role_id: int,
+        tenant_id: int | None,
+        actor_id: int,
         actor_username: str,
         ip_address: str,
     ) -> dict[str, Any]:
@@ -426,19 +422,19 @@ class RbacService:
         permissions = await self._resolver.get_user_permissions(current_user.id)
 
         return {
-            "user_id": str(current_user.id),
+            "user_id": current_user.id,
             "username": current_user.username,
             "role_assignments": [
                 {
-                    "role_id": str(a.role_id),
+                    "role_id": a.role_id,
                     "is_active": a.is_active,
-                    "tenant_id": str(a.tenant_id) if a.tenant_id else None,
+                    "tenant_id": a.tenant_id,
                 }
                 for a in assignments
             ],
             "assigned_roles": [
                 {
-                    "id": str(r.id),
+                    "id": r.id,
                     "code": r.code,
                     "name": r.name,
                     "is_active": r.is_active,

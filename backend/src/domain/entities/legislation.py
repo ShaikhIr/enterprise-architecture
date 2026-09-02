@@ -5,7 +5,6 @@ An act / statute / regulation issued by a jurisdiction.
 
 from dataclasses import dataclass
 from datetime import date
-from uuid import UUID
 
 from src.domain.entities.base_entity import BaseEntity
 
@@ -35,10 +34,10 @@ class Legislation(BaseEntity):
 
     code: str
     name: str
-    category_of_law_id: UUID
-    country_id: UUID
+    category_of_law_id: int
+    country_id: int
     description: str = ""
-    state_id: UUID | None = None
+    state_id: int | None = None
     legislation_number: str | None = None
     effective_date: date | None = None
     is_active: bool = True

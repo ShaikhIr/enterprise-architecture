@@ -47,7 +47,7 @@ export const WorkflowTransitionTable = ({
 }: WorkflowTransitionTableProps) => {
   const byId = new Map(statuses.map((status) => [status.id, status]));
 
-  const stateTag = (statusId: string, terminalStyling: boolean) => {
+  const stateTag = (statusId: number, terminalStyling: boolean) => {
     const status = byId.get(statusId);
     if (!status) return <span className="text-600">Unknown</span>;
     return (

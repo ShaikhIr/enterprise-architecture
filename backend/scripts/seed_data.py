@@ -7,7 +7,6 @@ Usage:
 """
 
 import asyncio
-from uuid import uuid4
 
 from sqlalchemy import select
 
@@ -28,7 +27,6 @@ async def seed_admin_user() -> None:
             return
 
         admin = UserModel(
-            id=uuid4(),
             username="admin",
             password_hash=hash_password("Admin@123!"),
             is_active=True,

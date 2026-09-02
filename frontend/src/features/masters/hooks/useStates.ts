@@ -36,7 +36,7 @@ export const useDeleteState = hooks.useDelete;
  * @param countryId Narrows the options to one country. Pass the form's current
  *                  country so a state from a different country cannot be chosen.
  */
-export const useStateLookup = (countryId?: string): MasterLookup => {
+export const useStateLookup = (countryId?: number): MasterLookup => {
   const active = useStates({
     limit: OPTION_LIMIT,
     is_active: true,

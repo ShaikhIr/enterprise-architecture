@@ -6,7 +6,6 @@ thing worth its own tests: the parent country must exist, and name uniqueness is
 scoped to that country rather than global.
 """
 
-from uuid import uuid4
 
 import pytest
 from master_fakes import FakeCountryRepository, FakeStateRepository
@@ -39,7 +38,7 @@ def service(repo: FakeStateRepository, country_repo: FakeCountryRepository) -> S
 
 @pytest.fixture
 def actor() -> User:
-    return User(id=uuid4(), username="alice")
+    return User(id=1, username="alice")
 
 
 @pytest.fixture
@@ -63,7 +62,7 @@ class TestCreate:
     ) -> None:
         with pytest.raises(EntityNotFoundError):
             await service.create_state(
-                StateCreate(code="IN-MH", name="Maharashtra", country_id=uuid4()), actor
+                StateCreate(code="IN-MH", name="Maharashtra", country_id=999_999), actor
             )
 
     async def test_duplicate_code_is_rejected_globally(
@@ -121,7 +120,7 @@ class TestUpdate:
         )
 
         with pytest.raises(EntityNotFoundError):
-            await service.update_state(created.id, StateUpdate(country_id=uuid4()), actor)
+            await service.update_state(created.id, StateUpdate(country_id=999_999), actor)
 
     async def test_moving_to_a_new_country_re_scopes_name_uniqueness(
         self,
@@ -147,7 +146,7 @@ class TestUpdate:
         self, service: StateService, actor: User
     ) -> None:
         with pytest.raises(EntityNotFoundError):
-            await service.update_state(uuid4(), StateUpdate(name="X"), actor)
+            await service.update_state(999_999, StateUpdate(name="X"), actor)
 
 
 class TestDelete:

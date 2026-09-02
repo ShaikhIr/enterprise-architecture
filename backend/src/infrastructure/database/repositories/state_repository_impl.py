@@ -7,7 +7,6 @@ SqlAlchemyRepository; everything below is State-specific.
 """
 
 from typing import Any
-from uuid import UUID
 
 from sqlalchemy import ColumnElement, Select, func, or_, select
 
@@ -35,7 +34,6 @@ class StateRepositoryImpl(SqlAlchemyRepository[State, StateModel], IStateReposit
 
     async def create(self, state: State) -> State:
         model = StateModel(
-            id=state.id,
             code=state.code,
             name=state.name,
             country_id=state.country_id,
@@ -70,7 +68,7 @@ class StateRepositoryImpl(SqlAlchemyRepository[State, StateModel], IStateReposit
         limit: int = 100,
         search: str | None = None,
         is_active: bool | None = None,
-        country_id: UUID | None = None,
+        country_id: int | None = None,
     ) -> list[State]:
         stmt = self._apply_filters(select(StateModel), search, is_active, country_id)
         stmt = stmt.order_by(StateModel.name).offset(skip).limit(limit)
@@ -81,7 +79,7 @@ class StateRepositoryImpl(SqlAlchemyRepository[State, StateModel], IStateReposit
         self,
         search: str | None = None,
         is_active: bool | None = None,
-        country_id: UUID | None = None,
+        country_id: int | None = None,
     ) -> int:
         stmt = self._apply_filters(
             select(func.count()).select_from(StateModel), search, is_active, country_id
@@ -90,7 +88,7 @@ class StateRepositoryImpl(SqlAlchemyRepository[State, StateModel], IStateReposit
         return int(result.scalar_one())
 
     async def exists_by_name(
-        self, name: str, country_id: UUID, exclude_id: UUID | None = None
+        self, name: str, country_id: int, exclude_id: int | None = None
     ) -> bool:
         stmt = select(StateModel.id).where(
             func.lower(StateModel.name) == name.lower(),
@@ -101,7 +99,7 @@ class StateRepositoryImpl(SqlAlchemyRepository[State, StateModel], IStateReposit
         result = await self._session.execute(stmt)
         return result.scalar_one_or_none() is not None
 
-    async def has_dependents(self, state_id: UUID) -> bool:
+    async def has_dependents(self, state_id: int) -> bool:
         """True if any category, legislation or rule still references this state."""
         for model in (CategoryOfLawModel, LegislationModel, RuleModel):
             stmt = select(model.id).where(model.state_id == state_id).limit(1)
@@ -117,7 +115,7 @@ class StateRepositoryImpl(SqlAlchemyRepository[State, StateModel], IStateReposit
         stmt: Select[Any],
         search: str | None,
         is_active: bool | None,
-        country_id: UUID | None,
+        country_id: int | None,
     ) -> Select[Any]:
         if search:
             pattern = f"%{search.strip()}%"

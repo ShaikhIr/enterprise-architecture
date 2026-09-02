@@ -102,7 +102,7 @@ API Layer → Application Layer → Domain Layer → Infrastructure Layer
 
 | Field | Type |
 |-------|------|
-| id | UUID (PK) |
+| id | BigInteger (PK, DB-generated autoincrement) |
 | username | String (unique) |
 | password_hash | String (bcrypt) |
 | is_active | Boolean |
@@ -198,7 +198,7 @@ All API responses follow consistent structure.
 
 **Success (single item):**
 ```json
-{ "id": "uuid", "username": "...", ... }
+{ "id": 123, "username": "...", ... }
 ```
 
 **Success (list with pagination):**
@@ -229,7 +229,7 @@ All API responses follow consistent structure.
 
 | Column | Auto-populated |
 |--------|---------------|
-| id | UUID, generated on create |
+| id | BigInteger, DB-generated autoincrement on insert |
 | created_by | String, set on create |
 | created_date | UTC timestamp, set on create |
 | modified_by | String, set on create/update |

@@ -6,7 +6,6 @@ Integrates with the role-permission database model and supports multi-tenancy.
 
 from collections.abc import Callable
 from typing import Any
-from uuid import UUID
 
 from fastapi import Depends, HTTPException, status
 from sqlalchemy import select
@@ -40,8 +39,8 @@ class PermissionManager(IPermissionResolver):
 
     async def get_user_permissions(
         self,
-        user_id: UUID,
-        tenant_id: UUID | None = None,
+        user_id: int,
+        tenant_id: int | None = None,
         scope: PermissionScope | None = None,
     ) -> list[Permission]:
         """
@@ -129,9 +128,9 @@ class PermissionManager(IPermissionResolver):
 
     async def has_permission(
         self,
-        user_id: UUID,
+        user_id: int,
         permission_code: str,
-        tenant_id: UUID | None = None,
+        tenant_id: int | None = None,
     ) -> bool:
         """Check if user has a specific permission (by code)."""
         permissions = await self.get_user_permissions(user_id, tenant_id)
@@ -139,10 +138,10 @@ class PermissionManager(IPermissionResolver):
 
     async def has_api_access(
         self,
-        user_id: UUID,
+        user_id: int,
         resource: str,
         action: str | PermissionAction,
-        tenant_id: UUID | None = None,
+        tenant_id: int | None = None,
     ) -> bool:
         """Check if user has API-level access to a resource + action."""
         permissions = await self.get_user_permissions(
@@ -155,8 +154,8 @@ class PermissionManager(IPermissionResolver):
 
     async def get_menu_permissions(
         self,
-        user_id: UUID,
-        tenant_id: UUID | None = None,
+        user_id: int,
+        tenant_id: int | None = None,
     ) -> list[str]:
         """Get all menu resource keys the user can access."""
         permissions = await self.get_user_permissions(
@@ -166,9 +165,9 @@ class PermissionManager(IPermissionResolver):
 
     async def get_field_permissions(
         self,
-        user_id: UUID,
+        user_id: int,
         resource: str,
-        tenant_id: UUID | None = None,
+        tenant_id: int | None = None,
     ) -> dict[str, list[str]]:
         """
         Get field-level permissions for a resource.

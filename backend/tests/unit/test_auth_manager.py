@@ -4,7 +4,6 @@ Tests login flows: success, invalid password, inactive user, blocked user.
 """
 
 from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import uuid4
 
 import pytest
 
@@ -40,7 +39,7 @@ def active_user() -> User:
     # is_validate_ad=False keeps login on the local bcrypt path; with the
     # default (True) these unit tests would call the external Darwin AD service.
     return User(
-        id=uuid4(),
+        id=1,
         username="activeuser",
         password_hash=hash_password("ValidPass123!"),
         is_active=True,
@@ -96,7 +95,7 @@ class TestLoginInactiveUser:
     ) -> None:
         """Inactive user should raise UserInactiveError."""
         user = User(
-            id=uuid4(),
+            id=1,
             username="inactiveuser",
             password_hash=hash_password("ValidPass123!"),
             is_active=False,
@@ -116,7 +115,7 @@ class TestLoginBlockedUser:
     ) -> None:
         """Blocked user should raise UserBlockedError."""
         user = User(
-            id=uuid4(),
+            id=1,
             username="blockeduser",
             password_hash=hash_password("ValidPass123!"),
             is_active=True,
@@ -164,7 +163,7 @@ class TestLoginViaActiveDirectory:
     @staticmethod
     def _ad_user() -> User:
         return User(
-            id=uuid4(),
+            id=1,
             username="aduser",
             password_hash="",  # unused on the AD path
             is_active=True,

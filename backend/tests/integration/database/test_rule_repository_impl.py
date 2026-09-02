@@ -7,7 +7,7 @@ combination Legislation has (country/state/legislation), plus the search
 spanning `rule_number` in addition to code/name.
 """
 
-from uuid import uuid4
+import secrets
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,7 +23,7 @@ from src.infrastructure.database.repositories.rule_repository_impl import (
 
 async def _make_country(session: AsyncSession) -> CountryModel:
     country = CountryModel(
-        id=uuid4(), code=f"C{uuid4().hex[:6].upper()}", name=f"Country {uuid4().hex[:6]}",
+        code=f"C{secrets.token_hex(3).upper()}", name=f"Country {secrets.token_hex(3)}",
         created_by="test", modified_by="test",
     )
     session.add(country)
@@ -33,13 +33,13 @@ async def _make_country(session: AsyncSession) -> CountryModel:
 
 async def _make_legislation(session: AsyncSession, country_id: object) -> LegislationModel:
     category = CategoryOfLawModel(
-        id=uuid4(), code=f"CAT{uuid4().hex[:6].upper()}", name=f"Category {uuid4().hex[:6]}",
+        code=f"CAT{secrets.token_hex(3).upper()}", name=f"Category {secrets.token_hex(3)}",
         created_by="test", modified_by="test",
     )
     session.add(category)
     await session.flush()
     legislation = LegislationModel(
-        id=uuid4(), code=f"L{uuid4().hex[:8].upper()}", name=f"Legislation {uuid4().hex[:6]}",
+        code=f"L{secrets.token_hex(4).upper()}", name=f"Legislation {secrets.token_hex(3)}",
         category_of_law_id=category.id, country_id=country_id,
         created_by="test", modified_by="test",
     )
@@ -50,7 +50,7 @@ async def _make_legislation(session: AsyncSession, country_id: object) -> Legisl
 
 async def _make_state(session: AsyncSession, country_id: object) -> StateModel:
     state = StateModel(
-        id=uuid4(), code=f"S{uuid4().hex[:6].upper()}", name=f"State {uuid4().hex[:6]}",
+        code=f"S{secrets.token_hex(3).upper()}", name=f"State {secrets.token_hex(3)}",
         country_id=country_id, created_by="test", modified_by="test",
     )
     session.add(state)
@@ -60,8 +60,8 @@ async def _make_state(session: AsyncSession, country_id: object) -> StateModel:
 
 def _rule(country_id: object, legislation_id: object, **overrides: object) -> Rule:
     defaults: dict[str, object] = {
-        "code": f"R{uuid4().hex[:8].upper()}",
-        "name": f"Rule {uuid4().hex[:6]}",
+        "code": f"R{secrets.token_hex(4).upper()}",
+        "name": f"Rule {secrets.token_hex(3)}",
         "country_id": country_id,
         "legislation_id": legislation_id,
         "created_by": "test",

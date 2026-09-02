@@ -4,7 +4,6 @@ Defines the contract for legislation master persistence.
 """
 
 from abc import abstractmethod
-from uuid import UUID
 
 from src.domain.entities.legislation import Legislation
 from src.domain.repositories.base_repository import IRepository
@@ -20,9 +19,9 @@ class ILegislationRepository(IRepository[Legislation]):
         limit: int = 100,
         search: str | None = None,
         is_active: bool | None = None,
-        country_id: UUID | None = None,
-        state_id: UUID | None = None,
-        category_of_law_id: UUID | None = None,
+        country_id: int | None = None,
+        state_id: int | None = None,
+        category_of_law_id: int | None = None,
     ) -> list[Legislation]:
         """List legislations, optionally narrowed by jurisdiction or category."""
         ...
@@ -32,14 +31,14 @@ class ILegislationRepository(IRepository[Legislation]):
         self,
         search: str | None = None,
         is_active: bool | None = None,
-        country_id: UUID | None = None,
-        state_id: UUID | None = None,
-        category_of_law_id: UUID | None = None,
+        country_id: int | None = None,
+        state_id: int | None = None,
+        category_of_law_id: int | None = None,
     ) -> int:
         """Count legislations matching the same criteria as `list_all`."""
         ...
 
     @abstractmethod
-    async def has_dependents(self, legislation_id: UUID) -> bool:
+    async def has_dependents(self, legislation_id: int) -> bool:
         """Check whether any rule references this legislation."""
         ...

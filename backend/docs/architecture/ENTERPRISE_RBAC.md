@@ -355,7 +355,7 @@ The Users page has a shield (🛡) button per row. Clicking it opens a Tree popu
 
 Roles are assigned via `POST /api/v1/rbac/assignments`:
 ```json
-{ "user_id": "uuid", "role_id": "uuid", "tenant_id": null }
+{ "user_id": 57, "role_id": 3, "tenant_id": null }
 ```
 
 ---

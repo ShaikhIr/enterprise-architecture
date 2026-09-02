@@ -14,7 +14,7 @@ import {
   within,
 } from '../../test-utils';
 
-const country = (id: string, code: string, name: string) => ({
+const country = (id: number, code: string, name: string) => ({
   id,
   code,
   name,
@@ -28,7 +28,7 @@ const country = (id: string, code: string, name: string) => ({
   modified_date: '2024-01-01T00:00:00Z',
 });
 
-const state = (id: string, code: string, name: string, countryId: string) => ({
+const state = (id: number, code: string, name: string, countryId: number) => ({
   id,
   code,
   name,
@@ -42,12 +42,12 @@ const state = (id: string, code: string, name: string, countryId: string) => ({
 });
 
 // LegislationForm's zod schema validates country_id and category_of_law_id
-// with `z.string().uuid()`, so fixture ids must actually be UUID-shaped or
+// with `z.number().int().positive()`, so fixture ids are positive numbers or
 // submission silently fails validation instead of calling onSubmit.
-const COUNTRY_IN_ID = '11111111-1111-1111-1111-111111111111';
-const COUNTRY_US_ID = '22222222-2222-2222-2222-222222222222';
-const CATEGORY_ID = '33333333-3333-3333-3333-333333333333';
-const STATE_MH_ID = '44444444-4444-4444-4444-444444444444';
+const COUNTRY_IN_ID = 11111111;
+const COUNTRY_US_ID = 22222222;
+const CATEGORY_ID = 33333333;
+const STATE_MH_ID = 44444444;
 
 const category = {
   id: CATEGORY_ID,
@@ -83,7 +83,7 @@ const mockLookups = () =>
       const countryId = url.searchParams.get('country_id');
       const isActiveOnly = url.searchParams.get('is_active') === 'true';
       const all = [state(STATE_MH_ID, 'IN-MH', 'Maharashtra', COUNTRY_IN_ID)];
-      const items = isActiveOnly ? all.filter((s) => s.country_id === countryId) : all;
+      const items = isActiveOnly ? all.filter((s) => s.country_id === Number(countryId)) : all;
       return HttpResponse.json({ states: items, total: items.length, skip: 0, limit: 100 });
     }),
   );

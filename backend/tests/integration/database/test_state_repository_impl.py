@@ -9,7 +9,7 @@ scoped to a country rather than global, and the three-table `has_dependents`
 check.
 """
 
-from uuid import uuid4
+import secrets
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,9 +23,8 @@ from src.infrastructure.database.repositories.state_repository_impl import (
 
 async def _make_country(session: AsyncSession) -> CountryModel:
     country = CountryModel(
-        id=uuid4(),
-        code=f"C{uuid4().hex[:6].upper()}",
-        name=f"Country {uuid4().hex[:6]}",
+        code=f"C{secrets.token_hex(3).upper()}",
+        name=f"Country {secrets.token_hex(3)}",
         created_by="test",
         modified_by="test",
     )
@@ -36,8 +35,8 @@ async def _make_country(session: AsyncSession) -> CountryModel:
 
 def _state(country_id: object, **overrides: object) -> State:
     defaults: dict[str, object] = {
-        "code": f"S{uuid4().hex[:6].upper()}",
-        "name": f"State {uuid4().hex[:6]}",
+        "code": f"S{secrets.token_hex(3).upper()}",
+        "name": f"State {secrets.token_hex(3)}",
         "country_id": country_id,
         "created_by": "test",
         "modified_by": "test",
@@ -148,9 +147,8 @@ class TestHasDependents:
         created = await repo.create(_state(country.id))
         db_session.add(
             CategoryOfLawModel(
-                id=uuid4(),
-                code=f"CAT{uuid4().hex[:6].upper()}",
-                name=f"Category {uuid4().hex[:6]}",
+                code=f"CAT{secrets.token_hex(3).upper()}",
+                name=f"Category {secrets.token_hex(3)}",
                 state_id=created.id,
                 created_by="test",
                 modified_by="test",

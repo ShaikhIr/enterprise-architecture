@@ -13,7 +13,7 @@ interface Widget extends AuditedRecord {
 }
 
 const widget: Widget = {
-  id: '1',
+  id: 1,
   name: 'Widget One',
   created_by: 'system',
   created_date: '2024-01-01T00:00:00Z',
@@ -32,8 +32,8 @@ const widget: Widget = {
  */
 interface HarnessProps {
   onCreate: (data: { name: string }) => Promise<unknown>;
-  onUpdate: (id: string, data: { name: string }) => Promise<unknown>;
-  onDelete: (id: string) => Promise<unknown>;
+  onUpdate: (id: number, data: { name: string }) => Promise<unknown>;
+  onDelete: (id: number) => Promise<unknown>;
 }
 
 const Harness = ({ onCreate, onUpdate, onDelete }: HarnessProps) => {
@@ -121,7 +121,7 @@ describe('useMasterCrudController', () => {
 
       await user.click(screen.getByText('Submit'));
 
-      expect(onUpdate).toHaveBeenCalledWith('1', { name: 'Submitted' });
+      expect(onUpdate).toHaveBeenCalledWith(1, { name: 'Submitted' });
       await waitFor(() =>
         expect(screen.getByText(/Widget 'Widget One' updated/i)).toBeInTheDocument(),
       );
@@ -175,7 +175,7 @@ describe('useMasterCrudController', () => {
 
       await user.click(within(confirmDialog).getByText('Delete'));
 
-      await waitFor(() => expect(onDelete).toHaveBeenCalledWith('1'));
+      await waitFor(() => expect(onDelete).toHaveBeenCalledWith(1));
       await waitFor(() =>
         expect(screen.getByText("Widget 'Widget One' deleted")).toBeInTheDocument(),
       );

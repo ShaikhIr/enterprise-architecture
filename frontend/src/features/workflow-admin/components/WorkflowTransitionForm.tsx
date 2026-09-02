@@ -43,8 +43,8 @@ const actionTypeOptions = WORKFLOW_ACTION_TYPES.map((value) => ({
 }));
 
 const transitionSchema = z.object({
-  from_status_id: z.string().uuid('Select a source state'),
-  to_status_id: z.string().uuid('Select a target state'),
+  from_status_id: z.number().int().positive('Select a source state'),
+  to_status_id: z.number().int().positive('Select a target state'),
   action_code: z
     .string()
     .min(2, 'Action code must be at least 2 characters')
@@ -59,8 +59,8 @@ const transitionSchema = z.object({
 type TransitionFormData = z.infer<typeof transitionSchema>;
 
 const EMPTY: TransitionFormData = {
-  from_status_id: '',
-  to_status_id: '',
+  from_status_id: 0,
+  to_status_id: 0,
   action_code: '',
   action_type: 'CUSTOM',
   requires_comment: false,

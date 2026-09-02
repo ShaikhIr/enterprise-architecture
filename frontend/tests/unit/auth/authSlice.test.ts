@@ -39,7 +39,7 @@ const LOGIN_URL = '/api/v1/auth/login';
 const ME_URL = '/api/v1/auth/me';
 const LOGOUT_URL = '/api/v1/auth/logout';
 
-const currentUser = { id: '1', username: 'alice', is_active: true };
+const currentUser = { id: 1, username: 'alice', is_active: true };
 
 describe('authSlice thunks and reducers', () => {
   describe('loginThunk', () => {

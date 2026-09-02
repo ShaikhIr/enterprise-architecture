@@ -3,7 +3,6 @@ User repository implementation (Adapter).
 Implements the IUserRepository using SQLAlchemy async.
 """
 
-from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,7 +18,7 @@ class UserRepositoryImpl(IUserRepository):
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    async def get_by_id(self, user_id: UUID) -> User | None:
+    async def get_by_id(self, user_id: int) -> User | None:
         stmt = select(UserModel).where(UserModel.id == user_id)
         result = await self._session.execute(stmt)
         model = result.scalar_one_or_none()
@@ -33,7 +32,6 @@ class UserRepositoryImpl(IUserRepository):
 
     async def create(self, user: User) -> User:
         model = UserModel(
-            id=user.id,
             username=user.username,
             password_hash=user.password_hash,
             is_active=user.is_active,
@@ -64,7 +62,7 @@ class UserRepositoryImpl(IUserRepository):
         await self._session.flush()
         return self._to_entity(model)
 
-    async def delete(self, user_id: UUID) -> None:
+    async def delete(self, user_id: int) -> None:
         stmt = select(UserModel).where(UserModel.id == user_id)
         result = await self._session.execute(stmt)
         model = result.scalar_one_or_none()

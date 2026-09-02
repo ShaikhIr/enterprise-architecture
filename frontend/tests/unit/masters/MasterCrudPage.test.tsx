@@ -17,7 +17,7 @@ interface Widget extends AuditedRecord {
 
 const rows: Widget[] = [
   {
-    id: '1',
+    id: 1,
     code: 'W1',
     name: 'Widget One',
     created_by: 'system',

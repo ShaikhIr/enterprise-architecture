@@ -14,7 +14,6 @@ a terminal state.
 
 import logging
 from typing import Any
-from uuid import UUID
 
 from src.application.services.workflow.approval_matrix_resolver import (
     ApprovalMatrixResolver,
@@ -75,8 +74,8 @@ class WorkflowEngine:
         *,
         definition_code: str,
         entity_type: str,
-        entity_id: UUID,
-        initiated_by: UUID,
+        entity_id: int,
+        initiated_by: int,
         actor_username: str,
         priority: int = 0,
         metadata: dict[str, Any] | None = None,
@@ -146,9 +145,9 @@ class WorkflowEngine:
     async def execute_action(
         self,
         *,
-        instance_id: UUID,
+        instance_id: int,
         action_code: str,
-        actor_id: UUID,
+        actor_id: int,
         actor_username: str,
         comments: str = "",
         ip_address: str = "",
@@ -199,18 +198,18 @@ class WorkflowEngine:
 
     # ─── Reads ───
 
-    async def get_state(self, instance_id: UUID) -> InstanceState:
+    async def get_state(self, instance_id: int) -> InstanceState:
         """Current status and definition of an instance."""
         return await self._state_machine.get_state(instance_id)
 
-    async def available_actions(self, instance_id: UUID) -> list[WorkflowTransition]:
+    async def available_actions(self, instance_id: int) -> list[WorkflowTransition]:
         """Actions the current state allows, empty once the instance is finished."""
         instance = await self._instances.get_by_id(instance_id)
         if instance is None:
             raise EntityNotFoundError(INSTANCE, instance_id)
         return await self._state_machine.available_actions(instance)
 
-    async def pending_tasks(self, user_id: UUID) -> list[ApprovalTask]:
+    async def pending_tasks(self, user_id: int) -> list[ApprovalTask]:
         """Open approval tasks assigned to a user."""
         return await self._matrices.list_pending_tasks_for_user(user_id)
 

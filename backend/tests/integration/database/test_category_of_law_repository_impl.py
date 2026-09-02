@@ -10,7 +10,7 @@ categories share a name a business rule up in `CategoryOfLawService` believes
 it has already rejected.
 """
 
-from uuid import uuid4
+import secrets
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -25,13 +25,13 @@ from src.infrastructure.database.repositories.category_of_law_repository_impl im
 
 async def _make_state(session: AsyncSession) -> StateModel:
     country = CountryModel(
-        id=uuid4(), code=f"C{uuid4().hex[:6].upper()}", name=f"Country {uuid4().hex[:6]}",
+        code=f"C{secrets.token_hex(3).upper()}", name=f"Country {secrets.token_hex(3)}",
         created_by="test", modified_by="test",
     )
     session.add(country)
     await session.flush()
     state = StateModel(
-        id=uuid4(), code=f"S{uuid4().hex[:6].upper()}", name=f"State {uuid4().hex[:6]}",
+        code=f"S{secrets.token_hex(3).upper()}", name=f"State {secrets.token_hex(3)}",
         country_id=country.id, created_by="test", modified_by="test",
     )
     session.add(state)
@@ -41,8 +41,8 @@ async def _make_state(session: AsyncSession) -> StateModel:
 
 def _category(**overrides: object) -> CategoryOfLaw:
     defaults: dict[str, object] = {
-        "code": f"CAT{uuid4().hex[:6].upper()}",
-        "name": f"Category {uuid4().hex[:6]}",
+        "code": f"CAT{secrets.token_hex(3).upper()}",
+        "name": f"Category {secrets.token_hex(3)}",
         "created_by": "test",
         "modified_by": "test",
     }
@@ -136,14 +136,14 @@ class TestHasDependents:
         repo = CategoryOfLawRepositoryImpl(db_session)
         category = await repo.create(_category())
         country = CountryModel(
-            id=uuid4(), code=f"C{uuid4().hex[:6].upper()}", name=f"Country {uuid4().hex[:6]}",
+            code=f"C{secrets.token_hex(3).upper()}", name=f"Country {secrets.token_hex(3)}",
             created_by="test", modified_by="test",
         )
         db_session.add(country)
         await db_session.flush()
         db_session.add(
             LegislationModel(
-                id=uuid4(), code="IN-ACT", name="An Act",
+                code="IN-ACT", name="An Act",
                 category_of_law_id=category.id, country_id=country.id,
                 created_by="test", modified_by="test",
             )

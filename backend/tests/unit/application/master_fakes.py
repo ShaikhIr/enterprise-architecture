@@ -15,10 +15,14 @@ reasoning `workflow_fakes.py` documents for the workflow engine's fakes.
 from cross-repository joins (the real adapters query sibling tables directly);
 tests opt a row into "has dependents" explicitly, which keeps the fake honest
 about what it is deciding versus what a test is asserting.
+
+Ids are database-assigned bigints now, so an entity arrives at `create` with the
+sentinel id 0. Each fake calls `_next_fake_id()` to stamp a distinct id, exactly
+as the real database autoincrement would, so a test that creates several rows
+gets distinct keys instead of colliding at 0.
 """
 
 import copy
-from uuid import UUID
 
 from src.domain.entities.category_of_law import CategoryOfLaw
 from src.domain.entities.country import Country
@@ -33,16 +37,25 @@ from src.domain.repositories.rule_repository import IRuleRepository
 from src.domain.repositories.state_repository import IStateRepository
 from src.domain.repositories.task_type_repository import ITaskTypeRepository
 
+_fake_id_seq = 0
+
+
+def _next_fake_id() -> int:
+    """A distinct non-zero int id, standing in for a DB-assigned bigint."""
+    global _fake_id_seq
+    _fake_id_seq += 1
+    return _fake_id_seq
+
 
 class FakeCountryRepository(ICountryRepository):
     """In-memory stand-in for `ICountryRepository`."""
 
     def __init__(self) -> None:
-        self.rows: dict[UUID, Country] = {}
+        self.rows: dict[int, Country] = {}
         #: Country ids that should report as referenced by a state/legislation/rule.
-        self.dependents: set[UUID] = set()
+        self.dependents: set[int] = set()
 
-    async def get_by_id(self, entity_id: UUID) -> Country | None:
+    async def get_by_id(self, entity_id: int) -> Country | None:
         return copy.deepcopy(self.rows.get(entity_id))
 
     async def get_by_code(self, code: str) -> Country | None:
@@ -52,6 +65,8 @@ class FakeCountryRepository(ICountryRepository):
         return None
 
     async def create(self, entity: Country) -> Country:
+        if entity.id == 0:
+            entity.id = _next_fake_id()
         self.rows[entity.id] = copy.deepcopy(entity)
         return copy.deepcopy(entity)
 
@@ -61,7 +76,7 @@ class FakeCountryRepository(ICountryRepository):
         self.rows[entity.id] = copy.deepcopy(entity)
         return copy.deepcopy(entity)
 
-    async def delete(self, entity_id: UUID) -> None:
+    async def delete(self, entity_id: int) -> None:
         self.rows.pop(entity_id, None)
 
     async def list_all(
@@ -77,16 +92,16 @@ class FakeCountryRepository(ICountryRepository):
     async def count(self, search: str | None = None, is_active: bool | None = None) -> int:
         return len(self._filtered(search, is_active))
 
-    async def exists_by_code(self, code: str, exclude_id: UUID | None = None) -> bool:
+    async def exists_by_code(self, code: str, exclude_id: int | None = None) -> bool:
         return any(r.code == code and r.id != exclude_id for r in self.rows.values())
 
-    async def exists_by_name(self, name: str, exclude_id: UUID | None = None) -> bool:
+    async def exists_by_name(self, name: str, exclude_id: int | None = None) -> bool:
         return any(
             r.name.lower() == name.lower() and r.id != exclude_id
             for r in self.rows.values()
         )
 
-    async def has_dependents(self, country_id: UUID) -> bool:
+    async def has_dependents(self, country_id: int) -> bool:
         return country_id in self.dependents
 
     def _filtered(self, search: str | None, is_active: bool | None) -> list[Country]:
@@ -103,10 +118,10 @@ class FakeStateRepository(IStateRepository):
     """In-memory stand-in for `IStateRepository`."""
 
     def __init__(self) -> None:
-        self.rows: dict[UUID, State] = {}
-        self.dependents: set[UUID] = set()
+        self.rows: dict[int, State] = {}
+        self.dependents: set[int] = set()
 
-    async def get_by_id(self, entity_id: UUID) -> State | None:
+    async def get_by_id(self, entity_id: int) -> State | None:
         return copy.deepcopy(self.rows.get(entity_id))
 
     async def get_by_code(self, code: str) -> State | None:
@@ -116,6 +131,8 @@ class FakeStateRepository(IStateRepository):
         return None
 
     async def create(self, entity: State) -> State:
+        if entity.id == 0:
+            entity.id = _next_fake_id()
         self.rows[entity.id] = copy.deepcopy(entity)
         return copy.deepcopy(entity)
 
@@ -125,7 +142,7 @@ class FakeStateRepository(IStateRepository):
         self.rows[entity.id] = copy.deepcopy(entity)
         return copy.deepcopy(entity)
 
-    async def delete(self, entity_id: UUID) -> None:
+    async def delete(self, entity_id: int) -> None:
         self.rows.pop(entity_id, None)
 
     async def list_all(
@@ -134,7 +151,7 @@ class FakeStateRepository(IStateRepository):
         limit: int = 100,
         search: str | None = None,
         is_active: bool | None = None,
-        country_id: UUID | None = None,
+        country_id: int | None = None,
     ) -> list[State]:
         rows = self._filtered(search, is_active, country_id)
         return [copy.deepcopy(r) for r in rows[skip : skip + limit]]
@@ -143,26 +160,26 @@ class FakeStateRepository(IStateRepository):
         self,
         search: str | None = None,
         is_active: bool | None = None,
-        country_id: UUID | None = None,
+        country_id: int | None = None,
     ) -> int:
         return len(self._filtered(search, is_active, country_id))
 
-    async def exists_by_code(self, code: str, exclude_id: UUID | None = None) -> bool:
+    async def exists_by_code(self, code: str, exclude_id: int | None = None) -> bool:
         return any(r.code == code and r.id != exclude_id for r in self.rows.values())
 
     async def exists_by_name(
-        self, name: str, country_id: UUID, exclude_id: UUID | None = None
+        self, name: str, country_id: int, exclude_id: int | None = None
     ) -> bool:
         return any(
             r.name.lower() == name.lower() and r.country_id == country_id and r.id != exclude_id
             for r in self.rows.values()
         )
 
-    async def has_dependents(self, state_id: UUID) -> bool:
+    async def has_dependents(self, state_id: int) -> bool:
         return state_id in self.dependents
 
     def _filtered(
-        self, search: str | None, is_active: bool | None, country_id: UUID | None
+        self, search: str | None, is_active: bool | None, country_id: int | None
     ) -> list[State]:
         rows = sorted(self.rows.values(), key=lambda r: r.name)
         if search:
@@ -179,10 +196,10 @@ class FakeCategoryOfLawRepository(ICategoryOfLawRepository):
     """In-memory stand-in for `ICategoryOfLawRepository`."""
 
     def __init__(self) -> None:
-        self.rows: dict[UUID, CategoryOfLaw] = {}
-        self.dependents: set[UUID] = set()
+        self.rows: dict[int, CategoryOfLaw] = {}
+        self.dependents: set[int] = set()
 
-    async def get_by_id(self, entity_id: UUID) -> CategoryOfLaw | None:
+    async def get_by_id(self, entity_id: int) -> CategoryOfLaw | None:
         return copy.deepcopy(self.rows.get(entity_id))
 
     async def get_by_code(self, code: str) -> CategoryOfLaw | None:
@@ -192,6 +209,8 @@ class FakeCategoryOfLawRepository(ICategoryOfLawRepository):
         return None
 
     async def create(self, entity: CategoryOfLaw) -> CategoryOfLaw:
+        if entity.id == 0:
+            entity.id = _next_fake_id()
         self.rows[entity.id] = copy.deepcopy(entity)
         return copy.deepcopy(entity)
 
@@ -201,7 +220,7 @@ class FakeCategoryOfLawRepository(ICategoryOfLawRepository):
         self.rows[entity.id] = copy.deepcopy(entity)
         return copy.deepcopy(entity)
 
-    async def delete(self, entity_id: UUID) -> None:
+    async def delete(self, entity_id: int) -> None:
         self.rows.pop(entity_id, None)
 
     async def list_all(
@@ -210,7 +229,7 @@ class FakeCategoryOfLawRepository(ICategoryOfLawRepository):
         limit: int = 100,
         search: str | None = None,
         is_active: bool | None = None,
-        state_id: UUID | None = None,
+        state_id: int | None = None,
     ) -> list[CategoryOfLaw]:
         rows = self._filtered(search, is_active, state_id)
         return [copy.deepcopy(r) for r in rows[skip : skip + limit]]
@@ -219,26 +238,26 @@ class FakeCategoryOfLawRepository(ICategoryOfLawRepository):
         self,
         search: str | None = None,
         is_active: bool | None = None,
-        state_id: UUID | None = None,
+        state_id: int | None = None,
     ) -> int:
         return len(self._filtered(search, is_active, state_id))
 
-    async def exists_by_code(self, code: str, exclude_id: UUID | None = None) -> bool:
+    async def exists_by_code(self, code: str, exclude_id: int | None = None) -> bool:
         return any(r.code == code and r.id != exclude_id for r in self.rows.values())
 
     async def exists_by_name(
-        self, name: str, state_id: UUID | None, exclude_id: UUID | None = None
+        self, name: str, state_id: int | None, exclude_id: int | None = None
     ) -> bool:
         return any(
             r.name.lower() == name.lower() and r.state_id == state_id and r.id != exclude_id
             for r in self.rows.values()
         )
 
-    async def has_dependents(self, category_of_law_id: UUID) -> bool:
+    async def has_dependents(self, category_of_law_id: int) -> bool:
         return category_of_law_id in self.dependents
 
     def _filtered(
-        self, search: str | None, is_active: bool | None, state_id: UUID | None
+        self, search: str | None, is_active: bool | None, state_id: int | None
     ) -> list[CategoryOfLaw]:
         rows = sorted(self.rows.values(), key=lambda r: r.name)
         if search:
@@ -255,10 +274,10 @@ class FakeLegislationRepository(ILegislationRepository):
     """In-memory stand-in for `ILegislationRepository`."""
 
     def __init__(self) -> None:
-        self.rows: dict[UUID, Legislation] = {}
-        self.dependents: set[UUID] = set()
+        self.rows: dict[int, Legislation] = {}
+        self.dependents: set[int] = set()
 
-    async def get_by_id(self, entity_id: UUID) -> Legislation | None:
+    async def get_by_id(self, entity_id: int) -> Legislation | None:
         return copy.deepcopy(self.rows.get(entity_id))
 
     async def get_by_code(self, code: str) -> Legislation | None:
@@ -268,6 +287,8 @@ class FakeLegislationRepository(ILegislationRepository):
         return None
 
     async def create(self, entity: Legislation) -> Legislation:
+        if entity.id == 0:
+            entity.id = _next_fake_id()
         self.rows[entity.id] = copy.deepcopy(entity)
         return copy.deepcopy(entity)
 
@@ -277,7 +298,7 @@ class FakeLegislationRepository(ILegislationRepository):
         self.rows[entity.id] = copy.deepcopy(entity)
         return copy.deepcopy(entity)
 
-    async def delete(self, entity_id: UUID) -> None:
+    async def delete(self, entity_id: int) -> None:
         self.rows.pop(entity_id, None)
 
     async def list_all(
@@ -286,9 +307,9 @@ class FakeLegislationRepository(ILegislationRepository):
         limit: int = 100,
         search: str | None = None,
         is_active: bool | None = None,
-        country_id: UUID | None = None,
-        state_id: UUID | None = None,
-        category_of_law_id: UUID | None = None,
+        country_id: int | None = None,
+        state_id: int | None = None,
+        category_of_law_id: int | None = None,
     ) -> list[Legislation]:
         rows = self._filtered(search, is_active, country_id, state_id, category_of_law_id)
         return [copy.deepcopy(r) for r in rows[skip : skip + limit]]
@@ -297,25 +318,25 @@ class FakeLegislationRepository(ILegislationRepository):
         self,
         search: str | None = None,
         is_active: bool | None = None,
-        country_id: UUID | None = None,
-        state_id: UUID | None = None,
-        category_of_law_id: UUID | None = None,
+        country_id: int | None = None,
+        state_id: int | None = None,
+        category_of_law_id: int | None = None,
     ) -> int:
         return len(self._filtered(search, is_active, country_id, state_id, category_of_law_id))
 
-    async def exists_by_code(self, code: str, exclude_id: UUID | None = None) -> bool:
+    async def exists_by_code(self, code: str, exclude_id: int | None = None) -> bool:
         return any(r.code == code and r.id != exclude_id for r in self.rows.values())
 
-    async def has_dependents(self, legislation_id: UUID) -> bool:
+    async def has_dependents(self, legislation_id: int) -> bool:
         return legislation_id in self.dependents
 
     def _filtered(
         self,
         search: str | None,
         is_active: bool | None,
-        country_id: UUID | None,
-        state_id: UUID | None,
-        category_of_law_id: UUID | None,
+        country_id: int | None,
+        state_id: int | None,
+        category_of_law_id: int | None,
     ) -> list[Legislation]:
         rows = sorted(self.rows.values(), key=lambda r: r.name)
         if search:
@@ -336,9 +357,9 @@ class FakeRuleRepository(IRuleRepository):
     """In-memory stand-in for `IRuleRepository`."""
 
     def __init__(self) -> None:
-        self.rows: dict[UUID, Rule] = {}
+        self.rows: dict[int, Rule] = {}
 
-    async def get_by_id(self, entity_id: UUID) -> Rule | None:
+    async def get_by_id(self, entity_id: int) -> Rule | None:
         return copy.deepcopy(self.rows.get(entity_id))
 
     async def get_by_code(self, code: str) -> Rule | None:
@@ -348,6 +369,8 @@ class FakeRuleRepository(IRuleRepository):
         return None
 
     async def create(self, entity: Rule) -> Rule:
+        if entity.id == 0:
+            entity.id = _next_fake_id()
         self.rows[entity.id] = copy.deepcopy(entity)
         return copy.deepcopy(entity)
 
@@ -357,7 +380,7 @@ class FakeRuleRepository(IRuleRepository):
         self.rows[entity.id] = copy.deepcopy(entity)
         return copy.deepcopy(entity)
 
-    async def delete(self, entity_id: UUID) -> None:
+    async def delete(self, entity_id: int) -> None:
         self.rows.pop(entity_id, None)
 
     async def list_all(
@@ -366,9 +389,9 @@ class FakeRuleRepository(IRuleRepository):
         limit: int = 100,
         search: str | None = None,
         is_active: bool | None = None,
-        country_id: UUID | None = None,
-        state_id: UUID | None = None,
-        legislation_id: UUID | None = None,
+        country_id: int | None = None,
+        state_id: int | None = None,
+        legislation_id: int | None = None,
     ) -> list[Rule]:
         rows = self._filtered(search, is_active, country_id, state_id, legislation_id)
         return [copy.deepcopy(r) for r in rows[skip : skip + limit]]
@@ -377,22 +400,22 @@ class FakeRuleRepository(IRuleRepository):
         self,
         search: str | None = None,
         is_active: bool | None = None,
-        country_id: UUID | None = None,
-        state_id: UUID | None = None,
-        legislation_id: UUID | None = None,
+        country_id: int | None = None,
+        state_id: int | None = None,
+        legislation_id: int | None = None,
     ) -> int:
         return len(self._filtered(search, is_active, country_id, state_id, legislation_id))
 
-    async def exists_by_code(self, code: str, exclude_id: UUID | None = None) -> bool:
+    async def exists_by_code(self, code: str, exclude_id: int | None = None) -> bool:
         return any(r.code == code and r.id != exclude_id for r in self.rows.values())
 
     def _filtered(
         self,
         search: str | None,
         is_active: bool | None,
-        country_id: UUID | None,
-        state_id: UUID | None,
-        legislation_id: UUID | None,
+        country_id: int | None,
+        state_id: int | None,
+        legislation_id: int | None,
     ) -> list[Rule]:
         rows = sorted(self.rows.values(), key=lambda r: r.name)
         if search:
@@ -413,9 +436,9 @@ class FakeTaskTypeRepository(ITaskTypeRepository):
     """In-memory stand-in for `ITaskTypeRepository`."""
 
     def __init__(self) -> None:
-        self.rows: dict[UUID, TaskType] = {}
+        self.rows: dict[int, TaskType] = {}
 
-    async def get_by_id(self, entity_id: UUID) -> TaskType | None:
+    async def get_by_id(self, entity_id: int) -> TaskType | None:
         return copy.deepcopy(self.rows.get(entity_id))
 
     async def get_by_code(self, code: str) -> TaskType | None:
@@ -425,6 +448,8 @@ class FakeTaskTypeRepository(ITaskTypeRepository):
         return None
 
     async def create(self, entity: TaskType) -> TaskType:
+        if entity.id == 0:
+            entity.id = _next_fake_id()
         self.rows[entity.id] = copy.deepcopy(entity)
         return copy.deepcopy(entity)
 
@@ -434,7 +459,7 @@ class FakeTaskTypeRepository(ITaskTypeRepository):
         self.rows[entity.id] = copy.deepcopy(entity)
         return copy.deepcopy(entity)
 
-    async def delete(self, entity_id: UUID) -> None:
+    async def delete(self, entity_id: int) -> None:
         self.rows.pop(entity_id, None)
 
     async def list_all(
@@ -450,10 +475,10 @@ class FakeTaskTypeRepository(ITaskTypeRepository):
     async def count(self, search: str | None = None, is_active: bool | None = None) -> int:
         return len(self._filtered(search, is_active))
 
-    async def exists_by_code(self, code: str, exclude_id: UUID | None = None) -> bool:
+    async def exists_by_code(self, code: str, exclude_id: int | None = None) -> bool:
         return any(r.code == code and r.id != exclude_id for r in self.rows.values())
 
-    async def exists_by_name(self, name: str, exclude_id: UUID | None = None) -> bool:
+    async def exists_by_name(self, name: str, exclude_id: int | None = None) -> bool:
         return any(
             r.name.lower() == name.lower() and r.id != exclude_id
             for r in self.rows.values()

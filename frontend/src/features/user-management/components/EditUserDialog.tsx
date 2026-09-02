@@ -21,7 +21,7 @@ const editUserSchema = z.object({
   is_active: z.boolean(),
   is_blocked: z.boolean(),
   is_validate_ad: z.boolean(),
-  role_id: z.string().nullable(),
+  role_id: z.number().int().positive().nullable(),
 });
 
 type EditUserFormData = z.infer<typeof editUserSchema>;
@@ -30,7 +30,7 @@ interface EditUserDialogProps {
   visible: boolean;
   user: User | null;
   onHide: () => void;
-  onSubmit: (userId: string, data: UpdateUserRequest) => void;
+  onSubmit: (userId: number, data: UpdateUserRequest) => void;
   loading?: boolean;
 }
 

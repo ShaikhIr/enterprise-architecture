@@ -5,14 +5,14 @@
  * parents, because pointing a new rule at a retired legislation is never
  * intended. But existing rows keep whatever parent they were given, so resolving
  * a stored id needs the *unfiltered* list — otherwise a record whose parent was
- * later deactivated would render as a bare UUID.
+ * later deactivated would render as a bare id.
  */
 
 import type { LabelledMaster } from '../models/common';
 
 export interface SelectOption {
   label: string;
-  value: string;
+  value: number;
 }
 
 export interface MasterLookup {
@@ -20,7 +20,7 @@ export interface MasterLookup {
   options: SelectOption[];
   loading: boolean;
   /** Resolve any stored id to a label, active or not. */
-  labelFor: (id: string | null | undefined) => string;
+  labelFor: (id: number | null | undefined) => string;
 }
 
 /** How many parents a picker loads. Masters are reference data, not transactional. */

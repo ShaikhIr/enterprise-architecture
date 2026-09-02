@@ -3,7 +3,6 @@ Category of Law Application Service.
 Orchestrates category master CRUD and validates the optional state reference.
 """
 
-from uuid import UUID, uuid4
 
 from src.api.v1.schemas.category_of_law_schema import (
     CategoryOfLawCreate,
@@ -50,7 +49,7 @@ class CategoryOfLawService:
         limit: int = 100,
         search: str | None = None,
         is_active: bool | None = None,
-        state_id: UUID | None = None,
+        state_id: int | None = None,
     ) -> CategoryOfLawListResponse:
         """Get a paginated page of categories, optionally filtered by state."""
         categories = await self._repo.list_all(
@@ -72,7 +71,7 @@ class CategoryOfLawService:
 
     # ─── Get ───
 
-    async def get_category(self, category_id: UUID) -> CategoryOfLawResponse:
+    async def get_category(self, category_id: int) -> CategoryOfLawResponse:
         """Get a single category. Raises EntityNotFoundError if missing."""
         return self._to_response(await self._require(category_id))
 
@@ -91,7 +90,6 @@ class CategoryOfLawService:
             raise DuplicateEntityError(ENTITY, "name", request.name)
 
         category = CategoryOfLaw(
-            id=uuid4(),
             code=request.code,
             name=request.name,
             description=request.description,
@@ -106,7 +104,7 @@ class CategoryOfLawService:
     # ─── Update ───
 
     async def update_category(
-        self, category_id: UUID, request: CategoryOfLawUpdate, actor: User
+        self, category_id: int, request: CategoryOfLawUpdate, actor: User
     ) -> CategoryOfLawResponse:
         """Apply a partial update to a category of law."""
         category = await self._require(category_id)
@@ -139,7 +137,7 @@ class CategoryOfLawService:
 
     # ─── Delete ───
 
-    async def delete_category(self, category_id: UUID) -> None:
+    async def delete_category(self, category_id: int) -> None:
         """Delete a category, refusing while legislations reference it."""
         await self._require(category_id)
         if await self._repo.has_dependents(category_id):
@@ -151,13 +149,13 @@ class CategoryOfLawService:
 
     # ─── Internals ───
 
-    async def _require(self, category_id: UUID) -> CategoryOfLaw:
+    async def _require(self, category_id: int) -> CategoryOfLaw:
         category = await self._repo.get_by_id(category_id)
         if category is None:
             raise EntityNotFoundError(ENTITY, category_id)
         return category
 
-    async def _require_state(self, state_id: UUID) -> None:
+    async def _require_state(self, state_id: int) -> None:
         if await self._state_repo.get_by_id(state_id) is None:
             raise EntityNotFoundError("State", state_id)
 

@@ -48,13 +48,13 @@ describe('authSlice initial state hydration', () => {
   it('hydrates the user and skips the bootstrap splash when a session snapshot is cached', async () => {
     sessionStorage.setItem(
       'session_snapshot_v1',
-      JSON.stringify({ user: { id: '1', username: 'alice', is_active: true } }),
+      JSON.stringify({ user: { id: 1, username: 'alice', is_active: true } }),
     );
 
     const { default: authReducer } = await import('@features/authentication/store/authSlice');
     const state = authReducer(undefined, { type: '@@INIT' });
 
-    expect(state.user).toEqual({ id: '1', username: 'alice', is_active: true });
+    expect(state.user).toEqual({ id: 1, username: 'alice', is_active: true });
     expect(state.isAuthenticated).toBe(true);
     expect(state.isBootstrapping).toBe(false);
   });

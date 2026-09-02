@@ -27,7 +27,7 @@ describe('useTaskTypes (independent master, no dependent keys)', () => {
         HttpResponse.json({
           task_types: [
             {
-              id: '1',
+              id: 1,
               code: 'RETURN_FILING',
               name: 'Return Filing',
               description: '',
@@ -56,7 +56,7 @@ describe('useTaskTypes (independent master, no dependent keys)', () => {
     server.use(
       http.post('/api/v1/masters/task-types', () =>
         HttpResponse.json({
-          id: '1',
+          id: 1,
           code: 'AUDIT',
           name: 'Audit',
           description: '',

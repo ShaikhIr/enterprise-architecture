@@ -10,8 +10,6 @@ free-text `action_code` — a workflow can call its move SIGN_OFF and still rout
 correctly, and that is asserted directly.
 """
 
-from uuid import UUID, uuid4
-
 import pytest
 from workflow_fakes import WorkflowScenario, build_matrix
 
@@ -37,7 +35,7 @@ async def apply(
     scenario: WorkflowScenario,
     instance: WorkflowInstance,
     action_type: WorkflowActionType,
-    actor_id: UUID,
+    actor_id: int,
     *,
     comments: str = "",
     terminal: bool = False,
@@ -165,7 +163,7 @@ class TestOpeningTheChain:
     ) -> None:
         # A role with no active holders would otherwise leave the record waiting on
         # an approval nobody can give.
-        empty_role_id = uuid4()
+        empty_role_id = 999_999
         matrix = build_matrix(
             code="TASK_EMPTY_ROLE",
             levels=[(1, AssignmentType.ROLE, empty_role_id)],
@@ -304,7 +302,7 @@ class TestAdvancingTheChain:
 
         # An unrelated user acting settles nothing, so level 1 stays open.
         created = await apply(
-            coordinator, scenario, instance, WorkflowActionType.APPROVE, uuid4()
+            coordinator, scenario, instance, WorkflowActionType.APPROVE, 999_999
         )
 
         assert created == []

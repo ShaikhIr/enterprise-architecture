@@ -4,7 +4,6 @@ Unit tests for JWT token creation, validation, and expiration.
 
 from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
-from uuid import uuid4
 
 import pytest
 
@@ -18,7 +17,7 @@ class TestJWTProvider:
     def setup_method(self) -> None:
         self.jwt = JWTProvider()
         self.username = "testuser"
-        self.user_id = uuid4()
+        self.user_id = 1
 
     def test_create_access_token(self) -> None:
         """Access token should be a non-empty string."""

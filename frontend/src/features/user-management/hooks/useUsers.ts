@@ -31,7 +31,7 @@ export const useAllUsers = () =>
     staleTime: 30_000,
   });
 
-export const useUser = (userId: string) => {
+export const useUser = (userId: number) => {
   return useQuery({
     queryKey: ['user', userId],
     queryFn: () => userApi.getUserById(userId),
@@ -55,7 +55,7 @@ export const useUpdateUser = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ userId, request }: { userId: string; request: UpdateUserRequest }) =>
+    mutationFn: ({ userId, request }: { userId: number; request: UpdateUserRequest }) =>
       userApi.updateUser(userId, request),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: USERS_QUERY_KEY });

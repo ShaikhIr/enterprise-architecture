@@ -9,7 +9,6 @@ This is idempotent - re-running will skip existing permissions.
 import asyncio
 import sys
 from pathlib import Path
-from uuid import uuid4
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -215,7 +214,8 @@ async def seed() -> None:
     async with UnitOfWork() as uow:
         session = uow.session
         # 1. Create permissions (skip existing)
-        perm_map: dict[str, str] = {}  # code -> id
+        perm_map: dict[str, int] = {}  # code -> id
+        new_perms: list[PermissionModel] = []
 
         for perm_def in DEFAULT_PERMISSIONS:
             existing = await session.execute(
@@ -224,11 +224,10 @@ async def seed() -> None:
             perm = existing.scalar_one_or_none()
 
             if perm:
-                perm_map[perm.code] = str(perm.id)
+                perm_map[perm.code] = perm.id
                 print(f"  [skip] Permission '{perm_def['code']}' already exists")
             else:
                 new_perm = PermissionModel(
-                    id=uuid4(),
                     code=perm_def["code"],
                     name=perm_def["name"],
                     description="",
@@ -240,10 +239,13 @@ async def seed() -> None:
                     modified_by="seed_script",
                 )
                 session.add(new_perm)
-                perm_map[perm_def["code"]] = str(new_perm.id)
+                new_perms.append(new_perm)
                 print(f"  [new]  Permission '{perm_def['code']}' created")
 
+        # Flush so the DB assigns each new permission's bigint id, then record it.
         await session.flush()
+        for new_perm in new_perms:
+            perm_map[new_perm.code] = new_perm.id
 
         # 2. Assign permissions to roles
         for role_code, perm_codes in ROLE_PERMISSIONS.items():
@@ -262,7 +264,7 @@ async def seed() -> None:
 
                 existing_rp = await session.execute(
                     select(RolePermissionModel).where(
-                        RolePermissionModel.role_id == str(role.id),
+                        RolePermissionModel.role_id == role.id,
                         RolePermissionModel.permission_id == perm_id,
                     )
                 )
@@ -270,8 +272,7 @@ async def seed() -> None:
                     continue
 
                 rp = RolePermissionModel(
-                    id=uuid4(),
-                    role_id=str(role.id),
+                    role_id=role.id,
                     permission_id=perm_id,
                     created_by="seed_script",
                     modified_by="seed_script",
@@ -303,7 +304,7 @@ async def seed() -> None:
                 # Check if user already has any role assignment
                 existing_assignment = await session.execute(
                     select(RoleAssignmentModel).where(
-                        RoleAssignmentModel.user_id == str(user.id),
+                        RoleAssignmentModel.user_id == user.id,
                     )
                 )
                 if existing_assignment.scalar_one_or_none():
@@ -312,9 +313,8 @@ async def seed() -> None:
 
                 # Assign ADMIN role as default for existing users
                 assignment = RoleAssignmentModel(
-                    id=uuid4(),
-                    user_id=str(user.id),
-                    role_id=str(admin_role.id),
+                    user_id=user.id,
+                    role_id=admin_role.id,
                     tenant_id=None,
                     is_active=True,
                     created_by="seed_script",

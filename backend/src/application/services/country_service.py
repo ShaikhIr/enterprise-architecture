@@ -4,7 +4,6 @@ Orchestrates country master CRUD. Controllers delegate here; this layer
 calls the repository and enforces master data business rules.
 """
 
-from uuid import UUID, uuid4
 
 from src.api.v1.schemas.country_schema import (
     CountryCreate,
@@ -60,7 +59,7 @@ class CountryService:
 
     # ─── Get ───
 
-    async def get_country(self, country_id: UUID) -> CountryResponse:
+    async def get_country(self, country_id: int) -> CountryResponse:
         """Get a single country. Raises EntityNotFoundError if missing."""
         return self._to_response(await self._require(country_id))
 
@@ -76,7 +75,6 @@ class CountryService:
             raise DuplicateEntityError(ENTITY, "name", request.name)
 
         country = Country(
-            id=uuid4(),
             code=request.code,
             name=request.name,
             iso3_code=request.iso3_code,
@@ -92,7 +90,7 @@ class CountryService:
     # ─── Update ───
 
     async def update_country(
-        self, country_id: UUID, request: CountryUpdate, actor: User
+        self, country_id: int, request: CountryUpdate, actor: User
     ) -> CountryResponse:
         """Apply a partial update to a country."""
         country = await self._require(country_id)
@@ -121,7 +119,7 @@ class CountryService:
 
     # ─── Delete ───
 
-    async def delete_country(self, country_id: UUID) -> None:
+    async def delete_country(self, country_id: int) -> None:
         """Delete a country, refusing while states/legislations/rules reference it."""
         await self._require(country_id)
         if await self._repo.has_dependents(country_id):
@@ -133,7 +131,7 @@ class CountryService:
 
     # ─── Internals ───
 
-    async def _require(self, country_id: UUID) -> Country:
+    async def _require(self, country_id: int) -> Country:
         country = await self._repo.get_by_id(country_id)
         if country is None:
             raise EntityNotFoundError(ENTITY, country_id)

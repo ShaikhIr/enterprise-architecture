@@ -15,7 +15,6 @@ same batch fails too.
 
 import logging
 from typing import Any
-from uuid import uuid4
 
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -94,7 +93,6 @@ class EmployeeImportWriterImpl(IEmployeeImportWriter):
         if user is None:
             user = await self._users.create(
                 User(
-                    id=uuid4(),
                     username=employee_id,
                     password_hash=new_user_password_hash,
                     is_active=True,
@@ -106,7 +104,8 @@ class EmployeeImportWriterImpl(IEmployeeImportWriter):
 
         existing_details = await self._details.get_by_user_id(user.id)
         details = UserDetails(
-            id=existing_details.id if existing_details else uuid4(),
+            # Reuse the existing row's id on update; 0 lets the DB assign one on insert.
+            id=existing_details.id if existing_details else 0,
             user_id=user.id,
             created_by=existing_details.created_by if existing_details else actor,
             modified_by=actor,

@@ -40,7 +40,8 @@ import type {
 } from '../models/Workflow';
 
 export const WorkflowBuilderPage = () => {
-  const { definitionId } = useParams<{ definitionId: string }>();
+  const { definitionId: definitionIdParam } = useParams<{ definitionId: string }>();
+  const definitionId = definitionIdParam ? Number(definitionIdParam) : undefined;
   const navigate = useNavigate();
   const toast = useRef<Toast>(null);
 

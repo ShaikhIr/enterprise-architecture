@@ -28,24 +28,24 @@ describe('useRules (leaf master, no dependent keys)', () => {
     );
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
-    const { result } = renderHook(() => useRules({ legislation_id: 'leg-1' }), {
+    const { result } = renderHook(() => useRules({ legislation_id: 801 }), {
       wrapper: wrapperWith(queryClient),
     });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(captured?.searchParams.get('legislation_id')).toBe('leg-1');
+    expect(captured?.searchParams.get('legislation_id')).toBe('801');
   });
 
   it('invalidates only its own cache after a create (no dependent keys)', async () => {
     server.use(
       http.post('/api/v1/masters/rules', () =>
         HttpResponse.json({
-          id: '1',
+          id: 1,
           code: 'R1',
           name: 'Rule One',
           description: '',
-          legislation_id: 'leg-1',
-          country_id: 'country-1',
+          legislation_id: 801,
+          country_id: 501,
           state_id: null,
           rule_number: null,
           effective_date: null,
@@ -65,8 +65,8 @@ describe('useRules (leaf master, no dependent keys)', () => {
       code: 'R1',
       name: 'Rule One',
       description: '',
-      legislation_id: 'leg-1',
-      country_id: 'country-1',
+      legislation_id: 801,
+      country_id: 501,
       state_id: null,
       rule_number: null,
       effective_date: null,

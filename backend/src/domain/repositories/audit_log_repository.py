@@ -5,7 +5,6 @@ Audit entries are append-only: they are never updated or deleted.
 
 from abc import ABC, abstractmethod
 from datetime import datetime
-from uuid import UUID
 
 from src.domain.entities.audit_log import AuditLog
 
@@ -23,7 +22,7 @@ class IAuditLogRepository(ABC):
         self,
         *,
         action: str | None = None,
-        actor_id: UUID | None = None,
+        actor_id: int | None = None,
         actor_username: str | None = None,
         resource_type: str | None = None,
         skip: int = 0,
@@ -37,7 +36,7 @@ class IAuditLogRepository(ABC):
         self,
         *,
         action: str | None = None,
-        actor_id: UUID | None = None,
+        actor_id: int | None = None,
         actor_username: str | None = None,
         resource_type: str | None = None,
     ) -> int:
@@ -46,8 +45,8 @@ class IAuditLogRepository(ABC):
 
     @abstractmethod
     async def latest_timestamp_by_actor(
-        self, action: str, actor_ids: list[UUID]
-    ) -> dict[UUID, datetime]:
+        self, action: str, actor_ids: list[int]
+    ) -> dict[int, datetime]:
         """
         Most recent occurrence of `action` per actor.
 

@@ -11,11 +11,11 @@ The JSONB column is named `extra_data`, not `metadata`: `metadata` is reserved o
 SQLAlchemy declarative classes.
 """
 
-import uuid
 from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     DateTime,
     ForeignKey,
@@ -25,7 +25,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.infrastructure.database.models.base_model import Base, BaseModel
@@ -58,8 +58,8 @@ class WorkflowStatusModel(BaseModel):
         ),
     )
 
-    workflow_definition_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+    workflow_definition_id: Mapped[int] = mapped_column(
+        BigInteger,
         ForeignKey("workflow_definitions.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
@@ -84,20 +84,20 @@ class WorkflowTransitionModel(BaseModel):
         ),
     )
 
-    workflow_definition_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+    workflow_definition_id: Mapped[int] = mapped_column(
+        BigInteger,
         ForeignKey("workflow_definitions.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
-    from_status_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+    from_status_id: Mapped[int] = mapped_column(
+        BigInteger,
         ForeignKey("workflow_statuses.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
-    to_status_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+    to_status_id: Mapped[int] = mapped_column(
+        BigInteger,
         ForeignKey("workflow_statuses.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
@@ -132,24 +132,24 @@ class WorkflowInstanceModel(BaseModel):
         Index("ix_workflow_instances_entity", "entity_type", "entity_id"),
     )
 
-    workflow_definition_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+    workflow_definition_id: Mapped[int] = mapped_column(
+        BigInteger,
         ForeignKey("workflow_definitions.id", ondelete="RESTRICT"),
         nullable=False,
         index=True,
     )
     entity_type: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
-    entity_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), nullable=False, index=True
+    entity_id: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, index=True
     )
-    current_status_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+    current_status_id: Mapped[int] = mapped_column(
+        BigInteger,
         ForeignKey("workflow_statuses.id", ondelete="RESTRICT"),
         nullable=False,
         index=True,
     )
-    initiated_by: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+    initiated_by: Mapped[int] = mapped_column(
+        BigInteger,
         ForeignKey("users.id", ondelete="RESTRICT"),
         nullable=False,
         index=True,
@@ -184,21 +184,21 @@ class WorkflowHistoryModel(Base):
 
     __tablename__ = "workflow_history"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, nullable=False
+    id: Mapped[int] = mapped_column(
+        BigInteger, primary_key=True, autoincrement=True, nullable=False
     )
-    instance_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+    instance_id: Mapped[int] = mapped_column(
+        BigInteger,
         ForeignKey("workflow_instances.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
-    from_status_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), nullable=True
+    from_status_id: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True
     )
-    to_status_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    to_status_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     action_code: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
-    actor_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    actor_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     actor_username: Mapped[str] = mapped_column(
         String(255), default="", nullable=False
     )

@@ -4,7 +4,6 @@ Thin controller — delegates all business logic to UserService.
 """
 
 from typing import Any
-from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
@@ -91,7 +90,7 @@ async def create_user(
     summary="Get user by ID",
 )
 async def get_user(
-    user_id: UUID,
+    user_id: int,
     current_user: User = Depends(get_current_active_user),
     service: UserService = Depends(_get_user_service),
 ) -> UserResponse:
@@ -110,7 +109,7 @@ async def get_user(
     dependencies=[Depends(require_api_permission("users", "UPDATE"))],
 )
 async def update_user(
-    user_id: UUID,
+    user_id: int,
     request: UpdateUserRequest,
     current_user: User = Depends(get_current_active_user),
     service: UserService = Depends(_get_user_service),
@@ -128,7 +127,7 @@ async def update_user(
     summary="Get full user details (all employee AD fields)",
 )
 async def get_user_details(
-    user_id: UUID,
+    user_id: int,
     current_user: User = Depends(get_current_active_user),
     service: UserService = Depends(_get_user_service),
 ) -> UserDetailResponse:
@@ -144,7 +143,7 @@ async def get_user_details(
     summary="Get roles assigned to a user",
 )
 async def get_user_roles(
-    user_id: UUID,
+    user_id: int,
     current_user: User = Depends(get_current_active_user),
     service: UserService = Depends(_get_user_service),
 ) -> dict[str, Any]:
@@ -157,7 +156,7 @@ async def get_user_roles(
     summary="Get login/logout history for a user",
 )
 async def get_user_login_history(
-    user_id: UUID,
+    user_id: int,
     limit: int = Query(default=20, ge=1, le=100),
     current_user: User = Depends(get_current_active_user),
     service: UserService = Depends(_get_user_service),

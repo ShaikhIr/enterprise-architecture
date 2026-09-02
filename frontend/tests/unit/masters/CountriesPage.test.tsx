@@ -10,7 +10,7 @@ import { server } from '../../mocks/server';
 import { renderWithProviders, screen, waitFor, within } from '../../test-utils';
 
 const country = {
-  id: '1',
+  id: 1,
   code: 'IN',
   name: 'India',
   iso3_code: 'IND',
@@ -98,7 +98,7 @@ describe('CountriesPage', () => {
         HttpResponse.json({ countries: [], total: 0, skip: 0, limit: 100 }),
       ),
       http.post('/api/v1/masters/countries', () =>
-        HttpResponse.json({ ...country, id: '2', code: 'FR', name: 'France' }),
+        HttpResponse.json({ ...country, id: 2, code: 'FR', name: 'France' }),
       ),
     );
 

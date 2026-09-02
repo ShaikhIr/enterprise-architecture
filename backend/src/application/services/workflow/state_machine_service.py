@@ -11,7 +11,6 @@ unit tested against in-memory fakes.
 
 import logging
 from dataclasses import dataclass
-from uuid import UUID
 
 from src.domain.entities.workflow import (
     WorkflowDefinition,
@@ -75,7 +74,7 @@ class StateMachineService:
 
     # ─── Reads ───
 
-    async def get_state(self, instance_id: UUID) -> InstanceState:
+    async def get_state(self, instance_id: int) -> InstanceState:
         """Resolve an instance to its current status and owning definition."""
         instance = await self._instances.get_by_id(instance_id)
         if instance is None:
@@ -104,7 +103,7 @@ class StateMachineService:
         *,
         instance: WorkflowInstance,
         action_code: str,
-        actor_id: UUID,
+        actor_id: int,
         actor_username: str,
         comments: str = "",
         ip_address: str = "",

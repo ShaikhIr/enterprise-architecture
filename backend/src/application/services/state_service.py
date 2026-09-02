@@ -3,7 +3,6 @@ State Application Service.
 Orchestrates state master CRUD and validates the parent country reference.
 """
 
-from uuid import UUID, uuid4
 
 from src.api.v1.schemas.state_schema import (
     StateCreate,
@@ -48,7 +47,7 @@ class StateService:
         limit: int = 100,
         search: str | None = None,
         is_active: bool | None = None,
-        country_id: UUID | None = None,
+        country_id: int | None = None,
     ) -> StateListResponse:
         """Get a paginated page of states, optionally filtered by country."""
         states = await self._repo.list_all(
@@ -70,7 +69,7 @@ class StateService:
 
     # ─── Get ───
 
-    async def get_state(self, state_id: UUID) -> StateResponse:
+    async def get_state(self, state_id: int) -> StateResponse:
         """Get a single state. Raises EntityNotFoundError if missing."""
         return self._to_response(await self._require(state_id))
 
@@ -86,7 +85,6 @@ class StateService:
             raise DuplicateEntityError(ENTITY, "name", request.name)
 
         state = State(
-            id=uuid4(),
             code=request.code,
             name=request.name,
             country_id=request.country_id,
@@ -101,7 +99,7 @@ class StateService:
     # ─── Update ───
 
     async def update_state(
-        self, state_id: UUID, request: StateUpdate, actor: User
+        self, state_id: int, request: StateUpdate, actor: User
     ) -> StateResponse:
         """Apply a partial update to a state."""
         state = await self._require(state_id)
@@ -141,7 +139,7 @@ class StateService:
 
     # ─── Delete ───
 
-    async def delete_state(self, state_id: UUID) -> None:
+    async def delete_state(self, state_id: int) -> None:
         """Delete a state, refusing while categories/legislations/rules reference it."""
         await self._require(state_id)
         if await self._repo.has_dependents(state_id):
@@ -153,13 +151,13 @@ class StateService:
 
     # ─── Internals ───
 
-    async def _require(self, state_id: UUID) -> State:
+    async def _require(self, state_id: int) -> State:
         state = await self._repo.get_by_id(state_id)
         if state is None:
             raise EntityNotFoundError(ENTITY, state_id)
         return state
 
-    async def _require_country(self, country_id: UUID) -> None:
+    async def _require_country(self, country_id: int) -> None:
         if await self._country_repo.get_by_id(country_id) is None:
             raise EntityNotFoundError("Country", country_id)
 

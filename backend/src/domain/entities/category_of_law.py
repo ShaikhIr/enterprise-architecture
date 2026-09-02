@@ -4,7 +4,6 @@ Classifies legislations, e.g. "Labour Law", "Environmental Law".
 """
 
 from dataclasses import dataclass
-from uuid import UUID
 
 from src.domain.entities.base_entity import BaseEntity
 
@@ -29,7 +28,7 @@ class CategoryOfLaw(BaseEntity):
     code: str
     name: str
     description: str = ""
-    state_id: UUID | None = None
+    state_id: int | None = None
     is_active: bool = True
 
     @property

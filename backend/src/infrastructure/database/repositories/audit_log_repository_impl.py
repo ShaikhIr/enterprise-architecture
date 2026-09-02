@@ -5,7 +5,6 @@ Implements IAuditLogRepository using SQLAlchemy async.
 
 import logging
 from datetime import datetime
-from uuid import UUID
 
 from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -38,7 +37,6 @@ class AuditLogRepositoryImpl(IAuditLogRepository):
         try:
             self._session.add(
                 AuditLogModel(
-                    id=entry.id,
                     actor_id=entry.actor_id,
                     actor_username=entry.actor_username,
                     action=entry.action,
@@ -61,7 +59,7 @@ class AuditLogRepositoryImpl(IAuditLogRepository):
         self,
         *,
         action: str | None = None,
-        actor_id: UUID | None = None,
+        actor_id: int | None = None,
         actor_username: str | None = None,
         resource_type: str | None = None,
         skip: int = 0,
@@ -78,7 +76,7 @@ class AuditLogRepositoryImpl(IAuditLogRepository):
         self,
         *,
         action: str | None = None,
-        actor_id: UUID | None = None,
+        actor_id: int | None = None,
         actor_username: str | None = None,
         resource_type: str | None = None,
     ) -> int:
@@ -93,8 +91,8 @@ class AuditLogRepositoryImpl(IAuditLogRepository):
         return int(result.scalar() or 0)
 
     async def latest_timestamp_by_actor(
-        self, action: str, actor_ids: list[UUID]
-    ) -> dict[UUID, datetime]:
+        self, action: str, actor_ids: list[int]
+    ) -> dict[int, datetime]:
         if not actor_ids:
             return {}
         stmt = (
@@ -117,7 +115,7 @@ class AuditLogRepositoryImpl(IAuditLogRepository):
     def _apply_filters(
         stmt: "Select[tuple[AuditLogModel]] | Select[tuple[int]]",
         action: str | None,
-        actor_id: UUID | None,
+        actor_id: int | None,
         actor_username: str | None,
         resource_type: str | None,
     ) -> "Select[tuple[AuditLogModel]] | Select[tuple[int]]":

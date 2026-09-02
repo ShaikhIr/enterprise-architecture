@@ -5,7 +5,6 @@ that belongs to the Role aggregate.
 """
 
 from abc import ABC, abstractmethod
-from uuid import UUID
 
 from src.domain.entities.role import Role
 
@@ -14,7 +13,7 @@ class IRoleRepository(ABC):
     """Abstract repository for the Role aggregate."""
 
     @abstractmethod
-    async def get_by_id(self, role_id: UUID, *, with_permissions: bool = False) -> Role | None:
+    async def get_by_id(self, role_id: int, *, with_permissions: bool = False) -> Role | None:
         """
         Retrieve a role by identifier.
 
@@ -29,7 +28,7 @@ class IRoleRepository(ABC):
         ...
 
     @abstractmethod
-    async def list_active(self, tenant_id: UUID | None = None) -> list[Role]:
+    async def list_active(self, tenant_id: int | None = None) -> list[Role]:
         """
         List active roles with their permissions, ordered by code.
 
@@ -38,7 +37,7 @@ class IRoleRepository(ABC):
         ...
 
     @abstractmethod
-    async def list_by_ids(self, role_ids: list[UUID]) -> list[Role]:
+    async def list_by_ids(self, role_ids: list[int]) -> list[Role]:
         """Retrieve several roles with their permissions in one query."""
         ...
 
@@ -55,19 +54,19 @@ class IRoleRepository(ABC):
     # ─── Role ↔ Permission links ───
 
     @abstractmethod
-    async def is_permission_granted(self, role_id: UUID, permission_id: UUID) -> bool:
+    async def is_permission_granted(self, role_id: int, permission_id: int) -> bool:
         """Check whether a permission is already granted to a role."""
         ...
 
     @abstractmethod
     async def grant_permission(
-        self, role_id: UUID, permission_id: UUID, granted_by: str
+        self, role_id: int, permission_id: int, granted_by: str
     ) -> None:
         """Link a permission to a role."""
         ...
 
     @abstractmethod
-    async def revoke_permission(self, role_id: UUID, permission_id: UUID) -> bool:
+    async def revoke_permission(self, role_id: int, permission_id: int) -> bool:
         """
         Unlink a permission from a role.
 

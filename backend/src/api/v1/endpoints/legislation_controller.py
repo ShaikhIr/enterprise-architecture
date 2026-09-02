@@ -3,7 +3,6 @@ Legislation master API endpoints.
 Thin controller — delegates all business logic to LegislationService.
 """
 
-from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
 
@@ -61,9 +60,9 @@ async def list_legislations(
         default=None, description="Match code, name or legislation number"
     ),
     is_active: bool | None = Query(default=None),
-    country_id: UUID | None = Query(default=None, description="Filter by country"),
-    state_id: UUID | None = Query(default=None, description="Filter by state"),
-    category_of_law_id: UUID | None = Query(
+    country_id: int | None = Query(default=None, description="Filter by country"),
+    state_id: int | None = Query(default=None, description="Filter by state"),
+    category_of_law_id: int | None = Query(
         default=None, description="Filter by category of law"
     ),
     service: LegislationService = Depends(_get_legislation_service),
@@ -103,7 +102,7 @@ async def create_legislation(
     dependencies=[Depends(require_api_permission(RESOURCE, "READ"))],
 )
 async def get_legislation(
-    legislation_id: UUID,
+    legislation_id: int,
     service: LegislationService = Depends(_get_legislation_service),
 ) -> LegislationResponse:
     """GET /api/v1/masters/legislations/{legislation_id}"""
@@ -117,7 +116,7 @@ async def get_legislation(
     dependencies=[Depends(require_api_permission(RESOURCE, "UPDATE"))],
 )
 async def update_legislation(
-    legislation_id: UUID,
+    legislation_id: int,
     request: LegislationUpdate,
     current_user: User = Depends(get_current_active_user),
     service: LegislationService = Depends(_get_legislation_service),
@@ -135,7 +134,7 @@ async def update_legislation(
     dependencies=[Depends(require_api_permission(RESOURCE, "DELETE"))],
 )
 async def delete_legislation(
-    legislation_id: UUID,
+    legislation_id: int,
     service: LegislationService = Depends(_get_legislation_service),
 ) -> None:
     """DELETE /api/v1/masters/legislations/{legislation_id}"""

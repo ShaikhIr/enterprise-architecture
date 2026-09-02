@@ -36,9 +36,9 @@ export interface ListInstancesParams {
   skip?: number;
   limit?: number;
   entity_type?: string;
-  entity_id?: string;
-  definition_id?: string;
-  status_id?: string;
+  entity_id?: number;
+  definition_id?: number;
+  status_id?: number;
   is_completed?: boolean;
 }
 
@@ -54,7 +54,7 @@ export const workflowApi = {
     return data;
   },
 
-  getDefinition: async (definitionId: string): Promise<WorkflowDefinitionDetail> => {
+  getDefinition: async (definitionId: number): Promise<WorkflowDefinitionDetail> => {
     const { data } = await apiClient.get<WorkflowDefinitionDetail>(
       `/workflow/definitions/${definitionId}`,
     );
@@ -69,7 +69,7 @@ export const workflowApi = {
   },
 
   updateDefinition: async (
-    definitionId: string,
+    definitionId: number,
     request: UpdateWorkflowDefinitionRequest,
   ): Promise<WorkflowDefinition> => {
     const { data } = await apiClient.patch<WorkflowDefinition>(
@@ -79,13 +79,13 @@ export const workflowApi = {
     return data;
   },
 
-  deleteDefinition: async (definitionId: string): Promise<void> => {
+  deleteDefinition: async (definitionId: number): Promise<void> => {
     await apiClient.delete(`/workflow/definitions/${definitionId}`);
   },
 
   // ─── States ───
 
-  listStatuses: async (definitionId: string): Promise<WorkflowStatus[]> => {
+  listStatuses: async (definitionId: number): Promise<WorkflowStatus[]> => {
     const { data } = await apiClient.get<WorkflowStatus[]>(
       `/workflow/definitions/${definitionId}/statuses`,
     );
@@ -93,7 +93,7 @@ export const workflowApi = {
   },
 
   createStatus: async (
-    definitionId: string,
+    definitionId: number,
     request: CreateWorkflowStatusRequest,
   ): Promise<WorkflowStatus> => {
     const { data } = await apiClient.post<WorkflowStatus>(
@@ -104,7 +104,7 @@ export const workflowApi = {
   },
 
   updateStatus: async (
-    statusId: string,
+    statusId: number,
     request: UpdateWorkflowStatusRequest,
   ): Promise<WorkflowStatus> => {
     const { data } = await apiClient.patch<WorkflowStatus>(
@@ -114,13 +114,13 @@ export const workflowApi = {
     return data;
   },
 
-  deleteStatus: async (statusId: string): Promise<void> => {
+  deleteStatus: async (statusId: number): Promise<void> => {
     await apiClient.delete(`/workflow/statuses/${statusId}`);
   },
 
   // ─── Transitions ───
 
-  listTransitions: async (definitionId: string): Promise<WorkflowTransition[]> => {
+  listTransitions: async (definitionId: number): Promise<WorkflowTransition[]> => {
     const { data } = await apiClient.get<WorkflowTransition[]>(
       `/workflow/definitions/${definitionId}/transitions`,
     );
@@ -128,7 +128,7 @@ export const workflowApi = {
   },
 
   createTransition: async (
-    definitionId: string,
+    definitionId: number,
     request: CreateWorkflowTransitionRequest,
   ): Promise<WorkflowTransition> => {
     const { data } = await apiClient.post<WorkflowTransition>(
@@ -138,7 +138,7 @@ export const workflowApi = {
     return data;
   },
 
-  deleteTransition: async (transitionId: string): Promise<void> => {
+  deleteTransition: async (transitionId: number): Promise<void> => {
     await apiClient.delete(`/workflow/transitions/${transitionId}`);
   },
 
@@ -153,7 +153,7 @@ export const workflowApi = {
     return data;
   },
 
-  getInstance: async (instanceId: string): Promise<WorkflowInstance> => {
+  getInstance: async (instanceId: number): Promise<WorkflowInstance> => {
     const { data } = await apiClient.get<WorkflowInstance>(`/workflow/instances/${instanceId}`);
     return data;
   },
@@ -164,7 +164,7 @@ export const workflowApi = {
   },
 
   executeAction: async (
-    instanceId: string,
+    instanceId: number,
     request: WorkflowActionRequest,
   ): Promise<WorkflowInstance> => {
     const { data } = await apiClient.post<WorkflowInstance>(
@@ -174,14 +174,14 @@ export const workflowApi = {
     return data;
   },
 
-  listAvailableActions: async (instanceId: string): Promise<WorkflowAvailableAction[]> => {
+  listAvailableActions: async (instanceId: number): Promise<WorkflowAvailableAction[]> => {
     const { data } = await apiClient.get<WorkflowAvailableAction[]>(
       `/workflow/instances/${instanceId}/actions`,
     );
     return data;
   },
 
-  listHistory: async (instanceId: string): Promise<WorkflowHistoryEntry[]> => {
+  listHistory: async (instanceId: number): Promise<WorkflowHistoryEntry[]> => {
     const { data } = await apiClient.get<WorkflowHistoryEntry[]>(
       `/workflow/instances/${instanceId}/history`,
     );

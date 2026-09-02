@@ -38,7 +38,7 @@ describe('rbacSlice initial state hydration', () => {
         menuKeys: ['dashboard', 'masters'],
         permissions: [
           {
-            id: 'p1',
+            id: 1,
             code: 'countries.read',
             name: 'Read countries',
             description: '',

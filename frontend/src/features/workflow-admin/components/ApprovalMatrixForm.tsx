@@ -76,8 +76,8 @@ const assignmentSchema = z
   .object({
     level: z.number().int().min(1).max(99),
     assignment_type: z.enum(ASSIGNMENT_TYPES),
-    user_id: z.string().nullable(),
-    role_id: z.string().nullable(),
+    user_id: z.number().int().positive().nullable(),
+    role_id: z.number().int().positive().nullable(),
   })
   .refine((value) => value.assignment_type !== 'ROLE' || Boolean(value.role_id), {
     message: 'Select a role',

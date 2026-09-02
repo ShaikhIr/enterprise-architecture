@@ -245,7 +245,7 @@ async def refresh_token(
 async def get_me(current_user: User = Depends(get_current_active_user)) -> dict[str, Any]:
     """GET /api/v1/auth/me - Returns current user info."""
     return {
-        "id": str(current_user.id),
+        "id": current_user.id,
         "username": current_user.username,
         "is_active": current_user.is_active,
     }
@@ -310,7 +310,6 @@ async def microsoft_callback(
         501: Azure SSO not configured
     """
     import secrets
-    from uuid import uuid4
 
     from src.infrastructure.external.azure_sso import (
         AzureAuthError,
@@ -369,7 +368,6 @@ async def microsoft_callback(
         from src.domain.entities.user import User as UserEntity
 
         user = UserEntity(
-            id=uuid4(),
             username=email,
             password_hash=hash_password(secrets.token_urlsafe(32)),
             is_active=True,

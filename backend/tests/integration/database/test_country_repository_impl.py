@@ -8,7 +8,7 @@ mapping — none of which a fake, or the HTTP-level `test_masters_api.py` suite,
 actually exercises directly.
 """
 
-from uuid import uuid4
+import secrets
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,8 +24,8 @@ from src.infrastructure.database.repositories.country_repository_impl import (
 
 def _country(**overrides: object) -> Country:
     defaults: dict[str, object] = {
-        "code": f"C{uuid4().hex[:6].upper()}",
-        "name": f"Country {uuid4().hex[:6]}",
+        "code": f"C{secrets.token_hex(3).upper()}",
+        "name": f"Country {secrets.token_hex(3)}",
         "created_by": "test",
         "modified_by": "test",
     }
@@ -63,7 +63,7 @@ class TestCreateAndGet:
     async def test_get_by_id_missing_returns_none(self, db_session: AsyncSession) -> None:
         repo = CountryRepositoryImpl(db_session)
 
-        assert await repo.get_by_id(uuid4()) is None
+        assert await repo.get_by_id(999_999) is None
 
 
 class TestUpdate:
@@ -84,7 +84,7 @@ class TestUpdate:
 
     async def test_update_missing_row_raises(self, db_session: AsyncSession) -> None:
         repo = CountryRepositoryImpl(db_session)
-        ghost = _country(id=uuid4(), code="ZZ", name="Ghost")
+        ghost = _country(id=999_999, code="ZZ", name="Ghost")
 
         with pytest.raises(ValueError, match="not found"):
             await repo.update(ghost)
@@ -102,7 +102,7 @@ class TestDelete:
     async def test_delete_of_missing_row_is_silent(self, db_session: AsyncSession) -> None:
         repo = CountryRepositoryImpl(db_session)
 
-        await repo.delete(uuid4())  # must not raise
+        await repo.delete(999_999)  # must not raise
 
 
 class TestExists:
@@ -195,7 +195,6 @@ class TestHasDependents:
         country = await repo.create(_country(code="IN", name="India"))
         db_session.add(
             StateModel(
-                id=uuid4(),
                 code="IN-MH",
                 name="Maharashtra",
                 country_id=country.id,
@@ -214,9 +213,8 @@ class TestHasDependents:
         repo = CountryRepositoryImpl(db_session)
         country = await repo.create(_country(code="IN", name="India"))
         category = CategoryOfLawModel(
-            id=uuid4(),
-            code=f"CAT{uuid4().hex[:6].upper()}",
-            name=f"Category {uuid4().hex[:6]}",
+            code=f"CAT{secrets.token_hex(3).upper()}",
+            name=f"Category {secrets.token_hex(3)}",
             created_by="test",
             modified_by="test",
         )
@@ -224,7 +222,6 @@ class TestHasDependents:
         await db_session.flush()
         db_session.add(
             LegislationModel(
-                id=uuid4(),
                 code="IN-ACT",
                 name="An Act",
                 category_of_law_id=category.id,

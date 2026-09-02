@@ -5,7 +5,6 @@ Implements granular RBAC with menu, API, and field-level permissions.
 
 from dataclasses import dataclass, field
 from enum import StrEnum
-from uuid import UUID
 
 from src.domain.entities.base_entity import BaseEntity
 
@@ -63,8 +62,8 @@ class Role(BaseEntity):
     description: str = field(default="")
     is_system: bool = field(default=False)  # System roles cannot be deleted
     is_active: bool = field(default=True)
-    tenant_id: UUID | None = field(default=None)  # None = global role
-    parent_role_id: UUID | None = field(default=None)  # For role inheritance
+    tenant_id: int | None = field(default=None)  # None = global role
+    parent_role_id: int | None = field(default=None)  # For role inheritance
     permissions: list[Permission] = field(default_factory=list)
 
     def has_permission(self, permission_code: str) -> bool:
@@ -89,7 +88,9 @@ class RoleAssignment(BaseEntity):
     Supports time-bounded role assignments.
     """
 
-    user_id: UUID = field(default=None)  # type: ignore[assignment]
-    role_id: UUID = field(default=None)  # type: ignore[assignment]
-    tenant_id: UUID | None = field(default=None)
+    # 0 is the "unset" sentinel, same convention as BaseEntity.id; a real
+    # assignment always carries DB-assigned user/role ids.
+    user_id: int = field(default=0)
+    role_id: int = field(default=0)
+    tenant_id: int | None = field(default=None)
     is_active: bool = field(default=True)

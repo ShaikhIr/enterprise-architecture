@@ -9,7 +9,6 @@ on permission code — unlike the masters, which use (resource, action).
 """
 
 from typing import Any
-from uuid import uuid4
 
 from httpx import AsyncClient
 from sqlalchemy import select
@@ -24,7 +23,7 @@ REVOKE_PERMISSION = "/api/v1/rbac/roles/revoke-permission"
 ASSIGNMENTS = "/api/v1/rbac/assignments"
 REVOKE_ROLE = "/api/v1/rbac/assignments/revoke"
 
-UNKNOWN_ID = "00000000-0000-0000-0000-000000000000"
+UNKNOWN_ID = 999_999
 
 
 async def _create_role(client: AsyncClient, code: str = "AUDITOR") -> dict[str, Any]:
@@ -215,12 +214,12 @@ class TestRoleAssignment:
         self, admin_client: AsyncClient, admin_user: User
     ) -> None:
         role = await _create_role(admin_client)
-        payload = {"user_id": str(admin_user.id), "role_id": role["id"]}
+        payload = {"user_id": admin_user.id, "role_id": role["id"]}
 
         assigned = await admin_client.post(ASSIGNMENTS, json=payload)
         assert assigned.status_code == 201, assigned.text
         body = assigned.json()
-        assert body["user_id"] == str(admin_user.id)
+        assert body["user_id"] == admin_user.id
         assert body["is_active"] is True
 
         duplicate = await admin_client.post(ASSIGNMENTS, json=payload)
@@ -234,7 +233,7 @@ class TestRoleAssignment:
 
     async def test_assign_unknown_role_returns_404(self, admin_client: AsyncClient) -> None:
         response = await admin_client.post(
-            ASSIGNMENTS, json={"user_id": str(uuid4()), "role_id": UNKNOWN_ID}
+            ASSIGNMENTS, json={"user_id": 999_999, "role_id": UNKNOWN_ID}
         )
         assert response.status_code == 404, response.text
 
@@ -322,7 +321,7 @@ class TestMyPermissions:
         assert response.status_code == 200, response.text
         body = response.json()
         assert body["username"] == "admin-test"
-        assert body["user_id"] == str(admin_user.id)
+        assert body["user_id"] == admin_user.id
         assert "legacy_role" not in body, "removed with the single-role column"
         assert body["total_effective_permissions"] > 0
         assert {r["code"] for r in body["assigned_roles"]} == {"ADMIN_TEST"}

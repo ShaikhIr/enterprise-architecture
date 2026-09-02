@@ -4,7 +4,6 @@ Pure in-memory: no database, no I/O.
 """
 
 from datetime import date
-from uuid import uuid4
 
 import pytest
 
@@ -47,7 +46,8 @@ class TestAuditDefaults:
     def test_id_and_audit_fields_are_defaulted(self) -> None:
         country = Country(code="IN", name="India")
 
-        assert country.id is not None
+        # id defaults to the unsaved sentinel 0; the database assigns the real id.
+        assert country.id == 0
         assert country.created_by == "system"
         assert country.modified_by == "system"
         assert country.created_date is not None
@@ -84,8 +84,8 @@ class TestJurisdictionSemantics:
         legislation = Legislation(
             code="IN-FACT-1948",
             name="The Factories Act, 1948",
-            category_of_law_id=uuid4(),
-            country_id=uuid4(),
+            category_of_law_id=1,
+            country_id=2,
             effective_date=date(1948, 4, 1),
         )
 
@@ -96,9 +96,9 @@ class TestJurisdictionSemantics:
         legislation = Legislation(
             code="MH-SHOPS-1948",
             name="Maharashtra Shops Act",
-            category_of_law_id=uuid4(),
-            country_id=uuid4(),
-            state_id=uuid4(),
+            category_of_law_id=1,
+            country_id=2,
+            state_id=3,
         )
 
         assert legislation.is_central is False
@@ -108,7 +108,7 @@ class TestJurisdictionSemantics:
         assert CategoryOfLaw(code="LABOUR", name="Labour Law").is_state_specific is False
         assert (
             CategoryOfLaw(
-                code="LABOUR", name="Labour Law", state_id=uuid4()
+                code="LABOUR", name="Labour Law", state_id=3
             ).is_state_specific
             is True
         )

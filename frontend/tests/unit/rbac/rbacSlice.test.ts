@@ -28,7 +28,7 @@ describe('rbacSlice thunks and reducers', () => {
             menu_keys: ['dashboard', 'masters'],
             permissions: [
               {
-                id: 'p1',
+                id: 1,
                 code: 'masters.read',
                 name: 'Masters',
                 description: '',

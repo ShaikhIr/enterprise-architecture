@@ -8,8 +8,6 @@ none of those tests actually route through `StateMachineService.execute()`
 either. These tests close that gap.
 """
 
-from uuid import uuid4
-
 import pytest
 from workflow_fakes import WorkflowScenario
 
@@ -44,7 +42,7 @@ class TestGetState:
         self, machine: StateMachineService
     ) -> None:
         with pytest.raises(EntityNotFoundError):
-            await machine.get_state(uuid4())
+            await machine.get_state(999_999)
 
 
 class TestAvailableActions:

@@ -7,7 +7,6 @@ application layer depends on this interface; `PermissionManager` implements it.
 """
 
 from abc import ABC, abstractmethod
-from uuid import UUID
 
 from src.domain.entities.role import Permission, PermissionScope
 
@@ -18,8 +17,8 @@ class IPermissionResolver(ABC):
     @abstractmethod
     async def get_user_permissions(
         self,
-        user_id: UUID,
-        tenant_id: UUID | None = None,
+        user_id: int,
+        tenant_id: int | None = None,
         scope: PermissionScope | None = None,
     ) -> list[Permission]:
         """
@@ -32,9 +31,9 @@ class IPermissionResolver(ABC):
     @abstractmethod
     async def has_permission(
         self,
-        user_id: UUID,
+        user_id: int,
         permission_code: str,
-        tenant_id: UUID | None = None,
+        tenant_id: int | None = None,
     ) -> bool:
         """Whether the user holds a specific permission, by code."""
         ...
@@ -42,9 +41,9 @@ class IPermissionResolver(ABC):
     @abstractmethod
     async def get_field_permissions(
         self,
-        user_id: UUID,
+        user_id: int,
         resource: str,
-        tenant_id: UUID | None = None,
+        tenant_id: int | None = None,
     ) -> dict[str, list[str]]:
         """
         Field-level permissions for a resource.

@@ -176,7 +176,7 @@ impl, Pydantic schemas + controller, and on the frontend a models file + api cli
 `WorkflowDefinition` → `WorkflowStatus`/`WorkflowTransition` (the designed state machine)
 and `WorkflowInstance` → `WorkflowHistoryEntry` (a running instance of one) are entity-type
 agnostic — a workflow is keyed by `entity_type` (a free-text string) plus `entity_id`
-(a UUID), not a foreign key to any specific table. `ApprovalMatrix` → `ApprovalRule` →
+(a bigint), not a foreign key to any specific table. `ApprovalMatrix` → `ApprovalRule` →
 `ApprovalAssignment` layer routing-by-condition on top: the lowest-priority matrix whose
 rules match an entity's data decides who has to approve it, producing `ApprovalTask` rows.
 `scripts/seed_workflow.py` seeds one demonstration workflow (`COMPLIANCE_TASK_APPROVAL`

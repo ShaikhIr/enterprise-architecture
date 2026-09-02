@@ -127,7 +127,7 @@ class TestCountryCrud:
 
     async def test_unknown_id_returns_404(self, admin_client: AsyncClient) -> None:
         response = await admin_client.get(
-            f"{COUNTRIES}/00000000-0000-0000-0000-000000000000"
+            f"{COUNTRIES}/999999"
         )
         assert response.status_code == 404
 
@@ -145,7 +145,7 @@ class TestJurisdictionIntegrity:
             json={
                 "code": "ZZ-XX",
                 "name": "Nowhere",
-                "country_id": "00000000-0000-0000-0000-000000000000",
+                "country_id": 999999,
             },
         )
 
@@ -312,7 +312,7 @@ class TestUpdateAndDelete:
 
         response = await admin_client.patch(
             f"{STATES}/{state['id']}",
-            json={"country_id": "00000000-0000-0000-0000-000000000000"},
+            json={"country_id": 999999},
         )
 
         assert response.status_code == 404, response.text

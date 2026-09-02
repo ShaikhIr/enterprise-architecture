@@ -28,22 +28,39 @@ unit test gives it hand-written in-memory fakes, not a mock library and not a re
 codebase (`workflow_fakes.py`, `master_fakes.py`) is a small hand-written class implementing
 the same `I<Entity>Repository` interface with a `dict` for storage.
 
+Primary keys are DB-generated autoincrement **bigints**, so a fake must mimic that: an
+entity arrives at `create` with `id == 0` (the unsaved sentinel), and the fake assigns the
+next id from a module-level counter before storing it. Keying storage on `entity.id`
+without this step collides every row at `0`.
+
 ```python
 # tests/unit/application/master_fakes.py (existing masters live here; add new ones alongside)
+import itertools
+
+# Module-level so ids stay unique across every fake and every test.
+_fake_id_seq = itertools.count(1)
+
+
+def _next_fake_id() -> int:
+    return next(_fake_id_seq)
+
+
 class FakeCountryRepository(ICountryRepository):
     def __init__(self) -> None:
-        self.rows: dict[UUID, Country] = {}
+        self.rows: dict[int, Country] = {}
         # Settable by a test to control has_dependents() without a real FK.
-        self.dependents: set[UUID] = set()
+        self.dependents: set[int] = set()
 
-    async def get_by_id(self, entity_id: UUID) -> Country | None:
+    async def get_by_id(self, entity_id: int) -> Country | None:
         return copy.deepcopy(self.rows.get(entity_id))  # deep copy: caller mutation must not leak back
 
     async def create(self, entity: Country) -> Country:
+        if entity.id == 0:  # the DB would assign the bigint PK here
+            entity.id = _next_fake_id()
         self.rows[entity.id] = copy.deepcopy(entity)
         return copy.deepcopy(entity)
 
-    async def has_dependents(self, entity_id: UUID) -> bool:
+    async def has_dependents(self, entity_id: int) -> bool:
         return entity_id in self.dependents
 ```
 
@@ -225,19 +242,30 @@ expect(getDropdownLabel('Owning country')).toBe('India (IN)');
 expect(getValidationError('Select a country')).toBeInTheDocument();
 ```
 
-An empty-string sentinel value (the `COUNTRY_WIDE`/`CENTRAL` pattern used by
-CategoryOfLaw/Legislation/Rule's optional parent pickers) renders as a *blank* closed label
-regardless of which option maps to it — do not assert the closed label for that case; assert
-the option exists in the open panel, and that the sentinel round-trips through submit
-(`state_id: null`) instead.
+A `null` sentinel value (the `COUNTRY_WIDE`/`CENTRAL` pattern used by
+CategoryOfLaw/Legislation/Rule's optional parent pickers, which map "country-wide"/"central"
+to `null` rather than an id) renders as a *blank* closed label regardless of which option
+maps to it — do not assert the closed label for that case; assert the option exists in the
+open panel, and that the sentinel round-trips through submit (`state_id: null`) instead.
 
-### Fixture IDs must satisfy the schema's own validation
+### Fixture IDs are numeric bigints, and must satisfy the schema's own validation
 
-Every master form's zod schema validates required parent ids with `z.string().uuid()`. A
-fixture id like `'country-1'` is not a UUID — the form will fail silent client-side
-validation and `onSubmit` will never fire, which reads exactly like a broken test until you
-notice the `p-invalid` class still on the field. Use real UUID-shaped strings
-(`'11111111-1111-1111-1111-111111111111'`) for any parent-id fixture.
+Entity ids are DB-generated **bigints**, not UUIDs — a fixture id is a plain positive number
+(`1`, `501`, `11111111`), never a string. A required parent id is validated with
+`z.number().int().positive('Select a …')`, so a fixture of `0` (the unselected sentinel) or a
+string will fail silent client-side validation and `onSubmit` will never fire — which reads
+exactly like a broken test until you notice the `p-invalid` class still on the field. Use a
+positive number for any required parent-id fixture. Optional parent ids use
+`z.number().int().positive().nullable()` with a `null` sentinel for the "none" choice.
+
+Two consequences for tests: when an MSW handler filters on an id query param, the value
+arrives as a string, so compare with `Number(url.searchParams.get('country_id'))`; and a
+list-endpoint filter assertion checks the serialized number, e.g.
+`expect(captured?.searchParams.get('country_id')).toBe('501')`.
+
+One deliberate exception: a PrimeReact `Tree` node `key` must be a string, so where a numeric
+id is used as a tree key (the RBAC permission tree), stringify it (`key: String(perm.id)`) and
+convert back at the API boundary (`permission_id: Number(permId)`).
 
 ### Checklist — new master (frontend)
 

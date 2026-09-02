@@ -18,7 +18,7 @@ export interface TokenResponse {
 }
 
 export interface CurrentUser {
-  id: string;
+  id: number;
   username: string;
   is_active: boolean;
 }

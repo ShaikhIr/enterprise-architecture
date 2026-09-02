@@ -8,7 +8,6 @@ plus their own query methods.
 
 from abc import ABC, abstractmethod
 from typing import Generic, TypeVar
-from uuid import UUID
 
 from src.domain.entities.base_entity import BaseEntity
 
@@ -19,7 +18,7 @@ class IRepository(ABC, Generic[TEntity]):
     """Abstract CRUD contract for a single aggregate type."""
 
     @abstractmethod
-    async def get_by_id(self, entity_id: UUID) -> TEntity | None:
+    async def get_by_id(self, entity_id: int) -> TEntity | None:
         """Retrieve a single record by primary key."""
         ...
 
@@ -39,7 +38,7 @@ class IRepository(ABC, Generic[TEntity]):
         ...
 
     @abstractmethod
-    async def delete(self, entity_id: UUID) -> None:
+    async def delete(self, entity_id: int) -> None:
         """Delete a record by primary key."""
         ...
 
@@ -64,6 +63,6 @@ class IRepository(ABC, Generic[TEntity]):
         ...
 
     @abstractmethod
-    async def exists_by_code(self, code: str, exclude_id: UUID | None = None) -> bool:
+    async def exists_by_code(self, code: str, exclude_id: int | None = None) -> bool:
         """Check whether a business code is taken, optionally ignoring one row."""
         ...

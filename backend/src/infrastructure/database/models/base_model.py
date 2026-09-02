@@ -3,11 +3,9 @@ SQLAlchemy declarative base with audit mixin.
 All ORM models inherit from this to get automatic audit field population.
 """
 
-import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, String
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import BigInteger, DateTime, String
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -25,14 +23,15 @@ class AuditMixin:
     - created_date: Set on INSERT (UTC)
     - modified_date: Set on INSERT and UPDATE (UTC)
 
-    Note: `id` is annotated `Mapped[uuid.UUID]` because the column is declared
-    with `as_uuid=True`, so SQLAlchemy returns `uuid.UUID` instances, not str.
+    Note: `id` is a database-generated bigint (identity/sequence), assigned on
+    INSERT. No client-side default — the row must be flushed before its id is
+    known, which is why entities carry the sentinel 0 until persisted.
     """
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+    id: Mapped[int] = mapped_column(
+        BigInteger,
         primary_key=True,
-        default=uuid.uuid4,
+        autoincrement=True,
         nullable=False,
     )
     created_by: Mapped[str] = mapped_column(

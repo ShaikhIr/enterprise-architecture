@@ -4,7 +4,6 @@ Orchestrates rule master CRUD and keeps each rule aligned with its parent
 legislation's jurisdiction.
 """
 
-from uuid import UUID, uuid4
 
 from src.api.v1.schemas.rule_schema import (
     RuleCreate,
@@ -58,9 +57,9 @@ class RuleService:
         limit: int = 100,
         search: str | None = None,
         is_active: bool | None = None,
-        country_id: UUID | None = None,
-        state_id: UUID | None = None,
-        legislation_id: UUID | None = None,
+        country_id: int | None = None,
+        state_id: int | None = None,
+        legislation_id: int | None = None,
     ) -> RuleListResponse:
         """Get a paginated page of rules with optional filters."""
         rules = await self._repo.list_all(
@@ -88,7 +87,7 @@ class RuleService:
 
     # ─── Get ───
 
-    async def get_rule(self, rule_id: UUID) -> RuleResponse:
+    async def get_rule(self, rule_id: int) -> RuleResponse:
         """Get a single rule. Raises EntityNotFoundError if missing."""
         return self._to_response(await self._require(rule_id))
 
@@ -107,7 +106,6 @@ class RuleService:
             raise DuplicateEntityError(ENTITY, "code", request.code)
 
         rule = Rule(
-            id=uuid4(),
             code=request.code,
             name=request.name,
             description=request.description,
@@ -126,7 +124,7 @@ class RuleService:
     # ─── Update ───
 
     async def update_rule(
-        self, rule_id: UUID, request: RuleUpdate, actor: User
+        self, rule_id: int, request: RuleUpdate, actor: User
     ) -> RuleResponse:
         """Apply a partial update to a rule."""
         rule = await self._require(rule_id)
@@ -165,20 +163,20 @@ class RuleService:
 
     # ─── Delete ───
 
-    async def delete_rule(self, rule_id: UUID) -> None:
+    async def delete_rule(self, rule_id: int) -> None:
         """Delete a rule."""
         await self._require(rule_id)
         await self._repo.delete(rule_id)
 
     # ─── Internals ───
 
-    async def _require(self, rule_id: UUID) -> Rule:
+    async def _require(self, rule_id: int) -> Rule:
         rule = await self._repo.get_by_id(rule_id)
         if rule is None:
             raise EntityNotFoundError(ENTITY, rule_id)
         return rule
 
-    async def _require_legislation(self, legislation_id: UUID | None) -> Legislation:
+    async def _require_legislation(self, legislation_id: int | None) -> Legislation:
         legislation = (
             await self._legislation_repo.get_by_id(legislation_id)
             if legislation_id
@@ -188,11 +186,11 @@ class RuleService:
             raise EntityNotFoundError("Legislation", legislation_id)
         return legislation
 
-    async def _require_country(self, country_id: UUID) -> None:
+    async def _require_country(self, country_id: int) -> None:
         if await self._country_repo.get_by_id(country_id) is None:
             raise EntityNotFoundError("Country", country_id)
 
-    async def _require_state(self, state_id: UUID | None) -> None:
+    async def _require_state(self, state_id: int | None) -> None:
         if state_id is None:
             return
         if await self._state_repo.get_by_id(state_id) is None:
@@ -201,8 +199,8 @@ class RuleService:
     @staticmethod
     def _assert_matches_legislation(
         legislation: Legislation,
-        country_id: UUID | None,
-        state_id: UUID | None,
+        country_id: int | None,
+        state_id: int | None,
     ) -> None:
         """A rule must sit in the same jurisdiction as its parent legislation."""
         if legislation.country_id != country_id:

@@ -6,7 +6,6 @@ Captures all security-relevant operations: role changes, permission grants, etc.
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
-from uuid import UUID, uuid4
 
 
 class AuditAction(StrEnum):
@@ -67,13 +66,13 @@ class AuditLog:
         metadata: Additional structured data (JSON).
     """
 
-    id: UUID = field(default_factory=uuid4)
-    actor_id: UUID | None = field(default=None)
+    id: int = field(default=0)
+    actor_id: int | None = field(default=None)
     actor_username: str = field(default="system")
     action: str = field(default="")
     resource_type: str = field(default="")
     resource_id: str = field(default="")
-    tenant_id: UUID | None = field(default=None)
+    tenant_id: int | None = field(default=None)
     old_value: str | None = field(default=None)  # JSON string
     new_value: str | None = field(default=None)  # JSON string
     ip_address: str = field(default="")

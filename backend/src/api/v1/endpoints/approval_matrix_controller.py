@@ -4,7 +4,6 @@ Approval matrix API endpoints.
 Thin controller — all business logic sits in ApprovalMatrixService.
 """
 
-from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
 
@@ -109,7 +108,7 @@ async def resolve_matrix(
     dependencies=[Depends(require_api_permission(RESOURCE, "READ"))],
 )
 async def get_matrix(
-    matrix_id: UUID,
+    matrix_id: int,
     service: ApprovalMatrixService = Depends(_get_approval_matrix_service),
 ) -> ApprovalMatrixResponse:
     """GET /api/v1/workflow/approval-matrices/{matrix_id}"""
@@ -123,7 +122,7 @@ async def get_matrix(
     dependencies=[Depends(require_api_permission(RESOURCE, "UPDATE"))],
 )
 async def update_matrix(
-    matrix_id: UUID,
+    matrix_id: int,
     request: ApprovalMatrixUpdate,
     current_user: User = Depends(get_current_active_user),
     service: ApprovalMatrixService = Depends(_get_approval_matrix_service),
@@ -141,7 +140,7 @@ async def update_matrix(
     dependencies=[Depends(require_api_permission(RESOURCE, "DELETE"))],
 )
 async def delete_matrix(
-    matrix_id: UUID,
+    matrix_id: int,
     service: ApprovalMatrixService = Depends(_get_approval_matrix_service),
 ) -> None:
     """DELETE /api/v1/workflow/approval-matrices/{matrix_id}"""

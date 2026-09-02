@@ -56,7 +56,7 @@ export const createMasterHooks = <TEntity, TCreate, TUpdate, TParams extends Mas
   const useUpdate = () => {
     const invalidate = useInvalidate();
     return useMutation({
-      mutationFn: ({ id, request }: { id: string; request: TUpdate }) => api.update(id, request),
+      mutationFn: ({ id, request }: { id: number; request: TUpdate }) => api.update(id, request),
       onSuccess: invalidate,
     });
   };
@@ -64,7 +64,7 @@ export const createMasterHooks = <TEntity, TCreate, TUpdate, TParams extends Mas
   const useDelete = () => {
     const invalidate = useInvalidate();
     return useMutation({
-      mutationFn: (id: string) => api.remove(id),
+      mutationFn: (id: number) => api.remove(id),
       onSuccess: invalidate,
     });
   };

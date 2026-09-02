@@ -7,7 +7,6 @@ Designed to be non-blocking — audit failures do not break business flows.
 import json
 import logging
 from typing import Any
-from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -32,12 +31,12 @@ class AuditService:
     async def log(
         self,
         *,
-        actor_id: UUID | None = None,
+        actor_id: int | None = None,
         actor_username: str = "system",
         action: str | AuditAction,
         resource_type: str,
         resource_id: str = "",
-        tenant_id: UUID | None = None,
+        tenant_id: int | None = None,
         old_value: dict[str, Any] | None = None,
         new_value: dict[str, Any] | None = None,
         ip_address: str = "",
@@ -51,8 +50,7 @@ class AuditService:
         to avoid disrupting the calling business operation.
         """
         try:
-            # actor_id and tenant_id are UUID(as_uuid=True) columns: pass the
-            # UUID through rather than str(), or asyncpg rejects the parameter.
+            # actor_id and tenant_id are bigint FK columns; pass the int through.
             entry = AuditLogModel(
                 actor_id=actor_id,
                 actor_username=actor_username,
@@ -76,12 +74,12 @@ class AuditService:
     async def log_role_assigned(
         self,
         *,
-        actor_id: UUID,
+        actor_id: int,
         actor_username: str,
-        user_id: UUID,
-        role_id: UUID,
+        user_id: int,
+        role_id: int,
         role_code: str,
-        tenant_id: UUID | None = None,
+        tenant_id: int | None = None,
         ip_address: str = "",
     ) -> None:
         """Log a role being assigned to a user."""
@@ -99,12 +97,12 @@ class AuditService:
     async def log_role_revoked(
         self,
         *,
-        actor_id: UUID,
+        actor_id: int,
         actor_username: str,
-        user_id: UUID,
-        role_id: UUID,
+        user_id: int,
+        role_id: int,
         role_code: str,
-        tenant_id: UUID | None = None,
+        tenant_id: int | None = None,
         ip_address: str = "",
     ) -> None:
         """Log a role being revoked from a user."""
@@ -122,12 +120,12 @@ class AuditService:
     async def log_permission_change(
         self,
         *,
-        actor_id: UUID,
+        actor_id: int,
         actor_username: str,
         action: AuditAction,
-        role_id: UUID,
+        role_id: int,
         permission_code: str,
-        tenant_id: UUID | None = None,
+        tenant_id: int | None = None,
         ip_address: str = "",
     ) -> None:
         """Log a permission being granted to or revoked from a role."""
@@ -145,7 +143,7 @@ class AuditService:
     async def log_login(
         self,
         *,
-        user_id: UUID | None,
+        user_id: int | None,
         username: str,
         success: bool,
         ip_address: str = "",

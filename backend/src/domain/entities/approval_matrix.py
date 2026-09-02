@@ -14,7 +14,6 @@ would otherwise read as the same thing.
 import dataclasses
 from dataclasses import dataclass
 from datetime import datetime
-from uuid import UUID
 
 from src.domain.entities.base_entity import BaseEntity
 from src.domain.enums.workflow_enums import (
@@ -29,7 +28,7 @@ from src.domain.enums.workflow_enums import (
 class ApprovalRule(BaseEntity):
     """One condition on a matrix, e.g. `amount GTE 100000`."""
 
-    matrix_id: UUID | None = None
+    matrix_id: int | None = None
     field: str
     operator: RuleOperator = RuleOperator.EQ
     value: str
@@ -41,10 +40,10 @@ class ApprovalRule(BaseEntity):
 class ApprovalAssignment(BaseEntity):
     """One approval level on a matrix, resolved to a role or a specific user."""
 
-    matrix_id: UUID | None = None
+    matrix_id: int | None = None
     assignment_type: AssignmentType = AssignmentType.ROLE
-    user_id: UUID | None = None
-    role_id: UUID | None = None
+    user_id: int | None = None
+    role_id: int | None = None
     level: int = 1
 
 
@@ -74,9 +73,9 @@ class ApprovalMatrix(BaseEntity):
 class ApprovalTask(BaseEntity):
     """A pending or completed approval action owned by one user."""
 
-    instance_id: UUID
-    assignee_id: UUID
-    matrix_id: UUID | None = None
+    instance_id: int
+    assignee_id: int
+    matrix_id: int | None = None
     level: int = 1
     status: ApprovalTaskStatus = ApprovalTaskStatus.PENDING
     action_taken: str | None = None

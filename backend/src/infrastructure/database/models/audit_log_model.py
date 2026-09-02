@@ -3,12 +3,9 @@ SQLAlchemy ORM model for immutable audit logs.
 This table is append-only — no UPDATE or DELETE operations are permitted.
 """
 
-import uuid
 from datetime import UTC, datetime
-from uuid import uuid4
 
-from sqlalchemy import DateTime, String, Text
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import BigInteger, DateTime, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.infrastructure.database.models.base_model import Base
@@ -22,17 +19,17 @@ class AuditLogModel(Base):
 
     __tablename__ = "audit_logs"
 
-    # These three are UUID columns (as_uuid=True), so SQLAlchemy returns
-    # uuid.UUID instances. `resource_id` below is deliberately a string, since
-    # it holds identifiers of mixed types (usernames as well as UUIDs).
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+    # `id`, `actor_id` and `tenant_id` are database-generated bigint identity /
+    # foreign keys. `resource_id` below is deliberately a string, since it holds
+    # identifiers of mixed types (usernames as well as entity ids).
+    id: Mapped[int] = mapped_column(
+        BigInteger,
         primary_key=True,
-        default=uuid4,
+        autoincrement=True,
         nullable=False,
     )
-    actor_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), nullable=True, index=True
+    actor_id: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True, index=True
     )
     actor_username: Mapped[str] = mapped_column(
         String(255), nullable=False, index=True
@@ -46,8 +43,8 @@ class AuditLogModel(Base):
     resource_id: Mapped[str] = mapped_column(
         String(100), nullable=False, default=""
     )
-    tenant_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), nullable=True, index=True
+    tenant_id: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True, index=True
     )
     old_value: Mapped[str | None] = mapped_column(Text, nullable=True)
     new_value: Mapped[str | None] = mapped_column(Text, nullable=True)

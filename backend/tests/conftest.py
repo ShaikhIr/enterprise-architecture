@@ -20,7 +20,6 @@ import asyncio
 from collections.abc import AsyncGenerator, Callable
 from datetime import UTC, datetime
 from urllib.parse import urlparse, urlunparse
-from uuid import uuid4
 
 import httpx
 import pytest
@@ -51,7 +50,7 @@ def jwt_provider() -> JWTProvider:
 def sample_user() -> User:
     """Provide a sample active user entity."""
     return User(
-        id=uuid4(),
+        id=1,
         username="testuser",
         password_hash=hash_password("StrongPass123!"),
         is_active=True,
@@ -68,7 +67,7 @@ def sample_user() -> User:
 def inactive_user() -> User:
     """Provide an inactive user entity."""
     return User(
-        id=uuid4(),
+        id=1,
         username="inactiveuser",
         password_hash=hash_password("StrongPass123!"),
         is_active=False,
@@ -81,7 +80,7 @@ def inactive_user() -> User:
 def blocked_user() -> User:
     """Provide a blocked user entity."""
     return User(
-        id=uuid4(),
+        id=1,
         username="blockeduser",
         password_hash=hash_password("StrongPass123!"),
         is_active=True,
@@ -403,23 +402,19 @@ async def admin_user(db_session: AsyncSession) -> User:
     )
     from src.infrastructure.database.models.user_model import UserModel
 
-    user_id = uuid4()
     password_hash = hash_password("AdminPass123!")
 
-    db_session.add(
-        UserModel(
-            id=user_id,
-            username="admin-test",
-            password_hash=password_hash,
-            is_active=True,
-            is_blocked=False,
-            is_validate_ad=False,
-            created_by="test",
-            modified_by="test",
-        )
+    user_model = UserModel(
+        username="admin-test",
+        password_hash=password_hash,
+        is_active=True,
+        is_blocked=False,
+        is_validate_ad=False,
+        created_by="test",
+        modified_by="test",
     )
+    db_session.add(user_model)
     role = RoleModel(
-        id=uuid4(),
         code="ADMIN_TEST",
         name="Admin (test)",
         is_system=True,
@@ -429,6 +424,7 @@ async def admin_user(db_session: AsyncSession) -> User:
     )
     db_session.add(role)
     await db_session.flush()
+    user_id = user_model.id
 
     specs = [
         (f"{resource}.{action.lower()}", "API", resource, action)
@@ -439,7 +435,6 @@ async def admin_user(db_session: AsyncSession) -> User:
 
     for code, scope, resource, action in specs:
         permission = PermissionModel(
-            id=uuid4(),
             code=code,
             name=f"{action} {resource}",
             scope=scope,
@@ -453,7 +448,6 @@ async def admin_user(db_session: AsyncSession) -> User:
         await db_session.flush()
         db_session.add(
             RolePermissionModel(
-                id=uuid4(),
                 role_id=role.id,
                 permission_id=permission.id,
                 created_by="test",
@@ -463,7 +457,6 @@ async def admin_user(db_session: AsyncSession) -> User:
 
     db_session.add(
         RoleAssignmentModel(
-            id=uuid4(),
             user_id=user_id,
             role_id=role.id,
             is_active=True,

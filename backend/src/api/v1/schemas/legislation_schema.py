@@ -3,7 +3,6 @@ Pydantic schemas for the Legislation master API.
 """
 
 from datetime import date, datetime
-from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -16,9 +15,9 @@ class LegislationCreate(BaseModel):
         ..., min_length=1, max_length=500, examples=["The Factories Act, 1948"]
     )
     description: str = Field(default="")
-    category_of_law_id: UUID = Field(..., description="Category this legislation falls under")
-    country_id: UUID = Field(..., description="Owning country")
-    state_id: UUID | None = Field(
+    category_of_law_id: int = Field(..., description="Category this legislation falls under")
+    country_id: int = Field(..., description="Owning country")
+    state_id: int | None = Field(
         default=None,
         description="Owning state. Leave empty for central (country-wide) legislation.",
     )
@@ -45,9 +44,9 @@ class LegislationUpdate(BaseModel):
     code: str | None = Field(default=None, min_length=2, max_length=50)
     name: str | None = Field(default=None, min_length=1, max_length=500)
     description: str | None = Field(default=None)
-    category_of_law_id: UUID | None = Field(default=None)
-    country_id: UUID | None = Field(default=None)
-    state_id: UUID | None = Field(default=None)
+    category_of_law_id: int | None = Field(default=None)
+    country_id: int | None = Field(default=None)
+    state_id: int | None = Field(default=None)
     legislation_number: str | None = Field(default=None, max_length=100)
     effective_date: date | None = Field(default=None)
     is_active: bool | None = Field(default=None)
@@ -66,13 +65,13 @@ class LegislationUpdate(BaseModel):
 class LegislationResponse(BaseModel):
     """Legislation read response."""
 
-    id: UUID
+    id: int
     code: str
     name: str
     description: str
-    category_of_law_id: UUID
-    country_id: UUID
-    state_id: UUID | None
+    category_of_law_id: int
+    country_id: int
+    state_id: int | None
     legislation_number: str | None
     effective_date: date | None
     is_active: bool

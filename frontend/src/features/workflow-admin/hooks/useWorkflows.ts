@@ -17,7 +17,7 @@ import type {
 
 const DEFINITIONS_KEY = ['workflow-definitions'];
 
-const definitionKey = (definitionId: string) => ['workflow-definition', definitionId];
+const definitionKey = (definitionId: number) => ['workflow-definition', definitionId];
 
 export const useWorkflowDefinitions = (params: ListDefinitionsParams = {}) =>
   useQuery({
@@ -26,10 +26,10 @@ export const useWorkflowDefinitions = (params: ListDefinitionsParams = {}) =>
     staleTime: 30_000,
   });
 
-export const useWorkflowDefinition = (definitionId: string | undefined) =>
+export const useWorkflowDefinition = (definitionId: number | undefined) =>
   useQuery({
-    queryKey: definitionKey(definitionId ?? ''),
-    queryFn: () => workflowApi.getDefinition(definitionId as string),
+    queryKey: definitionKey(definitionId ?? 0),
+    queryFn: () => workflowApi.getDefinition(definitionId as number),
     enabled: Boolean(definitionId),
     staleTime: 30_000,
   });
@@ -51,7 +51,7 @@ export const useUpdateWorkflowDefinition = () => {
       definitionId,
       request,
     }: {
-      definitionId: string;
+      definitionId: number;
       request: UpdateWorkflowDefinitionRequest;
     }) => workflowApi.updateDefinition(definitionId, request),
     onSuccess: (_data, variables) => {
@@ -66,7 +66,7 @@ export const useUpdateWorkflowDefinition = () => {
 export const useDeleteWorkflowDefinition = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (definitionId: string) => workflowApi.deleteDefinition(definitionId),
+    mutationFn: (definitionId: number) => workflowApi.deleteDefinition(definitionId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: DEFINITIONS_KEY });
     },
@@ -79,72 +79,72 @@ export const useDeleteWorkflowDefinition = () => {
  * detail response rather than fetching them separately.
  */
 const useDefinitionChildMutation = <TVariables>(
-  definitionId: string | undefined,
+  definitionId: number | undefined,
   mutationFn: (variables: TVariables) => Promise<unknown>,
 ) => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: definitionKey(definitionId ?? '') });
+      queryClient.invalidateQueries({ queryKey: definitionKey(definitionId ?? 0) });
     },
   });
 };
 
-export const useCreateWorkflowStatus = (definitionId: string | undefined) =>
+export const useCreateWorkflowStatus = (definitionId: number | undefined) =>
   useDefinitionChildMutation(definitionId, (request: CreateWorkflowStatusRequest) =>
-    workflowApi.createStatus(definitionId as string, request),
+    workflowApi.createStatus(definitionId as number, request),
   );
 
-export const useUpdateWorkflowStatus = (definitionId: string | undefined) =>
+export const useUpdateWorkflowStatus = (definitionId: number | undefined) =>
   useDefinitionChildMutation(
     definitionId,
-    ({ statusId, request }: { statusId: string; request: UpdateWorkflowStatusRequest }) =>
+    ({ statusId, request }: { statusId: number; request: UpdateWorkflowStatusRequest }) =>
       workflowApi.updateStatus(statusId, request),
   );
 
-export const useDeleteWorkflowStatus = (definitionId: string | undefined) =>
-  useDefinitionChildMutation(definitionId, (statusId: string) =>
+export const useDeleteWorkflowStatus = (definitionId: number | undefined) =>
+  useDefinitionChildMutation(definitionId, (statusId: number) =>
     workflowApi.deleteStatus(statusId),
   );
 
-export const useCreateWorkflowTransition = (definitionId: string | undefined) =>
+export const useCreateWorkflowTransition = (definitionId: number | undefined) =>
   useDefinitionChildMutation(definitionId, (request: CreateWorkflowTransitionRequest) =>
-    workflowApi.createTransition(definitionId as string, request),
+    workflowApi.createTransition(definitionId as number, request),
   );
 
-export const useDeleteWorkflowTransition = (definitionId: string | undefined) =>
-  useDefinitionChildMutation(definitionId, (transitionId: string) =>
+export const useDeleteWorkflowTransition = (definitionId: number | undefined) =>
+  useDefinitionChildMutation(definitionId, (transitionId: number) =>
     workflowApi.deleteTransition(transitionId),
   );
 
 // ─── Runtime ───
 
-export const useWorkflowInstance = (instanceId: string | undefined) =>
+export const useWorkflowInstance = (instanceId: number | undefined) =>
   useQuery({
     queryKey: ['workflow-instance', instanceId],
-    queryFn: () => workflowApi.getInstance(instanceId as string),
+    queryFn: () => workflowApi.getInstance(instanceId as number),
     enabled: Boolean(instanceId),
   });
 
-export const useWorkflowInstanceActions = (instanceId: string | undefined) =>
+export const useWorkflowInstanceActions = (instanceId: number | undefined) =>
   useQuery({
     queryKey: ['workflow-instance-actions', instanceId],
-    queryFn: () => workflowApi.listAvailableActions(instanceId as string),
+    queryFn: () => workflowApi.listAvailableActions(instanceId as number),
     enabled: Boolean(instanceId),
   });
 
-export const useWorkflowInstanceHistory = (instanceId: string | undefined) =>
+export const useWorkflowInstanceHistory = (instanceId: number | undefined) =>
   useQuery({
     queryKey: ['workflow-instance-history', instanceId],
-    queryFn: () => workflowApi.listHistory(instanceId as string),
+    queryFn: () => workflowApi.listHistory(instanceId as number),
     enabled: Boolean(instanceId),
   });
 
 export const useExecuteWorkflowAction = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ instanceId, request }: { instanceId: string; request: WorkflowActionRequest }) =>
+    mutationFn: ({ instanceId, request }: { instanceId: number; request: WorkflowActionRequest }) =>
       workflowApi.executeAction(instanceId, request),
     onSuccess: (_data, variables) => {
       // The action changes the state, the available actions and the history, so

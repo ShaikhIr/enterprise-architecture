@@ -31,8 +31,8 @@ const defaultFilters: DataTableFilterMeta = {
 
 export const RulesPage = () => {
   const [filters, setFilters] = useState<DataTableFilterMeta>(defaultFilters);
-  const [legislationId, setLegislationId] = useState<string | null>(null);
-  const [countryId, setCountryId] = useState<string | null>(null);
+  const [legislationId, setLegislationId] = useState<number | null>(null);
+  const [countryId, setCountryId] = useState<number | null>(null);
 
   const countries = useCountryLookup();
   const states = useStateLookup();

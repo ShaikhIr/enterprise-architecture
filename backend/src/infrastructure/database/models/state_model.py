@@ -2,10 +2,7 @@
 SQLAlchemy ORM model for the State master.
 """
 
-import uuid
-
-from sqlalchemy import Boolean, ForeignKey, String, UniqueConstraint
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import BigInteger, Boolean, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.infrastructure.database.models.base_model import BaseModel
@@ -23,8 +20,8 @@ class StateModel(BaseModel):
         String(20), unique=True, nullable=False, index=True
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
-    country_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+    country_id: Mapped[int] = mapped_column(
+        BigInteger,
         ForeignKey("countries.id", ondelete="RESTRICT"),
         nullable=False,
         index=True,

@@ -30,29 +30,29 @@ describe('useLegislations dependent-key wiring', () => {
     const { result } = renderHook(
       () =>
         useLegislations({
-          country_id: 'country-1',
-          state_id: 'state-1',
-          category_of_law_id: 'cat-1',
+          country_id: 501,
+          state_id: 601,
+          category_of_law_id: 701,
         }),
       { wrapper: wrapperWith(queryClient) },
     );
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(captured?.searchParams.get('country_id')).toBe('country-1');
-    expect(captured?.searchParams.get('state_id')).toBe('state-1');
-    expect(captured?.searchParams.get('category_of_law_id')).toBe('cat-1');
+    expect(captured?.searchParams.get('country_id')).toBe('501');
+    expect(captured?.searchParams.get('state_id')).toBe('601');
+    expect(captured?.searchParams.get('category_of_law_id')).toBe('701');
   });
 
   it('invalidates only the rules cache after a create (single dependent)', async () => {
     server.use(
       http.post('/api/v1/masters/legislations', () =>
         HttpResponse.json({
-          id: '1',
+          id: 1,
           code: 'IN-X',
           name: 'Some Act',
           description: '',
-          category_of_law_id: 'cat-1',
-          country_id: 'country-1',
+          category_of_law_id: 701,
+          country_id: 501,
           state_id: null,
           legislation_number: null,
           effective_date: null,
@@ -77,8 +77,8 @@ describe('useLegislations dependent-key wiring', () => {
       code: 'IN-X',
       name: 'Some Act',
       description: '',
-      category_of_law_id: 'cat-1',
-      country_id: 'country-1',
+      category_of_law_id: 701,
+      country_id: 501,
       state_id: null,
       legislation_number: null,
       effective_date: null,

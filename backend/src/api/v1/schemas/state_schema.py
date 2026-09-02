@@ -3,7 +3,6 @@ Pydantic schemas for the State master API.
 """
 
 from datetime import datetime
-from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -13,7 +12,7 @@ class StateCreate(BaseModel):
 
     code: str = Field(..., min_length=2, max_length=20, examples=["IN-MH"])
     name: str = Field(..., min_length=1, max_length=255, examples=["Maharashtra"])
-    country_id: UUID = Field(..., description="Owning country")
+    country_id: int = Field(..., description="Owning country")
     is_union_territory: bool = Field(default=False)
     is_active: bool = Field(default=True)
 
@@ -33,7 +32,7 @@ class StateUpdate(BaseModel):
 
     code: str | None = Field(default=None, min_length=2, max_length=20)
     name: str | None = Field(default=None, min_length=1, max_length=255)
-    country_id: UUID | None = Field(default=None)
+    country_id: int | None = Field(default=None)
     is_union_territory: bool | None = Field(default=None)
     is_active: bool | None = Field(default=None)
 
@@ -51,10 +50,10 @@ class StateUpdate(BaseModel):
 class StateResponse(BaseModel):
     """State read response."""
 
-    id: UUID
+    id: int
     code: str
     name: str
-    country_id: UUID
+    country_id: int
     is_union_territory: bool
     is_active: bool
     created_by: str

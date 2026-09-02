@@ -8,7 +8,7 @@ Both are untested anywhere else — the HTTP suite exercises one filter
 combination, not each in isolation.
 """
 
-from uuid import uuid4
+import secrets
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,7 +24,7 @@ from src.infrastructure.database.repositories.legislation_repository_impl import
 
 async def _make_country(session: AsyncSession) -> CountryModel:
     country = CountryModel(
-        id=uuid4(), code=f"C{uuid4().hex[:6].upper()}", name=f"Country {uuid4().hex[:6]}",
+        code=f"C{secrets.token_hex(3).upper()}", name=f"Country {secrets.token_hex(3)}",
         created_by="test", modified_by="test",
     )
     session.add(country)
@@ -34,7 +34,7 @@ async def _make_country(session: AsyncSession) -> CountryModel:
 
 async def _make_category(session: AsyncSession) -> CategoryOfLawModel:
     category = CategoryOfLawModel(
-        id=uuid4(), code=f"CAT{uuid4().hex[:6].upper()}", name=f"Category {uuid4().hex[:6]}",
+        code=f"CAT{secrets.token_hex(3).upper()}", name=f"Category {secrets.token_hex(3)}",
         created_by="test", modified_by="test",
     )
     session.add(category)
@@ -44,7 +44,7 @@ async def _make_category(session: AsyncSession) -> CategoryOfLawModel:
 
 async def _make_state(session: AsyncSession, country_id: object) -> StateModel:
     state = StateModel(
-        id=uuid4(), code=f"S{uuid4().hex[:6].upper()}", name=f"State {uuid4().hex[:6]}",
+        code=f"S{secrets.token_hex(3).upper()}", name=f"State {secrets.token_hex(3)}",
         country_id=country_id, created_by="test", modified_by="test",
     )
     session.add(state)
@@ -54,8 +54,8 @@ async def _make_state(session: AsyncSession, country_id: object) -> StateModel:
 
 def _legislation(country_id: object, category_id: object, **overrides: object) -> Legislation:
     defaults: dict[str, object] = {
-        "code": f"L{uuid4().hex[:8].upper()}",
-        "name": f"Legislation {uuid4().hex[:6]}",
+        "code": f"L{secrets.token_hex(4).upper()}",
+        "name": f"Legislation {secrets.token_hex(3)}",
         "country_id": country_id,
         "category_of_law_id": category_id,
         "created_by": "test",
@@ -155,7 +155,7 @@ class TestHasDependents:
         created = await repo.create(_legislation(country.id, category.id))
         db_session.add(
             RuleModel(
-                id=uuid4(), code="R1", name="A Rule",
+                code="R1", name="A Rule",
                 legislation_id=created.id, country_id=country.id,
                 created_by="test", modified_by="test",
             )

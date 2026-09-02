@@ -3,7 +3,6 @@ Pydantic schemas for the Rule master API.
 """
 
 from datetime import date, datetime
-from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -16,9 +15,9 @@ class RuleCreate(BaseModel):
         ..., min_length=1, max_length=500, examples=["Maintenance of health register"]
     )
     description: str = Field(default="")
-    legislation_id: UUID = Field(..., description="Parent legislation")
-    country_id: UUID = Field(..., description="Owning country")
-    state_id: UUID | None = Field(
+    legislation_id: int = Field(..., description="Parent legislation")
+    country_id: int = Field(..., description="Owning country")
+    state_id: int | None = Field(
         default=None,
         description="Owning state. Leave empty for central (country-wide) rules.",
     )
@@ -43,9 +42,9 @@ class RuleUpdate(BaseModel):
     code: str | None = Field(default=None, min_length=2, max_length=50)
     name: str | None = Field(default=None, min_length=1, max_length=500)
     description: str | None = Field(default=None)
-    legislation_id: UUID | None = Field(default=None)
-    country_id: UUID | None = Field(default=None)
-    state_id: UUID | None = Field(default=None)
+    legislation_id: int | None = Field(default=None)
+    country_id: int | None = Field(default=None)
+    state_id: int | None = Field(default=None)
     rule_number: str | None = Field(default=None, max_length=100)
     effective_date: date | None = Field(default=None)
     is_active: bool | None = Field(default=None)
@@ -64,13 +63,13 @@ class RuleUpdate(BaseModel):
 class RuleResponse(BaseModel):
     """Rule read response."""
 
-    id: UUID
+    id: int
     code: str
     name: str
     description: str
-    legislation_id: UUID
-    country_id: UUID
-    state_id: UUID | None
+    legislation_id: int
+    country_id: int
+    state_id: int | None
     rule_number: str | None
     effective_date: date | None
     is_active: bool

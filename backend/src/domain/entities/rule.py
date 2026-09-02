@@ -5,7 +5,6 @@ A rule / section / schedule framed under a legislation.
 
 from dataclasses import dataclass
 from datetime import date
-from uuid import UUID
 
 from src.domain.entities.base_entity import BaseEntity
 
@@ -35,10 +34,10 @@ class Rule(BaseEntity):
 
     code: str
     name: str
-    legislation_id: UUID
-    country_id: UUID
+    legislation_id: int
+    country_id: int
     description: str = ""
-    state_id: UUID | None = None
+    state_id: int | None = None
     rule_number: str | None = None
     effective_date: date | None = None
     is_active: bool = True

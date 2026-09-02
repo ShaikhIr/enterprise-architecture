@@ -3,7 +3,6 @@ Pydantic schemas for the Category of Law master API.
 """
 
 from datetime import datetime
-from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -14,7 +13,7 @@ class CategoryOfLawCreate(BaseModel):
     code: str = Field(..., min_length=2, max_length=50, examples=["LABOUR"])
     name: str = Field(..., min_length=1, max_length=255, examples=["Labour Law"])
     description: str = Field(default="")
-    state_id: UUID | None = Field(
+    state_id: int | None = Field(
         default=None,
         description="Owning state. Leave empty for a country-wide category.",
     )
@@ -37,7 +36,7 @@ class CategoryOfLawUpdate(BaseModel):
     code: str | None = Field(default=None, min_length=2, max_length=50)
     name: str | None = Field(default=None, min_length=1, max_length=255)
     description: str | None = Field(default=None)
-    state_id: UUID | None = Field(default=None)
+    state_id: int | None = Field(default=None)
     is_active: bool | None = Field(default=None)
 
     @field_validator("code")
@@ -54,11 +53,11 @@ class CategoryOfLawUpdate(BaseModel):
 class CategoryOfLawResponse(BaseModel):
     """Category of law read response."""
 
-    id: UUID
+    id: int
     code: str
     name: str
     description: str
-    state_id: UUID | None
+    state_id: int | None
     is_active: bool
     created_by: str
     created_date: datetime

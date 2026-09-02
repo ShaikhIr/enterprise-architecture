@@ -8,8 +8,6 @@ anywhere else in the master hierarchy, so it gets tests of its own on both the
 create and update paths.
 """
 
-from uuid import uuid4
-
 import pytest
 from master_fakes import (
     FakeCountryRepository,
@@ -63,7 +61,7 @@ def service(
 
 @pytest.fixture
 def actor() -> User:
-    return User(id=uuid4(), username="alice")
+    return User(id=1, username="alice")
 
 
 @pytest.fixture
@@ -92,7 +90,7 @@ async def central_legislation(
         Legislation(
             code="IN-CENTRAL",
             name="A Central Act",
-            category_of_law_id=uuid4(),
+            category_of_law_id=1,
             country_id=country.id,
         )
     )
@@ -107,7 +105,7 @@ async def state_legislation(
         Legislation(
             code="IN-MH-ACT",
             name="A Maharashtra Act",
-            category_of_law_id=uuid4(),
+            category_of_law_id=1,
             country_id=country.id,
             state_id=state.id,
         )
@@ -175,10 +173,10 @@ class TestCreate:
         self, service: RuleService, actor: User, country: Country
     ) -> None:
         bogus = Legislation(
-            id=uuid4(),
+            id=999_999,
             code="XX",
             name="Nowhere",
-            category_of_law_id=uuid4(),
+            category_of_law_id=1,
             country_id=country.id,
         )
 
@@ -222,7 +220,7 @@ class TestUpdate:
         self, service: RuleService, actor: User
     ) -> None:
         with pytest.raises(EntityNotFoundError):
-            await service.update_rule(uuid4(), RuleUpdate(name="X"), actor)
+            await service.update_rule(999_999, RuleUpdate(name="X"), actor)
 
 
 class TestDelete:

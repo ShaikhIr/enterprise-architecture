@@ -32,7 +32,7 @@ export const useDeleteRule = hooks.useDelete;
  *                      act cannot be chosen — the backend rejects that
  *                      combination anyway.
  */
-export const useRuleLookup = (legislationId?: string): MasterLookup => {
+export const useRuleLookup = (legislationId?: number): MasterLookup => {
   const active = useRules({
     limit: OPTION_LIMIT,
     is_active: true,

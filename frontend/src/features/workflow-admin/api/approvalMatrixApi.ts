@@ -33,7 +33,7 @@ export const approvalMatrixApi = {
     return data;
   },
 
-  getMatrix: async (matrixId: string): Promise<ApprovalMatrix> => {
+  getMatrix: async (matrixId: number): Promise<ApprovalMatrix> => {
     const { data } = await apiClient.get<ApprovalMatrix>(`${BASE}/${matrixId}`);
     return data;
   },
@@ -44,14 +44,14 @@ export const approvalMatrixApi = {
   },
 
   updateMatrix: async (
-    matrixId: string,
+    matrixId: number,
     request: UpdateApprovalMatrixRequest,
   ): Promise<ApprovalMatrix> => {
     const { data } = await apiClient.patch<ApprovalMatrix>(`${BASE}/${matrixId}`, request);
     return data;
   },
 
-  deleteMatrix: async (matrixId: string): Promise<void> => {
+  deleteMatrix: async (matrixId: number): Promise<void> => {
     await apiClient.delete(`${BASE}/${matrixId}`);
   },
 

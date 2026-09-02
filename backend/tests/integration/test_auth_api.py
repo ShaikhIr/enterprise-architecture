@@ -10,7 +10,6 @@ registry is the supported mechanism and it applies to nested dependencies too.
 
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import uuid4
 
 import pytest
 from httpx import AsyncClient
@@ -26,7 +25,7 @@ def active_user() -> User:
     # is_validate_ad=False keeps login on the local bcrypt path so the test
     # does not depend on the external Darwin AD service.
     return User(
-        id=uuid4(),
+        id=1,
         username="integrationuser",
         password_hash=hash_password("TestPass123!"),
         is_active=True,

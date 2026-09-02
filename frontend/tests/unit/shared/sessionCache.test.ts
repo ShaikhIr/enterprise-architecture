@@ -17,7 +17,7 @@ describe('sessionCache', () => {
   });
 
   it('stores and retrieves the current user', () => {
-    const user = { id: '1', username: 'alice', is_active: true };
+    const user = { id: 1, username: 'alice', is_active: true };
 
     sessionCache.setUser(user);
 
@@ -30,7 +30,7 @@ describe('sessionCache', () => {
       ['dashboard', 'masters'],
       [
         {
-          id: 'p1',
+          id: 1,
           code: 'countries.read',
           name: 'Read Countries',
           description: '',
@@ -54,7 +54,7 @@ describe('sessionCache', () => {
   });
 
   it('merges writes rather than clobbering unrelated keys', () => {
-    sessionCache.setUser({ id: '1', username: 'alice', is_active: true });
+    sessionCache.setUser({ id: 1, username: 'alice', is_active: true });
     sessionCache.setRbac(['dashboard'], []);
 
     // Setting RBAC data should not have wiped the user that was set earlier.
@@ -63,7 +63,7 @@ describe('sessionCache', () => {
   });
 
   it('clears everything back to defaults', () => {
-    sessionCache.setUser({ id: '1', username: 'alice', is_active: true });
+    sessionCache.setUser({ id: 1, username: 'alice', is_active: true });
     sessionCache.setRbac(['dashboard'], []);
 
     sessionCache.clear();

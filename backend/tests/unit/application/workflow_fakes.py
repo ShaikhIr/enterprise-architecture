@@ -20,7 +20,6 @@ them and a naive fake would hide bugs:
 import copy
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
-from uuid import UUID, uuid4
 
 from src.domain.entities.approval_matrix import (
     ApprovalAssignment,
@@ -53,20 +52,29 @@ from src.domain.repositories.workflow_instance_repository import (
 if TYPE_CHECKING:
     from src.application.services.workflow.workflow_engine import WorkflowEngine
 
+_fake_id_seq = 0
+
+
+def _next_fake_id() -> int:
+    """A distinct non-zero int id, standing in for a DB-assigned bigint."""
+    global _fake_id_seq
+    _fake_id_seq += 1
+    return _fake_id_seq
+
 
 class FakeWorkflowDefinitionRepository(IWorkflowDefinitionRepository):
     """In-memory workflow configuration store."""
 
     def __init__(self) -> None:
-        self.definitions: dict[UUID, WorkflowDefinition] = {}
-        self.statuses: dict[UUID, WorkflowStatus] = {}
-        self.transitions: dict[UUID, WorkflowTransition] = {}
+        self.definitions: dict[int, WorkflowDefinition] = {}
+        self.statuses: dict[int, WorkflowStatus] = {}
+        self.transitions: dict[int, WorkflowTransition] = {}
         #: Settable so `delete_status` guards can be tested without instances.
-        self.instances_in_status: dict[UUID, int] = {}
+        self.instances_in_status: dict[int, int] = {}
 
     # ─── Definitions ───
 
-    async def get_by_id(self, entity_id: UUID) -> WorkflowDefinition | None:
+    async def get_by_id(self, entity_id: int) -> WorkflowDefinition | None:
         return copy.deepcopy(self.definitions.get(entity_id))
 
     async def get_by_code(self, code: str) -> WorkflowDefinition | None:
@@ -76,6 +84,8 @@ class FakeWorkflowDefinitionRepository(IWorkflowDefinitionRepository):
         return None
 
     async def create(self, entity: WorkflowDefinition) -> WorkflowDefinition:
+        if entity.id == 0:
+            entity.id = _next_fake_id()
         self.definitions[entity.id] = copy.deepcopy(entity)
         return copy.deepcopy(entity)
 
@@ -83,7 +93,7 @@ class FakeWorkflowDefinitionRepository(IWorkflowDefinitionRepository):
         self.definitions[entity.id] = copy.deepcopy(entity)
         return copy.deepcopy(entity)
 
-    async def delete(self, entity_id: UUID) -> None:
+    async def delete(self, entity_id: int) -> None:
         self.definitions.pop(entity_id, None)
 
     async def list_all(
@@ -105,19 +115,19 @@ class FakeWorkflowDefinitionRepository(IWorkflowDefinitionRepository):
     ) -> int:
         return len(self._filtered(search, is_active, entity_type))
 
-    async def exists_by_code(self, code: str, exclude_id: UUID | None = None) -> bool:
+    async def exists_by_code(self, code: str, exclude_id: int | None = None) -> bool:
         return any(
             d.code == code and d.id != exclude_id for d in self.definitions.values()
         )
 
-    async def exists_by_name(self, name: str, exclude_id: UUID | None = None) -> bool:
+    async def exists_by_name(self, name: str, exclude_id: int | None = None) -> bool:
         return any(
             d.name.lower() == name.lower() and d.id != exclude_id
             for d in self.definitions.values()
         )
 
     async def get_definitions_by_ids(
-        self, definition_ids: list[UUID]
+        self, definition_ids: list[int]
     ) -> list[WorkflowDefinition]:
         wanted = set(definition_ids)
         return [copy.deepcopy(d) for d in self.definitions.values() if d.id in wanted]
@@ -143,7 +153,7 @@ class FakeWorkflowDefinitionRepository(IWorkflowDefinitionRepository):
 
     # ─── Statuses ───
 
-    async def list_statuses(self, definition_id: UUID) -> list[WorkflowStatus]:
+    async def list_statuses(self, definition_id: int) -> list[WorkflowStatus]:
         rows = [
             s
             for s in self.statuses.values()
@@ -152,21 +162,21 @@ class FakeWorkflowDefinitionRepository(IWorkflowDefinitionRepository):
         rows.sort(key=lambda s: (s.sequence, s.code))
         return [copy.deepcopy(s) for s in rows]
 
-    async def get_status(self, status_id: UUID) -> WorkflowStatus | None:
+    async def get_status(self, status_id: int) -> WorkflowStatus | None:
         return copy.deepcopy(self.statuses.get(status_id))
 
-    async def get_statuses_by_ids(self, status_ids: list[UUID]) -> list[WorkflowStatus]:
+    async def get_statuses_by_ids(self, status_ids: list[int]) -> list[WorkflowStatus]:
         wanted = set(status_ids)
         return [copy.deepcopy(s) for s in self.statuses.values() if s.id in wanted]
 
-    async def get_initial_status(self, definition_id: UUID) -> WorkflowStatus | None:
+    async def get_initial_status(self, definition_id: int) -> WorkflowStatus | None:
         for status in sorted(self.statuses.values(), key=lambda s: s.sequence):
             if status.workflow_definition_id == definition_id and status.is_initial:
                 return copy.deepcopy(status)
         return None
 
     async def exists_status_code(
-        self, definition_id: UUID, code: str, exclude_id: UUID | None = None
+        self, definition_id: int, code: str, exclude_id: int | None = None
     ) -> bool:
         return any(
             s.workflow_definition_id == definition_id
@@ -176,6 +186,8 @@ class FakeWorkflowDefinitionRepository(IWorkflowDefinitionRepository):
         )
 
     async def create_status(self, status: WorkflowStatus) -> WorkflowStatus:
+        if status.id == 0:
+            status.id = _next_fake_id()
         self.statuses[status.id] = copy.deepcopy(status)
         return copy.deepcopy(status)
 
@@ -183,22 +195,22 @@ class FakeWorkflowDefinitionRepository(IWorkflowDefinitionRepository):
         self.statuses[status.id] = copy.deepcopy(status)
         return copy.deepcopy(status)
 
-    async def delete_status(self, status_id: UUID) -> None:
+    async def delete_status(self, status_id: int) -> None:
         self.statuses.pop(status_id, None)
 
-    async def count_transitions_touching_status(self, status_id: UUID) -> int:
+    async def count_transitions_touching_status(self, status_id: int) -> int:
         return sum(
             1
             for t in self.transitions.values()
             if status_id in (t.from_status_id, t.to_status_id)
         )
 
-    async def count_instances_in_status(self, status_id: UUID) -> int:
+    async def count_instances_in_status(self, status_id: int) -> int:
         return self.instances_in_status.get(status_id, 0)
 
     # ─── Transitions ───
 
-    async def list_transitions(self, definition_id: UUID) -> list[WorkflowTransition]:
+    async def list_transitions(self, definition_id: int) -> list[WorkflowTransition]:
         rows = [
             t
             for t in self.transitions.values()
@@ -208,7 +220,7 @@ class FakeWorkflowDefinitionRepository(IWorkflowDefinitionRepository):
         return [copy.deepcopy(t) for t in rows]
 
     async def list_transitions_from(
-        self, definition_id: UUID, from_status_id: UUID
+        self, definition_id: int, from_status_id: int
     ) -> list[WorkflowTransition]:
         rows = [
             t
@@ -219,11 +231,11 @@ class FakeWorkflowDefinitionRepository(IWorkflowDefinitionRepository):
         rows.sort(key=lambda t: (t.priority, t.action_code))
         return [copy.deepcopy(t) for t in rows]
 
-    async def get_transition(self, transition_id: UUID) -> WorkflowTransition | None:
+    async def get_transition(self, transition_id: int) -> WorkflowTransition | None:
         return copy.deepcopy(self.transitions.get(transition_id))
 
     async def find_transition(
-        self, definition_id: UUID, from_status_id: UUID, action_code: str
+        self, definition_id: int, from_status_id: int, action_code: str
     ) -> WorkflowTransition | None:
         candidates = [
             t
@@ -236,7 +248,7 @@ class FakeWorkflowDefinitionRepository(IWorkflowDefinitionRepository):
         return copy.deepcopy(candidates[0]) if candidates else None
 
     async def exists_transition(
-        self, definition_id: UUID, from_status_id: UUID, action_code: str
+        self, definition_id: int, from_status_id: int, action_code: str
     ) -> bool:
         return await self.find_transition(
             definition_id, from_status_id, action_code
@@ -245,10 +257,12 @@ class FakeWorkflowDefinitionRepository(IWorkflowDefinitionRepository):
     async def create_transition(
         self, transition: WorkflowTransition
     ) -> WorkflowTransition:
+        if transition.id == 0:
+            transition.id = _next_fake_id()
         self.transitions[transition.id] = copy.deepcopy(transition)
         return copy.deepcopy(transition)
 
-    async def delete_transition(self, transition_id: UUID) -> None:
+    async def delete_transition(self, transition_id: int) -> None:
         self.transitions.pop(transition_id, None)
 
 
@@ -256,13 +270,15 @@ class FakeWorkflowInstanceRepository(IWorkflowInstanceRepository):
     """In-memory workflow runtime store."""
 
     def __init__(self) -> None:
-        self.instances: dict[UUID, WorkflowInstance] = {}
+        self.instances: dict[int, WorkflowInstance] = {}
         self.history: list[WorkflowHistoryEntry] = []
 
-    async def get_by_id(self, instance_id: UUID) -> WorkflowInstance | None:
+    async def get_by_id(self, instance_id: int) -> WorkflowInstance | None:
         return copy.deepcopy(self.instances.get(instance_id))
 
     async def create(self, instance: WorkflowInstance) -> WorkflowInstance:
+        if instance.id == 0:
+            instance.id = _next_fake_id()
         self.instances[instance.id] = copy.deepcopy(instance)
         return copy.deepcopy(instance)
 
@@ -277,10 +293,10 @@ class FakeWorkflowInstanceRepository(IWorkflowInstanceRepository):
         skip: int = 0,
         limit: int = 100,
         entity_type: str | None = None,
-        entity_id: UUID | None = None,
-        definition_id: UUID | None = None,
-        status_id: UUID | None = None,
-        initiated_by: UUID | None = None,
+        entity_id: int | None = None,
+        definition_id: int | None = None,
+        status_id: int | None = None,
+        initiated_by: int | None = None,
         is_completed: bool | None = None,
     ) -> list[WorkflowInstance]:
         rows = self._filtered(
@@ -292,10 +308,10 @@ class FakeWorkflowInstanceRepository(IWorkflowInstanceRepository):
     async def count(
         self,
         entity_type: str | None = None,
-        entity_id: UUID | None = None,
-        definition_id: UUID | None = None,
-        status_id: UUID | None = None,
-        initiated_by: UUID | None = None,
+        entity_id: int | None = None,
+        definition_id: int | None = None,
+        status_id: int | None = None,
+        initiated_by: int | None = None,
         is_completed: bool | None = None,
     ) -> int:
         return len(
@@ -310,7 +326,7 @@ class FakeWorkflowInstanceRepository(IWorkflowInstanceRepository):
         )
 
     async def get_open_for_entity(
-        self, entity_type: str, entity_id: UUID
+        self, entity_type: str, entity_id: int
     ) -> WorkflowInstance | None:
         open_rows = [
             i
@@ -326,7 +342,7 @@ class FakeWorkflowInstanceRepository(IWorkflowInstanceRepository):
         self.history.append(copy.deepcopy(entry))
         return copy.deepcopy(entry)
 
-    async def list_history(self, instance_id: UUID) -> list[WorkflowHistoryEntry]:
+    async def list_history(self, instance_id: int) -> list[WorkflowHistoryEntry]:
         rows = [h for h in self.history if h.instance_id == instance_id]
         rows.sort(key=lambda h: h.created_at, reverse=True)
         return [copy.deepcopy(h) for h in rows]
@@ -334,10 +350,10 @@ class FakeWorkflowInstanceRepository(IWorkflowInstanceRepository):
     def _filtered(
         self,
         entity_type: str | None,
-        entity_id: UUID | None,
-        definition_id: UUID | None,
-        status_id: UUID | None,
-        initiated_by: UUID | None,
+        entity_id: int | None,
+        definition_id: int | None,
+        status_id: int | None,
+        initiated_by: int | None,
         is_completed: bool | None,
     ) -> list[WorkflowInstance]:
         rows = list(self.instances.values())
@@ -360,12 +376,12 @@ class FakeApprovalMatrixRepository(IApprovalMatrixRepository):
     """In-memory approval matrix and approval task store."""
 
     def __init__(self) -> None:
-        self.matrices: dict[UUID, ApprovalMatrix] = {}
-        self.tasks: dict[UUID, ApprovalTask] = {}
+        self.matrices: dict[int, ApprovalMatrix] = {}
+        self.tasks: dict[int, ApprovalTask] = {}
 
     # ─── Matrices ───
 
-    async def get_by_id(self, entity_id: UUID) -> ApprovalMatrix | None:
+    async def get_by_id(self, entity_id: int) -> ApprovalMatrix | None:
         return copy.deepcopy(self.matrices.get(entity_id))
 
     async def get_by_code(self, code: str) -> ApprovalMatrix | None:
@@ -375,6 +391,8 @@ class FakeApprovalMatrixRepository(IApprovalMatrixRepository):
         return None
 
     async def create(self, entity: ApprovalMatrix) -> ApprovalMatrix:
+        if entity.id == 0:
+            entity.id = _next_fake_id()
         self.matrices[entity.id] = copy.deepcopy(entity)
         return copy.deepcopy(entity)
 
@@ -382,7 +400,7 @@ class FakeApprovalMatrixRepository(IApprovalMatrixRepository):
         self.matrices[entity.id] = copy.deepcopy(entity)
         return copy.deepcopy(entity)
 
-    async def delete(self, entity_id: UUID) -> None:
+    async def delete(self, entity_id: int) -> None:
         self.matrices.pop(entity_id, None)
 
     async def list_all(
@@ -422,12 +440,12 @@ class FakeApprovalMatrixRepository(IApprovalMatrixRepository):
         )
         return len(rows)
 
-    async def exists_by_code(self, code: str, exclude_id: UUID | None = None) -> bool:
+    async def exists_by_code(self, code: str, exclude_id: int | None = None) -> bool:
         return any(
             m.code == code and m.id != exclude_id for m in self.matrices.values()
         )
 
-    async def exists_by_name(self, name: str, exclude_id: UUID | None = None) -> bool:
+    async def exists_by_name(self, name: str, exclude_id: int | None = None) -> bool:
         return any(
             m.name.lower() == name.lower() and m.id != exclude_id
             for m in self.matrices.values()
@@ -447,10 +465,12 @@ class FakeApprovalMatrixRepository(IApprovalMatrixRepository):
     # ─── Tasks ───
 
     async def create_task(self, task: ApprovalTask) -> ApprovalTask:
+        if task.id == 0:
+            task.id = _next_fake_id()
         self.tasks[task.id] = copy.deepcopy(task)
         return copy.deepcopy(task)
 
-    async def get_task(self, task_id: UUID) -> ApprovalTask | None:
+    async def get_task(self, task_id: int) -> ApprovalTask | None:
         return copy.deepcopy(self.tasks.get(task_id))
 
     async def update_task(self, task: ApprovalTask) -> ApprovalTask:
@@ -459,12 +479,12 @@ class FakeApprovalMatrixRepository(IApprovalMatrixRepository):
         self.tasks[task.id] = copy.deepcopy(task)
         return copy.deepcopy(task)
 
-    async def list_tasks_for_instance(self, instance_id: UUID) -> list[ApprovalTask]:
+    async def list_tasks_for_instance(self, instance_id: int) -> list[ApprovalTask]:
         rows = [t for t in self.tasks.values() if t.instance_id == instance_id]
         rows.sort(key=lambda t: (t.level, t.created_date))
         return [copy.deepcopy(t) for t in rows]
 
-    async def list_pending_tasks_for_user(self, user_id: UUID) -> list[ApprovalTask]:
+    async def list_pending_tasks_for_user(self, user_id: int) -> list[ApprovalTask]:
         rows = [
             t
             for t in self.tasks.values()
@@ -473,7 +493,7 @@ class FakeApprovalMatrixRepository(IApprovalMatrixRepository):
         rows.sort(key=lambda t: t.created_date)
         return [copy.deepcopy(t) for t in rows]
 
-    async def cancel_open_tasks_for_instance(self, instance_id: UUID) -> int:
+    async def cancel_open_tasks_for_instance(self, instance_id: int) -> int:
         changed = 0
         for task in self.tasks.values():
             if task.instance_id == instance_id and task.is_open:
@@ -483,7 +503,7 @@ class FakeApprovalMatrixRepository(IApprovalMatrixRepository):
 
     # ─── Test helpers ───
 
-    def open_tasks(self, instance_id: UUID) -> list[ApprovalTask]:
+    def open_tasks(self, instance_id: int) -> list[ApprovalTask]:
         """Pending tasks on an instance, ordered by level."""
         rows = [
             t for t in self.tasks.values() if t.instance_id == instance_id and t.is_open
@@ -491,7 +511,7 @@ class FakeApprovalMatrixRepository(IApprovalMatrixRepository):
         rows.sort(key=lambda t: (t.level, t.created_date))
         return rows
 
-    def tasks_at(self, instance_id: UUID, level: int) -> list[ApprovalTask]:
+    def tasks_at(self, instance_id: int, level: int) -> list[ApprovalTask]:
         """Every task ever raised at one level, whatever its status."""
         return [
             t
@@ -503,28 +523,28 @@ class FakeApprovalMatrixRepository(IApprovalMatrixRepository):
 class FakeRoleAssignmentRepository(IRoleAssignmentRepository):
     """In-memory role membership, keyed role -> eligible user ids."""
 
-    def __init__(self, members: dict[UUID, list[UUID]] | None = None) -> None:
-        self.members: dict[UUID, list[UUID]] = members or {}
+    def __init__(self, members: dict[int, list[int]] | None = None) -> None:
+        self.members: dict[int, list[int]] = members or {}
 
-    async def list_active_user_ids_for_role(self, role_id: UUID) -> list[UUID]:
+    async def list_active_user_ids_for_role(self, role_id: int) -> list[int]:
         return list(self.members.get(role_id, []))
 
-    async def get_active(self, user_id: UUID, role_id: UUID) -> RoleAssignment | None:
+    async def get_active(self, user_id: int, role_id: int) -> RoleAssignment | None:
         if user_id in self.members.get(role_id, []):
-            return RoleAssignment(id=uuid4(), user_id=user_id, role_id=role_id)
+            return RoleAssignment(user_id=user_id, role_id=role_id)
         return None
 
-    async def list_for_user(self, user_id: UUID) -> list[RoleAssignment]:
+    async def list_for_user(self, user_id: int) -> list[RoleAssignment]:
         return await self.list_active_for_user(user_id)
 
-    async def list_active_for_user(self, user_id: UUID) -> list[RoleAssignment]:
+    async def list_active_for_user(self, user_id: int) -> list[RoleAssignment]:
         return [
-            RoleAssignment(id=uuid4(), user_id=user_id, role_id=role_id)
+            RoleAssignment(user_id=user_id, role_id=role_id)
             for role_id, users in self.members.items()
             if user_id in users
         ]
 
-    async def deactivate_all_for_user(self, user_id: UUID, modified_by: str) -> int:
+    async def deactivate_all_for_user(self, user_id: int, modified_by: str) -> int:
         removed = 0
         for users in self.members.values():
             if user_id in users:
@@ -536,7 +556,7 @@ class FakeRoleAssignmentRepository(IRoleAssignmentRepository):
         self.members.setdefault(assignment.role_id, []).append(assignment.user_id)
         return assignment
 
-    async def deactivate(self, assignment_id: UUID, modified_by: str) -> None:
+    async def deactivate(self, assignment_id: int, modified_by: str) -> None:
         return None
 
 
@@ -550,7 +570,7 @@ def build_matrix(
     priority: int = 10,
     is_active: bool = True,
     rules: list[tuple[str, str, str, str]] | None = None,
-    levels: list[tuple[int, AssignmentType, UUID]] | None = None,
+    levels: list[tuple[int, AssignmentType, int]] | None = None,
 ) -> ApprovalMatrix:
     """
     Build an approval matrix aggregate.
@@ -561,7 +581,7 @@ def build_matrix(
     """
     from src.domain.enums.workflow_enums import RuleDataType, RuleOperator
 
-    matrix_id = uuid4()
+    matrix_id = _next_fake_id()
     return ApprovalMatrix(
         id=matrix_id,
         code=code,
@@ -571,7 +591,7 @@ def build_matrix(
         is_active=is_active,
         rules=[
             ApprovalRule(
-                id=uuid4(),
+                id=_next_fake_id(),
                 matrix_id=matrix_id,
                 field=field,
                 operator=RuleOperator(operator),
@@ -582,7 +602,7 @@ def build_matrix(
         ],
         assignments=[
             ApprovalAssignment(
-                id=uuid4(),
+                id=_next_fake_id(),
                 matrix_id=matrix_id,
                 level=level,
                 assignment_type=assignment_type,
@@ -616,12 +636,12 @@ class WorkflowScenario:
         self.instances = FakeWorkflowInstanceRepository()
         self.matrices = FakeApprovalMatrixRepository()
 
-        self.manager_role_id = uuid4()
-        self.admin_role_id = uuid4()
-        self.manager_a = uuid4()
-        self.manager_b = uuid4()
-        self.admin = uuid4()
-        self.maker = uuid4()
+        self.manager_role_id = _next_fake_id()
+        self.admin_role_id = _next_fake_id()
+        self.manager_a = _next_fake_id()
+        self.manager_b = _next_fake_id()
+        self.admin = _next_fake_id()
+        self.maker = _next_fake_id()
         self.roles = FakeRoleAssignmentRepository(
             {
                 self.manager_role_id: [self.manager_a, self.manager_b],
@@ -630,14 +650,14 @@ class WorkflowScenario:
         )
 
         self.definition = WorkflowDefinition(
-            id=uuid4(),
+            id=_next_fake_id(),
             code="COMPLIANCE_TASK_APPROVAL",
             name="Compliance Task Approval",
             entity_type=self.ENTITY_TYPE,
         )
         self.definitions.definitions[self.definition.id] = self.definition
 
-        self.status_ids: dict[str, UUID] = {}
+        self.status_ids: dict[str, int] = {}
         for code, is_initial, is_terminal, sequence in [
             ("DRAFT", True, False, 10),
             ("L1_REVIEW", False, False, 20),
@@ -647,7 +667,7 @@ class WorkflowScenario:
             ("CANCELLED", False, True, 60),
         ]:
             status = WorkflowStatus(
-                id=uuid4(),
+                id=_next_fake_id(),
                 workflow_definition_id=self.definition.id,
                 code=code,
                 name=code.replace("_", " ").title(),
@@ -675,7 +695,7 @@ class WorkflowScenario:
             ("L2_REVIEW", "REJECT", "REJECTED", WorkflowActionType.REJECT, True),
         ]:
             transition = WorkflowTransition(
-                id=uuid4(),
+                id=_next_fake_id(),
                 workflow_definition_id=self.definition.id,
                 from_status_id=self.status_ids[from_code],
                 to_status_id=self.status_ids[to_code],
@@ -707,10 +727,10 @@ class WorkflowScenario:
     ) -> WorkflowInstance:
         """Persist an instance sitting in one state."""
         instance = WorkflowInstance(
-            id=uuid4(),
+            id=_next_fake_id(),
             workflow_definition_id=self.definition.id,
             entity_type=self.ENTITY_TYPE,
-            entity_id=uuid4(),
+            entity_id=_next_fake_id(),
             current_status_id=self.status_ids[status_code],
             initiated_by=self.maker,
             extra_data=dict(extra_data or {}),

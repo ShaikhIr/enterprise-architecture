@@ -4,7 +4,6 @@ Thin controller — delegates all business logic to RbacService.
 """
 
 from typing import Any
-from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
@@ -132,7 +131,7 @@ async def create_permission(
     dependencies=[Depends(require_permission("rbac.read"))],
 )
 async def list_roles(
-    tenant_id: UUID | None = Query(default=None),
+    tenant_id: int | None = Query(default=None),
     service: RbacService = Depends(_get_rbac_service),
 ) -> RoleListResponse:
     data = await service.list_roles(tenant_id=tenant_id)
@@ -178,7 +177,7 @@ async def create_role(
     dependencies=[Depends(require_permission("rbac.update"))],
 )
 async def update_role(
-    role_id: UUID,
+    role_id: int,
     request_body: RoleUpdate,
     request: Request,
     current_user: User = Depends(get_current_active_user),

@@ -1,7 +1,7 @@
 /**
  * Create / edit dialog for a rule.
  *
- * Legislation and country are required; state is optional and empty means the rule
+ * Legislation and country are required; state is optional and null means the rule
  * is central. The state picker is narrowed to the chosen country for the same
  * reason as on the legislation form.
  */
@@ -25,8 +25,8 @@ import { useStateLookup } from '../hooks/useStates';
 import type { CreateRuleRequest, Rule } from '../models/Rule';
 import { fromIsoDate, toIsoDate } from '../utils/isoDate';
 
-/** Sentinel for "central"; a Dropdown cannot hold null as a value. */
-const CENTRAL = '';
+/** Sentinel for "central": null, since the field carries no state. */
+const CENTRAL = null;
 
 const schema = z.object({
   code: z
@@ -35,9 +35,9 @@ const schema = z.object({
     .max(50, 'Code must be at most 50 characters'),
   name: z.string().min(1, 'Name is required').max(500),
   description: z.string().max(4000),
-  legislation_id: z.string().uuid('Select a legislation'),
-  country_id: z.string().uuid('Select a country'),
-  state_id: z.string(),
+  legislation_id: z.number().int().positive('Select a legislation'),
+  country_id: z.number().int().positive('Select a country'),
+  state_id: z.number().int().positive().nullable(),
   rule_number: z.string().max(100),
   effective_date: z.date().nullable(),
   is_active: z.boolean(),
@@ -49,8 +49,8 @@ const EMPTY: FormData = {
   code: '',
   name: '',
   description: '',
-  legislation_id: '',
-  country_id: '',
+  legislation_id: 0,
+  country_id: 0,
   state_id: CENTRAL,
   rule_number: '',
   effective_date: null,
@@ -81,7 +81,10 @@ export const RuleForm = ({ visible, rule, saving, onHide, onSubmit }: RuleFormPr
   const countryId = useWatch({ control, name: 'country_id' });
   const states = useStateLookup(countryId || undefined);
 
-  const stateOptions = [{ label: 'Central (no state)', value: CENTRAL }, ...states.options];
+  const stateOptions = [
+    { label: 'Central (no state)', value: CENTRAL as number | null },
+    ...states.options,
+  ];
 
   useEffect(() => {
     if (!visible) return;
@@ -114,7 +117,7 @@ export const RuleForm = ({ visible, rule, saving, onHide, onSubmit }: RuleFormPr
       description: data.description.trim(),
       legislation_id: data.legislation_id,
       country_id: data.country_id,
-      state_id: data.state_id === CENTRAL ? null : data.state_id,
+      state_id: data.state_id,
       rule_number: data.rule_number.trim() || null,
       effective_date: toIsoDate(data.effective_date),
       is_active: data.is_active,
@@ -211,6 +214,7 @@ export const RuleForm = ({ visible, rule, saving, onHide, onSubmit }: RuleFormPr
                   options={stateOptions}
                   onChange={(e) => field.onChange(e.value ?? CENTRAL)}
                   filter
+                  showClear
                   className="w-full"
                   aria-label="Owning state"
                 />

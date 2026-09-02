@@ -8,7 +8,6 @@ business editing the state machine.
 Thin controller — all business logic sits in WorkflowService.
 """
 
-from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request, status
 
@@ -55,9 +54,9 @@ async def list_instances(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=100, ge=1, le=500),
     entity_type: str | None = Query(default=None),
-    entity_id: UUID | None = Query(default=None),
-    definition_id: UUID | None = Query(default=None),
-    status_id: UUID | None = Query(default=None),
+    entity_id: int | None = Query(default=None),
+    definition_id: int | None = Query(default=None),
+    status_id: int | None = Query(default=None),
     is_completed: bool | None = Query(default=None),
     service: WorkflowService = Depends(get_workflow_service),
 ) -> WorkflowInstanceListResponse:
@@ -96,7 +95,7 @@ async def start_workflow(
     dependencies=[Depends(require_api_permission(RESOURCE, "READ"))],
 )
 async def get_instance(
-    instance_id: UUID,
+    instance_id: int,
     service: WorkflowService = Depends(get_workflow_service),
 ) -> WorkflowInstanceResponse:
     """GET /api/v1/workflow/instances/{instance_id}"""
@@ -110,7 +109,7 @@ async def get_instance(
     dependencies=[Depends(require_api_permission(RESOURCE, "UPDATE"))],
 )
 async def execute_action(
-    instance_id: UUID,
+    instance_id: int,
     request: WorkflowActionRequest,
     http_request: Request,
     current_user: User = Depends(get_current_active_user),
@@ -132,7 +131,7 @@ async def execute_action(
     dependencies=[Depends(require_api_permission(RESOURCE, "READ"))],
 )
 async def list_available_actions(
-    instance_id: UUID,
+    instance_id: int,
     service: WorkflowService = Depends(get_workflow_service),
 ) -> list[WorkflowAvailableActionResponse]:
     """GET /api/v1/workflow/instances/{instance_id}/actions"""
@@ -146,7 +145,7 @@ async def list_available_actions(
     dependencies=[Depends(require_api_permission(RESOURCE, "READ"))],
 )
 async def get_instance_history(
-    instance_id: UUID,
+    instance_id: int,
     service: WorkflowService = Depends(get_workflow_service),
 ) -> list[WorkflowHistoryResponse]:
     """GET /api/v1/workflow/instances/{instance_id}/history"""
@@ -160,7 +159,7 @@ async def get_instance_history(
     dependencies=[Depends(require_api_permission(RESOURCE, "READ"))],
 )
 async def get_instance_tasks(
-    instance_id: UUID,
+    instance_id: int,
     service: WorkflowService = Depends(get_workflow_service),
 ) -> list[ApprovalTaskResponse]:
     """GET /api/v1/workflow/instances/{instance_id}/tasks"""

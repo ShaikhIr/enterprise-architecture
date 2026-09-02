@@ -21,8 +21,8 @@ import { z } from 'zod';
 import { useStateLookup } from '../hooks/useStates';
 import type { CategoryOfLaw, CreateCategoryOfLawRequest } from '../models/CategoryOfLaw';
 
-/** Sentinel for the "country-wide" option; a Dropdown cannot hold null as a value. */
-const COUNTRY_WIDE = '';
+/** Sentinel for the "country-wide" option: null, since the field carries no state. */
+const COUNTRY_WIDE = null;
 
 const schema = z.object({
   code: z
@@ -31,7 +31,7 @@ const schema = z.object({
     .max(50, 'Code must be at most 50 characters'),
   name: z.string().min(1, 'Name is required').max(255),
   description: z.string().max(2000),
-  state_id: z.string(),
+  state_id: z.number().int().positive().nullable(),
   is_active: z.boolean(),
 });
 
@@ -64,7 +64,7 @@ export const CategoryOfLawForm = ({
   const states = useStateLookup();
 
   const stateOptions = [
-    { label: 'Country-wide (no state)', value: COUNTRY_WIDE },
+    { label: 'Country-wide (no state)', value: COUNTRY_WIDE as number | null },
     ...states.options,
   ];
 
@@ -101,7 +101,7 @@ export const CategoryOfLawForm = ({
       code: data.code.trim().toUpperCase(),
       name: data.name.trim(),
       description: data.description.trim(),
-      state_id: data.state_id === COUNTRY_WIDE ? null : data.state_id,
+      state_id: data.state_id,
       is_active: data.is_active,
     });
   };
@@ -176,6 +176,7 @@ export const CategoryOfLawForm = ({
                 value={field.value}
                 options={stateOptions}
                 onChange={(e) => field.onChange(e.value ?? COUNTRY_WIDE)}
+                showClear
                 filter
                 className="w-full"
                 aria-label="Owning state"

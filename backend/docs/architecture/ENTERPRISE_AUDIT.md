@@ -80,7 +80,7 @@ This document describes the automatic, table-level audit logging system that cap
 │  ┌──────────────────────────────────────────────────────────────┐   │
 │  │              audit_logs (append-only, immutable)              │   │
 │  │                                                              │   │
-│  │  • id (UUID PK)         • resource_type (table name)         │   │
+│  │  • id (bigint PK)       • resource_type (table name)         │   │
 │  │  • actor_id             • resource_id (row PK)               │   │
 │  │  • actor_username       • old_value (JSON — before)          │   │
 │  │  • action (INSERT/      • new_value (JSON — after)           │   │
@@ -130,13 +130,13 @@ Audit log rows are added to the same session and committed atomically. If the bu
 
 | Column | Type | Description |
 |--------|------|-------------|
-| `id` | UUID (PK) | Unique entry identifier |
-| `actor_id` | UUID (nullable, indexed) | User who made the change |
+| `id` | BigInteger (PK, autoincrement) | Unique entry identifier |
+| `actor_id` | BigInteger (nullable, indexed) | User who made the change |
 | `actor_username` | VARCHAR(255) (indexed) | Denormalized for fast querying |
 | `action` | VARCHAR(50) (indexed) | INSERT, UPDATE, or DELETE |
 | `resource_type` | VARCHAR(100) (indexed) | Table name (e.g., `users`, `roles`) |
-| `resource_id` | VARCHAR(100) | Primary key of the affected row |
-| `tenant_id` | UUID (nullable, indexed) | Tenant context |
+| `resource_id` | VARCHAR(100) | Primary key of the affected row (stored as text — polymorphic across tables) |
+| `tenant_id` | BigInteger (nullable, indexed) | Tenant context |
 | `old_value` | TEXT (JSON) | Full row state **before** the change |
 | `new_value` | TEXT (JSON) | Full row state **after** the change |
 | `ip_address` | VARCHAR(45) | Client IP address |
@@ -158,15 +158,15 @@ Audit log rows are added to the same session and committed atomically. If the bu
 
 ```json
 {
-  "id": "a1b2c3d4-...",
-  "actor_id": "admin-uuid-...",
+  "id": 1042,
+  "actor_id": 1,
   "actor_username": "admin",
   "action": "INSERT",
   "resource_type": "users",
-  "resource_id": "new-user-uuid-...",
+  "resource_id": "57",
   "old_value": null,
   "new_value": {
-    "id": "new-user-uuid-...",
+    "id": 57,
     "username": "john.doe",
     "is_active": "True",
     "is_blocked": "False",
@@ -184,14 +184,14 @@ Audit log rows are added to the same session and committed atomically. If the bu
 
 ```json
 {
-  "id": "e5f6g7h8-...",
-  "actor_id": "admin-uuid-...",
+  "id": 1087,
+  "actor_id": 1,
   "actor_username": "admin",
   "action": "UPDATE",
   "resource_type": "users",
-  "resource_id": "user-uuid-...",
+  "resource_id": "57",
   "old_value": {
-    "id": "user-uuid-...",
+    "id": 57,
     "username": "john.doe",
     "is_active": "True",
     "is_blocked": "False",
@@ -199,7 +199,7 @@ Audit log rows are added to the same session and committed atomically. If the bu
     "modified_date": "2026-06-15T08:00:00+00:00"
   },
   "new_value": {
-    "id": "user-uuid-...",
+    "id": 57,
     "username": "john.doe",
     "is_active": "True",
     "is_blocked": "True",
@@ -216,14 +216,14 @@ Audit log rows are added to the same session and committed atomically. If the bu
 
 ```json
 {
-  "id": "i9j0k1l2-...",
-  "actor_id": "admin-uuid-...",
+  "id": 1153,
+  "actor_id": 1,
   "actor_username": "admin",
   "action": "DELETE",
   "resource_type": "roles",
-  "resource_id": "role-uuid-...",
+  "resource_id": "12",
   "old_value": {
-    "id": "role-uuid-...",
+    "id": 12,
     "code": "TEMP_ROLE",
     "name": "Temporary Role",
     "is_system": "False",
@@ -397,7 +397,7 @@ await audit.log(
 SELECT action, old_value, new_value, actor_username, created_at
 FROM audit_logs
 WHERE resource_type = 'users'
-  AND resource_id = 'user-uuid-here'
+  AND resource_id = '57'
 ORDER BY created_at DESC;
 ```
 

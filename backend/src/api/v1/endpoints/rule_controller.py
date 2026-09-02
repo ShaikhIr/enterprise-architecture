@@ -3,7 +3,6 @@ Rule master API endpoints.
 Thin controller — delegates all business logic to RuleService.
 """
 
-from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
 
@@ -61,9 +60,9 @@ async def list_rules(
         default=None, description="Match code, name or rule number"
     ),
     is_active: bool | None = Query(default=None),
-    country_id: UUID | None = Query(default=None, description="Filter by country"),
-    state_id: UUID | None = Query(default=None, description="Filter by state"),
-    legislation_id: UUID | None = Query(
+    country_id: int | None = Query(default=None, description="Filter by country"),
+    state_id: int | None = Query(default=None, description="Filter by state"),
+    legislation_id: int | None = Query(
         default=None, description="Filter by legislation"
     ),
     service: RuleService = Depends(_get_rule_service),
@@ -103,7 +102,7 @@ async def create_rule(
     dependencies=[Depends(require_api_permission(RESOURCE, "READ"))],
 )
 async def get_rule(
-    rule_id: UUID,
+    rule_id: int,
     service: RuleService = Depends(_get_rule_service),
 ) -> RuleResponse:
     """GET /api/v1/masters/rules/{rule_id}"""
@@ -117,7 +116,7 @@ async def get_rule(
     dependencies=[Depends(require_api_permission(RESOURCE, "UPDATE"))],
 )
 async def update_rule(
-    rule_id: UUID,
+    rule_id: int,
     request: RuleUpdate,
     current_user: User = Depends(get_current_active_user),
     service: RuleService = Depends(_get_rule_service),
@@ -135,7 +134,7 @@ async def update_rule(
     dependencies=[Depends(require_api_permission(RESOURCE, "DELETE"))],
 )
 async def delete_rule(
-    rule_id: UUID,
+    rule_id: int,
     service: RuleService = Depends(_get_rule_service),
 ) -> None:
     """DELETE /api/v1/masters/rules/{rule_id}"""

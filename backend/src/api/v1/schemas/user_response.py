@@ -4,7 +4,6 @@ Never exposes password_hash.
 """
 
 from datetime import datetime
-from uuid import UUID
 
 from pydantic import BaseModel, Field
 
@@ -12,7 +11,7 @@ from pydantic import BaseModel, Field
 class UserResponse(BaseModel):
     """User response with employee details."""
 
-    id: UUID
+    id: int
     username: str
     is_active: bool
     is_blocked: bool
@@ -30,7 +29,7 @@ class UserResponse(BaseModel):
 class UserDetailResponse(BaseModel):
     """Full user details (all fields from user_details table)."""
 
-    id: UUID
+    id: int
     username: str
     is_active: bool
     is_blocked: bool

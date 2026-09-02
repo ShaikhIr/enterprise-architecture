@@ -3,7 +3,6 @@ Category of Law master API endpoints.
 Thin controller — delegates all business logic to CategoryOfLawService.
 """
 
-from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
 
@@ -50,7 +49,7 @@ async def list_categories_of_law(
     limit: int = Query(default=100, ge=1, le=500),
     search: str | None = Query(default=None, description="Match code or name"),
     is_active: bool | None = Query(default=None),
-    state_id: UUID | None = Query(default=None, description="Filter by state"),
+    state_id: int | None = Query(default=None, description="Filter by state"),
     service: CategoryOfLawService = Depends(_get_category_service),
 ) -> CategoryOfLawListResponse:
     """GET /api/v1/masters/categories-of-law"""
@@ -86,7 +85,7 @@ async def create_category_of_law(
     dependencies=[Depends(require_api_permission(RESOURCE, "READ"))],
 )
 async def get_category_of_law(
-    category_of_law_id: UUID,
+    category_of_law_id: int,
     service: CategoryOfLawService = Depends(_get_category_service),
 ) -> CategoryOfLawResponse:
     """GET /api/v1/masters/categories-of-law/{category_of_law_id}"""
@@ -100,7 +99,7 @@ async def get_category_of_law(
     dependencies=[Depends(require_api_permission(RESOURCE, "UPDATE"))],
 )
 async def update_category_of_law(
-    category_of_law_id: UUID,
+    category_of_law_id: int,
     request: CategoryOfLawUpdate,
     current_user: User = Depends(get_current_active_user),
     service: CategoryOfLawService = Depends(_get_category_service),
@@ -118,7 +117,7 @@ async def update_category_of_law(
     dependencies=[Depends(require_api_permission(RESOURCE, "DELETE"))],
 )
 async def delete_category_of_law(
-    category_of_law_id: UUID,
+    category_of_law_id: int,
     service: CategoryOfLawService = Depends(_get_category_service),
 ) -> None:
     """DELETE /api/v1/masters/categories-of-law/{category_of_law_id}"""

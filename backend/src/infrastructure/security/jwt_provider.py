@@ -5,7 +5,6 @@ Handles access tokens and refresh tokens with configurable expiry.
 
 from datetime import UTC, datetime, timedelta
 from typing import Any
-from uuid import UUID
 
 import jwt
 
@@ -39,7 +38,7 @@ class JWTProvider:
         self._access_expire_minutes = settings.ACCESS_TOKEN_EXPIRE_MINUTES
         self._refresh_expire_days = settings.REFRESH_TOKEN_EXPIRE_DAYS
 
-    def create_access_token(self, username: str, user_id: UUID) -> str:
+    def create_access_token(self, username: str, user_id: int) -> str:
         """Generate an access token with short-lived expiry."""
         now = datetime.now(UTC)
         payload = {
@@ -51,7 +50,7 @@ class JWTProvider:
         }
         return jwt.encode(payload, self._secret_key, algorithm=self._algorithm)
 
-    def create_refresh_token(self, username: str, user_id: UUID) -> str:
+    def create_refresh_token(self, username: str, user_id: int) -> str:
         """Generate a refresh token with longer expiry."""
         now = datetime.now(UTC)
         payload = {

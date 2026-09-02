@@ -7,8 +7,6 @@ API integration tests only prove the wiring end to end. These tests pin the
 business rules down directly against a fake repository, in-process.
 """
 
-from uuid import uuid4
-
 import pytest
 from master_fakes import FakeCountryRepository
 
@@ -35,7 +33,7 @@ def service(repo: FakeCountryRepository) -> CountryService:
 
 @pytest.fixture
 def actor() -> User:
-    return User(id=uuid4(), username="alice")
+    return User(id=1, username="alice")
 
 
 class TestCreate:
@@ -84,7 +82,7 @@ class TestCreate:
 class TestGet:
     async def test_get_missing_raises_not_found(self, service: CountryService) -> None:
         with pytest.raises(EntityNotFoundError):
-            await service.get_country(uuid4())
+            await service.get_country(999_999)
 
 
 class TestUpdate:
@@ -108,7 +106,7 @@ class TestUpdate:
     ) -> None:
         created = await service.create_country(CountryCreate(code="IN", name="India"), actor)
         before = created.modified_date
-        other = User(id=uuid4(), username="bob")
+        other = User(id=2, username="bob")
 
         updated = await service.update_country(created.id, CountryUpdate(name="Bharat"), other)
 
@@ -138,7 +136,7 @@ class TestUpdate:
         self, service: CountryService, actor: User
     ) -> None:
         with pytest.raises(EntityNotFoundError):
-            await service.update_country(uuid4(), CountryUpdate(name="X"), actor)
+            await service.update_country(999_999, CountryUpdate(name="X"), actor)
 
 
 class TestDelete:
@@ -167,7 +165,7 @@ class TestDelete:
         self, service: CountryService
     ) -> None:
         with pytest.raises(EntityNotFoundError):
-            await service.delete_country(uuid4())
+            await service.delete_country(999_999)
 
 
 class TestList:

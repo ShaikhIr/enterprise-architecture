@@ -35,22 +35,22 @@ describe('useStates dependent-key wiring', () => {
     );
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
-    const { result } = renderHook(() => useStates({ country_id: 'country-1' }), {
+    const { result } = renderHook(() => useStates({ country_id: 501 }), {
       wrapper: wrapperWith(queryClient),
     });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(captured?.searchParams.get('country_id')).toBe('country-1');
+    expect(captured?.searchParams.get('country_id')).toBe('501');
   });
 
   it('invalidates categories-of-law, legislations and rules after a create', async () => {
     server.use(
       http.post('/api/v1/masters/states', () =>
         HttpResponse.json({
-          id: '1',
+          id: 1,
           code: 'IN-MH',
           name: 'Maharashtra',
-          country_id: 'country-1',
+          country_id: 501,
           is_union_territory: false,
           is_active: true,
           created_by: 'system',
@@ -76,7 +76,7 @@ describe('useStates dependent-key wiring', () => {
     result.current.mutate({
       code: 'IN-MH',
       name: 'Maharashtra',
-      country_id: 'country-1',
+      country_id: 501,
       is_union_territory: false,
       is_active: true,
     });

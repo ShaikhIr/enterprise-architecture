@@ -73,7 +73,7 @@ function buildPermissionTree(permissions: Permission[]): TreeNode[] {
         // Single permission under resource — add directly to scope
         const perm = perms[0]!;
         scopeNode.children!.push({
-          key: perm.id,
+          key: String(perm.id),
           label: `${perm.name}`,
           data: perm,
           icon: 'pi pi-key',
@@ -85,7 +85,7 @@ function buildPermissionTree(permissions: Permission[]): TreeNode[] {
           label: resource.charAt(0).toUpperCase() + resource.slice(1),
           icon: 'pi pi-folder',
           children: perms.map((perm) => ({
-            key: perm.id,
+            key: String(perm.id),
             label: `${perm.name} (${perm.action})`,
             data: perm,
             icon: 'pi pi-key',
@@ -166,7 +166,7 @@ function extractPermissionIds(
   selectionKeys: TreeCheckboxSelectionKeys,
   permissions: Permission[],
 ): string[] {
-  const permIdSet = new Set(permissions.map((p) => p.id));
+  const permIdSet = new Set(permissions.map((p) => String(p.id)));
   const selected: string[] = [];
 
   /*
@@ -250,7 +250,7 @@ export const RolesPage = () => {
 
   const openPermissionsDialog = (role: Role) => {
     setSelectedRole(role);
-    const selectedIds = new Set(role.permissions.map((p) => p.id));
+    const selectedIds = new Set(role.permissions.map((p) => String(p.id)));
     setSelectionKeys(buildSelectionKeys(selectedIds, permissionTree));
     setShowPermissionsDialog(true);
   };
@@ -259,7 +259,7 @@ export const RolesPage = () => {
     if (!selectedRole) return;
 
     const newPermIds = new Set(extractPermissionIds(selectionKeys, permissions));
-    const currentPermIds = new Set(selectedRole.permissions.map((p) => p.id));
+    const currentPermIds = new Set(selectedRole.permissions.map((p) => String(p.id)));
 
     // Permissions to grant (in new but not in current)
     const toGrant = [...newPermIds].filter((id) => !currentPermIds.has(id));
@@ -275,13 +275,13 @@ export const RolesPage = () => {
       for (const permId of toGrant) {
         await rbacAdminApi.grantPermission({
           role_id: selectedRole.id,
-          permission_id: permId,
+          permission_id: Number(permId),
         });
       }
       for (const permId of toRevoke) {
         await rbacAdminApi.revokePermission({
           role_id: selectedRole.id,
-          permission_id: permId,
+          permission_id: Number(permId),
         });
       }
       setShowPermissionsDialog(false);

@@ -30,7 +30,7 @@ export type AssignmentType = (typeof ASSIGNMENT_TYPES)[number];
 export type ApprovalTaskStatus = 'PENDING' | 'COMPLETED' | 'CANCELLED' | 'ESCALATED';
 
 export interface ApprovalRule {
-  id: string;
+  id: number;
   field: string;
   operator: RuleOperator;
   value: string;
@@ -39,15 +39,15 @@ export interface ApprovalRule {
 }
 
 export interface ApprovalAssignment {
-  id: string;
+  id: number;
   level: number;
   assignment_type: AssignmentType;
-  user_id: string | null;
-  role_id: string | null;
+  user_id: number | null;
+  role_id: number | null;
 }
 
 export interface ApprovalMatrix {
-  id: string;
+  id: number;
   code: string;
   name: string;
   entity_type: string;
@@ -80,8 +80,8 @@ export interface ApprovalRuleInput {
 export interface ApprovalAssignmentInput {
   level: number;
   assignment_type: AssignmentType;
-  user_id: string | null;
-  role_id: string | null;
+  user_id: number | null;
+  role_id: number | null;
 }
 
 export interface CreateApprovalMatrixRequest {
@@ -109,10 +109,10 @@ export interface ApprovalResolveResponse {
 }
 
 export interface ApprovalTask {
-  id: string;
-  instance_id: string;
-  matrix_id: string | null;
-  assignee_id: string;
+  id: number;
+  instance_id: number;
+  matrix_id: number | null;
+  assignee_id: number;
   level: number;
   status: ApprovalTaskStatus;
   action_taken: string | null;

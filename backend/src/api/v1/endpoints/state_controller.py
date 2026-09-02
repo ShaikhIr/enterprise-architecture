@@ -3,7 +3,6 @@ State master API endpoints.
 Thin controller — delegates all business logic to StateService.
 """
 
-from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
 
@@ -48,7 +47,7 @@ async def list_states(
     limit: int = Query(default=100, ge=1, le=500),
     search: str | None = Query(default=None, description="Match code or name"),
     is_active: bool | None = Query(default=None),
-    country_id: UUID | None = Query(default=None, description="Filter by country"),
+    country_id: int | None = Query(default=None, description="Filter by country"),
     service: StateService = Depends(_get_state_service),
 ) -> StateListResponse:
     """GET /api/v1/masters/states"""
@@ -84,7 +83,7 @@ async def create_state(
     dependencies=[Depends(require_api_permission(RESOURCE, "READ"))],
 )
 async def get_state(
-    state_id: UUID,
+    state_id: int,
     service: StateService = Depends(_get_state_service),
 ) -> StateResponse:
     """GET /api/v1/masters/states/{state_id}"""
@@ -98,7 +97,7 @@ async def get_state(
     dependencies=[Depends(require_api_permission(RESOURCE, "UPDATE"))],
 )
 async def update_state(
-    state_id: UUID,
+    state_id: int,
     request: StateUpdate,
     current_user: User = Depends(get_current_active_user),
     service: StateService = Depends(_get_state_service),
@@ -116,7 +115,7 @@ async def update_state(
     dependencies=[Depends(require_api_permission(RESOURCE, "DELETE"))],
 )
 async def delete_state(
-    state_id: UUID,
+    state_id: int,
     service: StateService = Depends(_get_state_service),
 ) -> None:
     """DELETE /api/v1/masters/states/{state_id}"""

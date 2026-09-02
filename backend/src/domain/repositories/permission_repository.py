@@ -4,7 +4,6 @@ Defines the contract for permission definition persistence.
 """
 
 from abc import ABC, abstractmethod
-from uuid import UUID
 
 from src.domain.entities.role import Permission
 
@@ -13,7 +12,7 @@ class IPermissionRepository(ABC):
     """Abstract repository for Permission persistence."""
 
     @abstractmethod
-    async def get_by_id(self, permission_id: UUID) -> Permission | None:
+    async def get_by_id(self, permission_id: int) -> Permission | None:
         """Retrieve a permission by its identifier."""
         ...
 

@@ -13,7 +13,7 @@ reason `WorkflowEngine` exists as a class rather than two functions callers
 invoke separately.
 """
 
-from uuid import uuid4
+import itertools
 
 import pytest
 from workflow_fakes import WorkflowScenario
@@ -25,6 +25,14 @@ from src.domain.exceptions.domain_exceptions import (
     EntityNotFoundError,
 )
 
+# Polymorphic entity ids are plain bigints now; a counter keeps each test's
+# entity distinct without needing the database to hand one out.
+_entity_id_seq = itertools.count(1)
+
+
+def _nid() -> int:
+    return next(_entity_id_seq)
+
 
 @pytest.fixture
 def engine(scenario: WorkflowScenario) -> WorkflowEngine:
@@ -35,7 +43,7 @@ class TestStart:
     async def test_starts_at_the_initial_status(
         self, scenario: WorkflowScenario, engine: WorkflowEngine
     ) -> None:
-        entity_id = uuid4()
+        entity_id = _nid()
 
         state = await engine.start(
             definition_code="COMPLIANCE_TASK_APPROVAL",
@@ -56,7 +64,7 @@ class TestStart:
         state = await engine.start(
             definition_code="COMPLIANCE_TASK_APPROVAL",
             entity_type=scenario.ENTITY_TYPE,
-            entity_id=uuid4(),
+            entity_id=_nid(),
             initiated_by=scenario.maker,
             actor_username="maker",
             metadata={"risk_level": "HIGH"},
@@ -71,8 +79,8 @@ class TestStart:
             await engine.start(
                 definition_code="NO_SUCH_WORKFLOW",
                 entity_type="anything",
-                entity_id=uuid4(),
-                initiated_by=uuid4(),
+                entity_id=_nid(),
+                initiated_by=1,
                 actor_username="maker",
             )
 
@@ -86,7 +94,7 @@ class TestStart:
             await engine.start(
                 definition_code="COMPLIANCE_TASK_APPROVAL",
                 entity_type=scenario.ENTITY_TYPE,
-                entity_id=uuid4(),
+                entity_id=_nid(),
                 initiated_by=scenario.maker,
                 actor_username="maker",
             )
@@ -99,7 +107,7 @@ class TestStart:
             await engine.start(
                 definition_code="COMPLIANCE_TASK_APPROVAL",
                 entity_type="something_else",
-                entity_id=uuid4(),
+                entity_id=_nid(),
                 initiated_by=scenario.maker,
                 actor_username="maker",
             )
@@ -119,8 +127,8 @@ class TestStart:
             await engine.start(
                 definition_code="NO_INITIAL_STATUS",
                 entity_type="widget",
-                entity_id=uuid4(),
-                initiated_by=uuid4(),
+                entity_id=_nid(),
+                initiated_by=1,
                 actor_username="maker",
             )
         assert "no initial state" in exc.value.message
@@ -128,7 +136,7 @@ class TestStart:
     async def test_second_instance_for_the_same_entity_is_refused(
         self, scenario: WorkflowScenario, engine: WorkflowEngine
     ) -> None:
-        entity_id = uuid4()
+        entity_id = _nid()
         await engine.start(
             definition_code="COMPLIANCE_TASK_APPROVAL",
             entity_type=scenario.ENTITY_TYPE,
@@ -151,7 +159,7 @@ class TestStart:
         self, scenario: WorkflowScenario, engine: WorkflowEngine
     ) -> None:
         """`get_open_for_entity` only ever returns instances that are still running."""
-        entity_id = uuid4()
+        entity_id = _nid()
         first = await engine.start(
             definition_code="COMPLIANCE_TASK_APPROVAL",
             entity_type=scenario.ENTITY_TYPE,
@@ -185,7 +193,7 @@ class TestExecuteAction:
         started = await engine.start(
             definition_code="COMPLIANCE_TASK_APPROVAL",
             entity_type=scenario.ENTITY_TYPE,
-            entity_id=uuid4(),
+            entity_id=_nid(),
             initiated_by=scenario.maker,
             actor_username="maker",
         )
@@ -202,9 +210,9 @@ class TestExecuteAction:
     async def test_unknown_instance_raises_not_found(self, engine: WorkflowEngine) -> None:
         with pytest.raises(EntityNotFoundError):
             await engine.execute_action(
-                instance_id=uuid4(),
+                instance_id=999_999,
                 action_code="SUBMIT",
-                actor_id=uuid4(),
+                actor_id=999_999,
                 actor_username="maker",
             )
 
@@ -219,7 +227,7 @@ class TestExecuteAction:
         started = await engine.start(
             definition_code="COMPLIANCE_TASK_APPROVAL",
             entity_type=scenario.ENTITY_TYPE,
-            entity_id=uuid4(),
+            entity_id=_nid(),
             initiated_by=scenario.maker,
             actor_username="maker",
         )
@@ -244,7 +252,7 @@ class TestExecuteAction:
         started = await engine.start(
             definition_code="COMPLIANCE_TASK_APPROVAL",
             entity_type=scenario.ENTITY_TYPE,
-            entity_id=uuid4(),
+            entity_id=_nid(),
             initiated_by=scenario.maker,
             actor_username="maker",
         )
@@ -270,7 +278,7 @@ class TestExecuteAction:
         started = await engine.start(
             definition_code="COMPLIANCE_TASK_APPROVAL",
             entity_type=scenario.ENTITY_TYPE,
-            entity_id=uuid4(),
+            entity_id=_nid(),
             initiated_by=scenario.maker,
             actor_username="maker",
         )
@@ -301,7 +309,7 @@ class TestReads:
         started = await engine.start(
             definition_code="COMPLIANCE_TASK_APPROVAL",
             entity_type=scenario.ENTITY_TYPE,
-            entity_id=uuid4(),
+            entity_id=_nid(),
             initiated_by=scenario.maker,
             actor_username="maker",
         )
@@ -316,7 +324,7 @@ class TestReads:
         started = await engine.start(
             definition_code="COMPLIANCE_TASK_APPROVAL",
             entity_type=scenario.ENTITY_TYPE,
-            entity_id=uuid4(),
+            entity_id=_nid(),
             initiated_by=scenario.maker,
             actor_username="maker",
         )
@@ -329,7 +337,7 @@ class TestReads:
         self, engine: WorkflowEngine
     ) -> None:
         with pytest.raises(EntityNotFoundError):
-            await engine.available_actions(uuid4())
+            await engine.available_actions(999_999)
 
     async def test_pending_tasks_reports_a_users_open_approvals(
         self, scenario: WorkflowScenario, engine: WorkflowEngine
@@ -338,7 +346,7 @@ class TestReads:
         started = await engine.start(
             definition_code="COMPLIANCE_TASK_APPROVAL",
             entity_type=scenario.ENTITY_TYPE,
-            entity_id=uuid4(),
+            entity_id=_nid(),
             initiated_by=scenario.maker,
             actor_username="maker",
         )

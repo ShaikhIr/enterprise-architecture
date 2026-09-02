@@ -4,7 +4,6 @@ Second-level jurisdiction master, always owned by a country.
 """
 
 from dataclasses import dataclass
-from uuid import UUID
 
 from src.domain.entities.base_entity import BaseEntity
 
@@ -27,7 +26,7 @@ class State(BaseEntity):
 
     code: str
     name: str
-    country_id: UUID
+    country_id: int
     is_union_territory: bool = False
     is_active: bool = True
 

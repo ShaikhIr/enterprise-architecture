@@ -26,8 +26,8 @@ export interface MasterCrudControllerArgs<TEntity extends AuditedRecord, TCreate
   /** How to name one row in a toast or confirmation. */
   labelOf: (row: TEntity) => string;
   onCreate: (data: TCreate) => Promise<unknown>;
-  onUpdate: (id: string, data: TCreate) => Promise<unknown>;
-  onDelete: (id: string) => Promise<unknown>;
+  onUpdate: (id: number, data: TCreate) => Promise<unknown>;
+  onDelete: (id: number) => Promise<unknown>;
 }
 
 export interface MasterCrudController<TEntity extends AuditedRecord, TCreate> {

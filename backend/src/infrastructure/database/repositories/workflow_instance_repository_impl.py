@@ -10,7 +10,6 @@ transaction boundary.
 """
 
 from typing import Any
-from uuid import UUID
 
 from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,13 +32,12 @@ class WorkflowInstanceRepositoryImpl(IWorkflowInstanceRepository):
 
     # ─── Instances ───
 
-    async def get_by_id(self, instance_id: UUID) -> WorkflowInstance | None:
+    async def get_by_id(self, instance_id: int) -> WorkflowInstance | None:
         model = await self._get_model(instance_id)
         return self._to_entity(model) if model else None
 
     async def create(self, instance: WorkflowInstance) -> WorkflowInstance:
         model = WorkflowInstanceModel(
-            id=instance.id,
             workflow_definition_id=instance.workflow_definition_id,
             entity_type=instance.entity_type,
             entity_id=instance.entity_id,
@@ -80,10 +78,10 @@ class WorkflowInstanceRepositoryImpl(IWorkflowInstanceRepository):
         skip: int = 0,
         limit: int = 100,
         entity_type: str | None = None,
-        entity_id: UUID | None = None,
-        definition_id: UUID | None = None,
-        status_id: UUID | None = None,
-        initiated_by: UUID | None = None,
+        entity_id: int | None = None,
+        definition_id: int | None = None,
+        status_id: int | None = None,
+        initiated_by: int | None = None,
         is_completed: bool | None = None,
     ) -> list[WorkflowInstance]:
         stmt = self._apply_filters(
@@ -104,10 +102,10 @@ class WorkflowInstanceRepositoryImpl(IWorkflowInstanceRepository):
     async def count(
         self,
         entity_type: str | None = None,
-        entity_id: UUID | None = None,
-        definition_id: UUID | None = None,
-        status_id: UUID | None = None,
-        initiated_by: UUID | None = None,
+        entity_id: int | None = None,
+        definition_id: int | None = None,
+        status_id: int | None = None,
+        initiated_by: int | None = None,
         is_completed: bool | None = None,
     ) -> int:
         stmt = self._apply_filters(
@@ -123,7 +121,7 @@ class WorkflowInstanceRepositoryImpl(IWorkflowInstanceRepository):
         return int(result.scalar_one())
 
     async def get_open_for_entity(
-        self, entity_type: str, entity_id: UUID
+        self, entity_type: str, entity_id: int
     ) -> WorkflowInstance | None:
         stmt = (
             select(WorkflowInstanceModel)
@@ -143,7 +141,6 @@ class WorkflowInstanceRepositoryImpl(IWorkflowInstanceRepository):
 
     async def add_history(self, entry: WorkflowHistoryEntry) -> WorkflowHistoryEntry:
         model = WorkflowHistoryModel(
-            id=entry.id,
             instance_id=entry.instance_id,
             from_status_id=entry.from_status_id,
             to_status_id=entry.to_status_id,
@@ -159,7 +156,7 @@ class WorkflowInstanceRepositoryImpl(IWorkflowInstanceRepository):
         await self._session.flush()
         return self._history_to_entity(model)
 
-    async def list_history(self, instance_id: UUID) -> list[WorkflowHistoryEntry]:
+    async def list_history(self, instance_id: int) -> list[WorkflowHistoryEntry]:
         stmt = (
             select(WorkflowHistoryModel)
             .where(WorkflowHistoryModel.instance_id == instance_id)
@@ -170,7 +167,7 @@ class WorkflowInstanceRepositoryImpl(IWorkflowInstanceRepository):
 
     # ─── Internals ───
 
-    async def _get_model(self, instance_id: UUID) -> WorkflowInstanceModel | None:
+    async def _get_model(self, instance_id: int) -> WorkflowInstanceModel | None:
         stmt = select(WorkflowInstanceModel).where(
             WorkflowInstanceModel.id == instance_id
         )
@@ -181,10 +178,10 @@ class WorkflowInstanceRepositoryImpl(IWorkflowInstanceRepository):
     def _apply_filters(
         stmt: Select[Any],
         entity_type: str | None,
-        entity_id: UUID | None,
-        definition_id: UUID | None,
-        status_id: UUID | None,
-        initiated_by: UUID | None,
+        entity_id: int | None,
+        definition_id: int | None,
+        status_id: int | None,
+        initiated_by: int | None,
         is_completed: bool | None,
     ) -> Select[Any]:
         if entity_type:

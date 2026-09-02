@@ -4,7 +4,6 @@ Employee profile data sourced from the Darwin AD service, one row per user.
 """
 
 from abc import ABC, abstractmethod
-from uuid import UUID
 
 from src.domain.entities.user_details import UserDetails
 
@@ -13,14 +12,14 @@ class IUserDetailsRepository(ABC):
     """Abstract repository for UserDetails persistence."""
 
     @abstractmethod
-    async def get_by_user_id(self, user_id: UUID) -> UserDetails | None:
+    async def get_by_user_id(self, user_id: int) -> UserDetails | None:
         """Retrieve the profile attached to a user, if one exists."""
         ...
 
     @abstractmethod
     async def get_many_by_user_ids(
-        self, user_ids: list[UUID]
-    ) -> dict[UUID, UserDetails]:
+        self, user_ids: list[int]
+    ) -> dict[int, UserDetails]:
         """
         Batch-load profiles for several users, keyed by user id.
 

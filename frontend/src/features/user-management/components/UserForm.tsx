@@ -20,7 +20,7 @@ const createUserSchema = z.object({
   username: z.string().min(3, 'Username must be at least 3 characters').max(255),
   password: z.string().min(8, 'Password must be at least 8 characters').max(128),
   is_validate_ad: z.boolean(),
-  role_id: z.string().min(1, 'Role is required'),
+  role_id: z.number().int().positive('Role is required'),
 });
 
 type CreateUserFormData = z.infer<typeof createUserSchema>;
@@ -43,7 +43,7 @@ export const UserForm = ({ visible, onHide, onSubmit, loading }: UserFormProps) 
     formState: { errors },
   } = useForm<CreateUserFormData>({
     resolver: zodResolver(createUserSchema),
-    defaultValues: { is_validate_ad: true, role_id: '' },
+    defaultValues: { is_validate_ad: true, role_id: 0 },
   });
 
   const handleFormSubmit = (data: CreateUserFormData) => {
