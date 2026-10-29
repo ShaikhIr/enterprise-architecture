@@ -39,6 +39,9 @@ class AuditAction(StrEnum):
     # Authentication events
     LOGIN_SUCCESS = "LOGIN_SUCCESS"
     LOGIN_FAILED = "LOGIN_FAILED"
+    # An account (or address) was locked after repeated failed logins. One entry per
+    # lockout, not one per refused attempt: see LoginThrottleService.
+    LOGIN_LOCKED = "LOGIN_LOCKED"
     TOKEN_REFRESHED = "TOKEN_REFRESHED"
 
     # Tenant operations

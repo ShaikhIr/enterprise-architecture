@@ -139,10 +139,14 @@ apiClient.interceptors.response.use(
       _retry?: boolean;
     };
 
-    // Never try to refresh the refresh call itself, and only retry once.
-    const isAuthRefreshCall = originalRequest?.url?.includes('/auth/refresh');
+    // A 401 from a session endpoint is that endpoint's own answer, not an expired session:
+    // /auth/login rejecting a wrong password, or /auth/refresh failing. Refreshing and
+    // replaying would make one click on Sign in count as two attempts against the server's
+    // login throttle, and would replace the real reason with the refresh failure. Everything
+    // else retries once.
+    const isSessionCall = isSessionEndpoint(originalRequest?.url);
 
-    if (error.response?.status === 401 && !originalRequest._retry && !isAuthRefreshCall) {
+    if (error.response?.status === 401 && !originalRequest._retry && !isSessionCall) {
       originalRequest._retry = true;
 
       // Whoever gets here first starts the refresh; the rest join it. Each then retries

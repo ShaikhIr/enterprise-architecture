@@ -22,6 +22,12 @@ dependencies = [
     # and needs nothing extra. Pinned so an upload path behaves identically on a
     # rerun months from now.
     "boto3==1.35.36",
+    # Login throttling (infrastructure/cache). The failed-login counters must be shared by
+    # every API replica, or an attacker simply spreads guesses across them, so this is a
+    # dependency of /auth/login and not an optional extra. If the server is unreachable at
+    # runtime the throttle degrades to per-process counters, but the client library has to
+    # be installed. Promoted from the `background` extra, as that extra's note below asks.
+    "redis==5.1.1",
 ]
 
 [project.optional-dependencies]
@@ -30,9 +36,9 @@ dependencies = [
 # still placeholders. Holding them as extras keeps them one command away when
 # that work starts, without adding install weight and supply-chain surface to
 # every deployment in the meantime. Promote to `dependencies` when first used.
+# (`redis` itself has been promoted: see `dependencies`. celery[redis] states its own range.)
 background = [
     "celery[redis]==5.4.0",
-    "redis==5.1.1",
 ]
 observability = [
     "opentelemetry-api==1.27.0",

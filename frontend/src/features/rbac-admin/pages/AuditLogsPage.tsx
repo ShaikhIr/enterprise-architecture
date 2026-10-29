@@ -33,6 +33,7 @@ const ACTION_OPTIONS = [
   { label: 'User Unblocked', value: 'USER_UNBLOCKED' },
   { label: 'Login Success', value: 'LOGIN_SUCCESS' },
   { label: 'Login Failed', value: 'LOGIN_FAILED' },
+  { label: 'Login Locked', value: 'LOGIN_LOCKED' },
 ];
 
 const RESOURCE_OPTIONS = [
@@ -115,7 +116,8 @@ export const AuditLogsPage = () => {
     } else if (
       log.action.includes('REVOKED') ||
       log.action.includes('DELETED') ||
-      log.action === 'LOGIN_FAILED'
+      log.action === 'LOGIN_FAILED' ||
+      log.action === 'LOGIN_LOCKED'
     ) {
       severity = 'danger';
     } else if (log.action.includes('UPDATED') || log.action.includes('ASSIGNED')) {

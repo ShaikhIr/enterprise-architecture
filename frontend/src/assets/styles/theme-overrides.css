@@ -685,3 +685,23 @@ h2 {
   min-width: 0;
   white-space: normal;
 }
+
+/*
+ * JSON viewer token colours (ContentViewerDialog).
+ *
+ * The viewer highlights by injecting markup as a string, and a Content-Security-Policy
+ * without 'unsafe-inline' refuses `style="color:…"` attributes that arrive that way, so the
+ * colours are classes here instead. Same palette the viewer has always used.
+ */
+.em-json-key {
+  color: #9c27b0;
+}
+.em-json-string {
+  color: #2e7d32;
+}
+.em-json-number {
+  color: #1565c0;
+}
+.em-json-literal {
+  color: #e65100;
+}

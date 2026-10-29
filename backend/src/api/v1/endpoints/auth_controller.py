@@ -7,16 +7,23 @@ Captures audit trail for all authentication events.
 from typing import Any
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
+from fastapi.responses import JSONResponse
 
 from src.api.v1.dependencies import (
     get_audit_service,
     get_auth_manager,
+    get_client_ip,
     get_current_active_user,
+    get_login_throttle_service,
     get_user_repository,
 )
 from src.api.v1.schemas.auth_schema import (
     LoginRequest,
     TokenResponse,
+)
+from src.application.services.login_throttle_service import (
+    LoginThrottledError,
+    LoginThrottleService,
 )
 from src.common.decorators.log_execution import log_execution
 from src.config.settings import settings
@@ -35,12 +42,39 @@ from src.observability.structured_logger import get_logger
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 logger = get_logger(__name__)
 
+# One message for every throttled attempt, whichever limit refused it and whether or not the
+# account exists, so the response reveals nothing about either.
+THROTTLED_DETAIL = "Too many login attempts. Please try again later."
+
+# Why a rejected login was rejected, for the audit trail. Never sent to the client.
+_REJECTION_REASONS: dict[type[AuthenticationError], str] = {
+    InvalidCredentialsError: "Invalid credentials",
+    UserInactiveError: "User inactive",
+    UserBlockedError: "User blocked",
+}
+
 
 def _get_client_ip(request: Request) -> str:
+    """The address recorded in audit rows. Not a security decision: see `get_client_ip`."""
     forwarded = request.headers.get("x-forwarded-for")
     if forwarded:
         return forwarded.split(",")[0].strip()
     return request.client.host if request.client else ""
+
+
+def _login_refused(
+    status_code: int, detail: str, *, retry_after: int | None = None
+) -> JSONResponse:
+    """
+    The error response for a login attempt, returned rather than raised.
+
+    Raising HTTPException makes `get_db_session` roll the request back, which would discard
+    the audit row written a moment earlier: a failed login would be logged and then
+    un-logged. Returning the response lets the session commit. The body and status are what
+    HTTPException produced, so clients see no difference.
+    """
+    headers = {"Retry-After": str(retry_after)} if retry_after is not None else None
+    return JSONResponse(status_code=status_code, content={"detail": detail}, headers=headers)
 
 
 def _set_refresh_cookie(response: Response, refresh_token: str) -> None:
@@ -99,7 +133,23 @@ def _refresh_cookie_clear_headers() -> dict[str, str]:
     response_model_exclude_none=True,
     status_code=status.HTTP_200_OK,
     summary="Authenticate user",
-    description="Validate credentials and set the refresh cookie; returns the access token.",
+    description=(
+        "Validate credentials and set the refresh cookie; returns the access token. "
+        "Repeated failures are throttled per account and per client IP: once a limit is "
+        "reached the endpoint answers 429 without checking the password, and `Retry-After` "
+        "says how many seconds to wait."
+    ),
+    responses={
+        status.HTTP_429_TOO_MANY_REQUESTS: {
+            "description": "Too many attempts. Wait `Retry-After` seconds before retrying.",
+            "headers": {
+                "Retry-After": {
+                    "description": "Seconds until another attempt is accepted.",
+                    "schema": {"type": "integer"},
+                }
+            },
+        }
+    },
 )
 @log_execution
 async def login(
@@ -109,34 +159,42 @@ async def login(
     auth_manager: AuthManager = Depends(get_auth_manager),
     user_repo: IUserRepository = Depends(get_user_repository),
     audit: AuditService = Depends(get_audit_service),
-) -> TokenResponse:
-    """POST /api/v1/auth/login — Authenticates and logs the event."""
+    throttle: LoginThrottleService = Depends(get_login_throttle_service),
+    throttle_ip: str = Depends(get_client_ip),
+) -> TokenResponse | JSONResponse:
+    """POST /api/v1/auth/login — Throttles, authenticates and logs the event."""
     ip = _get_client_ip(http_request)
     user_agent = http_request.headers.get("user-agent", "")
+
+    # Before anything is looked up or verified: a throttled request must cost no bcrypt and
+    # must never reach the corporate AD service.
+    try:
+        ticket = await throttle.begin_attempt(request.username, throttle_ip)
+    except LoginThrottledError as e:
+        if e.lockout_started:
+            await audit.log_login_locked(
+                username=request.username, ip_address=ip, user_agent=user_agent,
+                reason=f"Locked for {e.retry_after_seconds}s after repeated failed "
+                f"logins ({e.reason.value})",
+            )
+        return _login_refused(
+            status.HTTP_429_TOO_MANY_REQUESTS, THROTTLED_DETAIL, retry_after=e.retry_after_seconds
+        )
 
     try:
         result = await auth_manager.login(
             username=request.username,
             password=request.password,
         )
-    except InvalidCredentialsError as e:
+    except (InvalidCredentialsError, UserInactiveError, UserBlockedError) as e:
+        await throttle.record_failure(ticket)
         await audit.log_login(
             user_id=None, username=request.username, success=False,
-            ip_address=ip, user_agent=user_agent, reason="Invalid credentials",
+            ip_address=ip, user_agent=user_agent, reason=_REJECTION_REASONS[type(e)],
         )
-        raise HTTPException(status_code=e.status_code, detail=e.message) from e
-    except UserInactiveError as e:
-        await audit.log_login(
-            user_id=None, username=request.username, success=False,
-            ip_address=ip, user_agent=user_agent, reason="User inactive",
-        )
-        raise HTTPException(status_code=e.status_code, detail=e.message) from e
-    except UserBlockedError as e:
-        await audit.log_login(
-            user_id=None, username=request.username, success=False,
-            ip_address=ip, user_agent=user_agent, reason="User blocked",
-        )
-        raise HTTPException(status_code=e.status_code, detail=e.message) from e
+        return _login_refused(e.status_code, e.message)
+
+    await throttle.record_success(ticket)
 
     # Log successful login
     user = await user_repo.get_by_username(request.username)
