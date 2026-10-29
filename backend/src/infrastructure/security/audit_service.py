@@ -162,3 +162,27 @@ class AuditService:
             user_agent=user_agent,
             metadata={"reason": reason} if reason else None,
         )
+
+    async def log_login_locked(
+        self,
+        *,
+        username: str,
+        ip_address: str = "",
+        user_agent: str = "",
+        reason: str = "",
+    ) -> None:
+        """
+        Log that repeated failed logins locked an account (or an account for one address).
+
+        Written once when the lockout starts, never per refused attempt: an attacker who
+        keeps hammering a locked account would otherwise fill `audit_logs` for free.
+        """
+        await self.log(
+            actor_username=username,
+            action=AuditAction.LOGIN_LOCKED,
+            resource_type="Authentication",
+            resource_id=username,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            metadata={"reason": reason} if reason else None,
+        )

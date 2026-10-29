@@ -236,6 +236,93 @@ client) — see [MICROSOFT_OAUTH_ANALYSIS.md](./MICROSOFT_OAUTH_ANALYSIS.md). A 
 login auto-provisions a local user by email, with a random password the user never uses and
 no role assigned.
 
+### Login throttling
+
+`POST /auth/login` is protected against password guessing and credential stuffing (WAPT
+finding EMC-WA-1). `LoginThrottleService` (`application/services/`) decides, before any
+password is checked, whether an attempt may be evaluated at all, so a refused request costs no
+bcrypt and never reaches the Darwin AD service. The counters live behind the
+`ILoginAttemptStore` port; the policy is in settings, nothing is hardcoded.
+
+Checked in this order:
+
+| Check | Default | Effect |
+|-------|---------|--------|
+| Lockout already in force | | 429, `Retry-After` = time left. Attempts made during it touch no counter, so they neither extend it nor use up other budgets. |
+| Failures per client IP, any username | 50 per 300 s | 429 until the window ends. Counts failures only, so successful logins from a shared office or proxy address never use it up. |
+| Attempts per account **from one IP** | 5 per 300 s | That account is locked **for that IP** for 900 s. |
+| Attempts per account, **all unfamiliar IPs together** | 20 per 300 s | The account is locked **for unfamiliar IPs** for 900 s. Caps a guess spread over many addresses. Familiar IPs are neither counted nor locked. |
+
+The per-IP account limit is deliberate. A lockout keyed on the username alone lets anyone who
+knows it (`admin`) keep that account locked for the real user indefinitely. Keyed per IP, the
+guesser is locked out and the real user, on another address, is not.
+
+**Familiar addresses.** A distributed attack does reach the account-wide cap, and a cap that
+locked the account for everyone would then lock out its owner too: anyone with many IP
+addresses could keep an account unusable, 900 s at a time. So that cap applies only to
+*unfamiliar* addresses, the ones this account has no successful login from. A successful login
+makes its address familiar for `LOGIN_FAMILIAR_IP_TTL_SECONDS` (30 days, restarted by each
+login). A guesser cannot fake one, because it takes the correct password. Familiar and
+unfamiliar failures are counted separately, as in Microsoft's smart lockout, and a familiar
+address keeps its own per-account budget (5 per 300 s) and the per-IP failure limit, so it is
+not licensed to guess without limit. A stranger is refused even with the correct password,
+because the exemption is for addresses and not for passwords.
+
+What it does not cover:
+
+- **The owner on a brand-new address** (travelling, a new network) while an attack on their
+  account is under way is refused until the 900 s lockout ends. Closing that needs something
+  stronger than an address: a second factor, a trusted-device cookie or a CAPTCHA.
+- **A wrong `TRUSTED_PROXY_HOPS`.** If every user appears to come from the proxy's address,
+  that address is familiar to everyone, the attacker included, and the per-IP account limit
+  then behaves like an account-wide one. Fix the setting (see below).
+
+Behaviour worth knowing:
+
+- **Reserved before verifying.** The account counters are incremented atomically *before*
+  credentials are checked, so a burst of parallel guesses is counted one by one before any is
+  evaluated. At most the limit's worth ever run. A success clears the count for the address it
+  came from and nothing else: clearing the strangers' count would refill a distributed
+  guesser's budget every time the owner signed in.
+- **No account enumeration.** Unknown usernames are counted exactly like real ones, and
+  every refusal carries the same body (`Too many login attempts. Please try again later.`).
+  Usernames are case/whitespace/Unicode-folded and hashed before they become keys.
+- **429 is returned, not raised.** The login route *returns* its error responses.
+  `get_db_session` rolls the request back when a route raises, which used to discard the
+  `LOGIN_FAILED` audit row written just before the `HTTPException`. Do not turn those
+  returns back into `raise`.
+- **Audit and logs.** Every failed login is audited (`LOGIN_FAILED`). A lockout writes
+  **one** `LOGIN_LOCKED` entry when it starts, never one per refused attempt, so a flood
+  cannot fill `audit_logs`. Lockouts and IP-limit trips are also logged at WARNING.
+- **Storage.** Redis (`REDIS_URL`), shared by every replica; `redis` is therefore a core
+  dependency, not part of the optional `background` extra. If Redis is unreachable the
+  limiter falls back to per-process counters (one WARNING per outage, and the primary is not
+  retried for 30 s so logins do not wait out a connect timeout). Per-process counters are
+  correct for one replica and multiply across several, so run Redis wherever there is more
+  than one. The in-process store is bounded, because attackers choose the usernames. Familiar
+  addresses live in the same store, so those recorded in Redis are not visible to the
+  fallback: during an outage they revert to strangers, which is the stricter side.
+- **Client IP.** Taken from the socket peer, or from `X-Forwarded-For` counted from the
+  **right** by `TRUSTED_PROXY_HOPS` (see `api/client_ip.py`). The client controls the left
+  of that header, so a forged value cannot buy a fresh budget. IPv6 clients are bucketed by
+  /64. The address written to audit rows is a separate, older helper that still reads the
+  left-most hop.
+- **Kill switches.** `LOGIN_THROTTLE_ENABLED=false` turns the whole throttle off without a
+  deploy; startup logs a warning when it is off. `LOGIN_FAMILIAR_IP_TTL_SECONDS=0` turns off
+  only the familiar-address exemption, so every address is a stranger again.
+
+`TRUSTED_PROXY_HOPS` must match the real proxy chain. Each proxy appends the address it saw,
+so with `client → load balancer → nginx → api` the header reaches the API as
+`<forged…>, <client>, <load balancer>` and the right value is **2**; with nginx directly in
+front it is **1**. Left at 0 behind a reverse proxy, every user shares the proxy's address and
+the per-IP limit applies to all of them together; set too high, it trusts entries the client
+wrote. It is only sound when the API is reachable solely through that chain. Two warnings help
+catch a wrong value: startup warns when it is 0 and `COOKIE_SECURE=true`, and, independent of
+any other setting, the first request that arrives with a forwarding header while it is 0 (or
+with a shorter chain than it expects) is logged once as `trusted_proxy_hops_too_low` /
+`trusted_proxy_chain_shorter_than_hops`, naming the proxy address the API sees. Look for those
+after a deploy.
+
 ---
 
 ## Authorization (RBAC)
@@ -302,6 +389,32 @@ See: [ENTERPRISE_AUDIT.md](./ENTERPRISE_AUDIT.md)
 - **Responsive**: Scales down at 1440px and 1280px breakpoints
 - **Sidebar**: 220px fixed (60px collapsed), hidden below 768px
 - **Components**: PrimeReact DataTable, Tree, Dialog, Toast, Tag
+
+### Content Security Policy
+
+The security headers (CSP, HSTS, COOP, COEP, CORP and the rest) are set by the nginx in front
+of the SPA, not by this repository's code. `frontend/docker/nginx.conf` is the reference copy
+that the deployed nginx should match (WAPT findings EMC-WA-2, EMC-WA-3 and EMC-WA-4).
+
+- **`style-src 'self' 'nonce-…'`, no `'unsafe-inline'`.** PrimeReact injects its structural
+  CSS at runtime as `<style>` elements. nginx writes a fresh nonce (`$request_id`) into the
+  CSP header and, through `sub_filter`, into `<meta name="csp-nonce">` in `index.html`.
+  `App.tsx` reads it (`shared/utils/cspNonce.ts`) and passes it to `PrimeReactProvider`,
+  which stamps it on every `<style>` it creates.
+- **A nonce authorises `<style>` elements, not `style=""` attributes.** React inline styles
+  go through the CSSOM and are allowed. Markup built as a string must not contain a `style`
+  attribute (the JSON viewer colours its tokens with the `em-json-*` classes for this
+  reason). If one slips in, the console reports "Refused to apply inline style"; the fix is a
+  class, not `'unsafe-inline'`.
+- **`index.html` is never cached or revalidated** (`Cache-Control: no-store`, no ETag). A
+  reused page would pair an old nonce with a new header and lose every runtime style.
+- **Same-origin only.** The CSP and `Cross-Origin-Embedder-Policy: require-corp` together
+  block any third-party asset (a CDN font, an image host, analytics) until the policy is
+  changed on purpose.
+- **No version in error pages.** `server_tokens off`, and nginx's own error responses use
+  generic pages that name nothing about the server.
+- **Vite dev server and unit tests** send no policy and no nonce; `readCspNonce()` returns
+  `undefined` there and PrimeReact injects its styles as before.
 
 ---
 

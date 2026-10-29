@@ -324,13 +324,29 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
     Unauthenticated: use this for public routes and for asserting that
     protected routes reject anonymous callers.
     """
+    from src.api.v1.dependencies import get_login_throttle_service
+    from src.application.services.login_throttle_service import (
+        LoginThrottlePolicy,
+        LoginThrottleService,
+    )
+    from src.infrastructure.cache.in_memory_login_attempt_store import (
+        InMemoryLoginAttemptStore,
+    )
     from src.infrastructure.database.session import get_db_session
     from src.main import app
 
     async def _override_session() -> AsyncGenerator[AsyncSession, None]:
         yield db_session
 
+    # Login throttling is process-wide state that would otherwise reach for Redis and carry
+    # failed attempts from one test into the next. Each test gets counters of its own;
+    # tests that care about the limits override this again with a policy of their choosing.
+    throttle_store = InMemoryLoginAttemptStore()
+
     app.dependency_overrides[get_db_session] = _override_session
+    app.dependency_overrides[get_login_throttle_service] = lambda: LoginThrottleService(
+        throttle_store, LoginThrottlePolicy()
+    )
     transport = ASGITransport(app=app)
     try:
         async with AsyncClient(transport=transport, base_url="http://test") as c:

@@ -80,6 +80,59 @@ describe('authSlice thunks and reducers', () => {
     });
   });
 
+  describe('loginThunk — too many attempts', () => {
+    const throttled = (headers?: Record<string, string>) =>
+      server.use(
+        http.post(LOGIN_URL, () =>
+          HttpResponse.json(
+            { detail: 'Too many login attempts. Please try again later.' },
+            { status: 429, ...(headers ? { headers } : {}) },
+          ),
+        ),
+      );
+
+    it('says how long to wait when the server said so', async () => {
+      throttled({ 'Retry-After': '900' });
+      const store = buildStore();
+
+      await store.dispatch(loginThunk({ username: 'alice', password: 'pw' }));
+
+      expect(store.getState().auth.error).toBe(
+        'Too many login attempts. Please try again in about 15 minutes.',
+      );
+    });
+
+    it("falls back to the server's own wording when it gave no wait", async () => {
+      throttled();
+      const store = buildStore();
+
+      await store.dispatch(loginThunk({ username: 'alice', password: 'pw' }));
+
+      expect(store.getState().auth.error).toBe('Too many login attempts. Please try again later.');
+    });
+
+    it('does not authenticate, and leaves no access token behind', async () => {
+      throttled({ 'Retry-After': '60' });
+      const store = buildStore();
+
+      await store.dispatch(loginThunk({ username: 'alice', password: 'pw' }));
+
+      expect(store.getState().auth.isAuthenticated).toBe(false);
+      expect(storageService.getAccessToken()).toBeNull();
+    });
+
+    it('is the same message whichever account was tried', async () => {
+      throttled({ 'Retry-After': '120' });
+      const first = buildStore();
+      const second = buildStore();
+
+      await first.dispatch(loginThunk({ username: 'admin', password: 'x' }));
+      await second.dispatch(loginThunk({ username: 'no-such-user', password: 'x' }));
+
+      expect(first.getState().auth.error).toBe(second.getState().auth.error);
+    });
+  });
+
   describe('fetchCurrentUser', () => {
     it('loads the profile and marks the session authenticated', async () => {
       server.use(http.get(ME_URL, () => HttpResponse.json(currentUser)));

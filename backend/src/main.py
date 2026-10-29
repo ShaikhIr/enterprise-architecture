@@ -19,7 +19,46 @@ from src.api.v1.router import api_v1_router
 from src.config.dependency_injection import Container
 from src.config.logging_config import configure_file_logging
 from src.config.settings import settings
-from src.observability.structured_logger import configure_logging
+from src.observability.structured_logger import configure_logging, get_logger
+
+
+def log_login_throttle_configuration() -> None:
+    """
+    Say at startup how login throttling is set up, and warn about the one setting that
+    silently changes what it means.
+
+    Behind a reverse proxy the API sees the proxy's address as the client, so with
+    TRUSTED_PROXY_HOPS left at 0 every user shares one per-IP budget. COOKIE_SECURE is the
+    existing "this is a real deployment" switch, so it is what the warning keys on.
+    """
+    log = get_logger("login_throttle")
+    if not settings.LOGIN_THROTTLE_ENABLED:
+        log.warning(
+            "login_throttle_disabled",
+            detail="LOGIN_THROTTLE_ENABLED is false: login is not protected against guessing",
+        )
+        return
+    log.info(
+        "login_throttle_configured",
+        window_seconds=settings.LOGIN_ATTEMPT_WINDOW_SECONDS,
+        max_attempts_per_account_ip=settings.LOGIN_MAX_ATTEMPTS_PER_ACCOUNT_IP,
+        max_attempts_per_account=settings.LOGIN_MAX_ATTEMPTS_PER_ACCOUNT,
+        max_failures_per_ip=settings.LOGIN_MAX_FAILURES_PER_IP,
+        lockout_seconds=settings.LOGIN_LOCKOUT_SECONDS,
+        familiar_ip_ttl_seconds=settings.LOGIN_FAMILIAR_IP_TTL_SECONDS,
+        trusted_proxy_hops=settings.TRUSTED_PROXY_HOPS,
+        shared_store="redis" if settings.REDIS_URL else "none (per-process counters)",
+    )
+    if settings.TRUSTED_PROXY_HOPS == 0 and settings.COOKIE_SECURE:
+        log.warning(
+            "login_throttle_proxy_hops_unset",
+            detail=(
+                "TRUSTED_PROXY_HOPS is 0, so X-Forwarded-For is ignored. If the API runs "
+                "behind a reverse proxy, every user shares the proxy's address and the "
+                "per-IP limit applies to all of them together. Set it to the number of "
+                "proxies in front of the API."
+            ),
+        )
 
 
 @asynccontextmanager
@@ -28,6 +67,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Startup
     configure_logging()
     configure_file_logging()
+    log_login_throttle_configuration()
 
     # Prove object storage is usable before traffic arrives, so a bucket typo or
     # an expired key stops deployment rather than surfacing as a 500 for whoever
@@ -98,6 +138,9 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    # Not CORS-safelisted, so a cross-origin browser client cannot read it otherwise. The
+    # login page uses it to say how long to wait after a 429.
+    expose_headers=["Retry-After"],
 )
 
 # ─── Routers ───

@@ -3,13 +3,20 @@ FastAPI dependency injection for API v1.
 Provides current user resolution from JWT tokens and service factories.
 """
 
+from functools import lru_cache
 from typing import TYPE_CHECKING
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.api.client_ip import check_proxy_configuration, resolve_client_ip
 from src.application.ports.employee_import_writer import IEmployeeImportWriter
+from src.application.ports.login_attempt_store import ILoginAttemptStore
+from src.application.services.login_throttle_service import (
+    LoginThrottlePolicy,
+    LoginThrottleService,
+)
 from src.domain.entities.user import User
 from src.domain.repositories.approval_matrix_repository import IApprovalMatrixRepository
 from src.domain.repositories.audit_log_repository import IAuditLogRepository
@@ -263,6 +270,71 @@ def get_auth_manager(
 ) -> AuthManager:
     """Provide authentication manager with dependencies."""
     return AuthManager(user_repository=user_repo, jwt_provider=jwt_provider)
+
+
+def get_client_ip(request: Request) -> str:
+    """
+    The address to rate-limit this request under.
+
+    Not the address written to the audit log: that one reads the left-most X-Forwarded-For
+    hop, which the client controls. This one comes from the socket peer, or from
+    X-Forwarded-For counted from the right by TRUSTED_PROXY_HOPS, so a forged header cannot
+    move it. See `src.api.client_ip`.
+    """
+    from src.config.settings import settings
+
+    check_proxy_configuration(request, settings.TRUSTED_PROXY_HOPS)
+    return resolve_client_ip(request, settings.TRUSTED_PROXY_HOPS)
+
+
+@lru_cache(maxsize=1)
+def _login_attempt_store() -> ILoginAttemptStore:
+    """
+    The process-wide login-attempt store.
+
+    One per process rather than per request: the counters have to outlive a request, and a
+    Redis client wants its connection pool reused. Redis when REDIS_URL is set, falling back
+    to per-process counters if it is unreachable; per-process alone when it is empty.
+    """
+    from redis.asyncio import Redis
+
+    from src.config.settings import settings
+    from src.infrastructure.cache.in_memory_login_attempt_store import (
+        InMemoryLoginAttemptStore,
+    )
+    from src.infrastructure.cache.redis_login_attempt_store import RedisLoginAttemptStore
+    from src.infrastructure.cache.resilient_login_attempt_store import (
+        ResilientLoginAttemptStore,
+    )
+
+    in_process = InMemoryLoginAttemptStore()
+    if not settings.REDIS_URL:
+        return in_process
+    # Short timeouts: when Redis is down, a login should not wait on it. The resilient
+    # wrapper then stops trying for a while instead of paying the timeout on every call.
+    client = Redis.from_url(
+        settings.REDIS_URL,
+        decode_responses=True,
+        socket_connect_timeout=1.0,
+        socket_timeout=1.0,
+    )
+    return ResilientLoginAttemptStore(RedisLoginAttemptStore(client), in_process)
+
+
+def get_login_throttle_service() -> LoginThrottleService:
+    """Provide the login throttle, configured from settings."""
+    from src.config.settings import settings
+
+    policy = LoginThrottlePolicy(
+        enabled=settings.LOGIN_THROTTLE_ENABLED,
+        window_seconds=settings.LOGIN_ATTEMPT_WINDOW_SECONDS,
+        max_attempts_per_account_ip=settings.LOGIN_MAX_ATTEMPTS_PER_ACCOUNT_IP,
+        max_attempts_per_account=settings.LOGIN_MAX_ATTEMPTS_PER_ACCOUNT,
+        max_failures_per_ip=settings.LOGIN_MAX_FAILURES_PER_IP,
+        lockout_seconds=settings.LOGIN_LOCKOUT_SECONDS,
+        familiar_ip_ttl_seconds=settings.LOGIN_FAMILIAR_IP_TTL_SECONDS,
+    )
+    return LoginThrottleService(_login_attempt_store(), policy)
 
 
 async def get_current_user(

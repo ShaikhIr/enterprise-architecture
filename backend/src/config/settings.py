@@ -158,7 +158,95 @@ class Settings(BaseSettings):
 
     # Redis (Optional Cache)
     REDIS_URL: str = Field(
-        default="redis://localhost:6379/0", description="Redis connection URL"
+        default="redis://localhost:6379/0",
+        description=(
+            "Redis connection URL. Also holds the login-throttle counters, shared by every "
+            "API replica. Empty, or unreachable, falls back to per-process counters."
+        ),
+    )
+
+    # ─── Login throttling (brute-force / credential-stuffing protection) ───
+    #
+    # Applies to POST /auth/login. Attempts are counted per account from one IP, per account
+    # across the addresses it has no successful login from, and per IP; see
+    # LoginThrottleService for how they fit together.
+    LOGIN_THROTTLE_ENABLED: bool = Field(
+        default=True,
+        description=(
+            "Master switch. Leave on; it exists so a misconfigured limit can be turned off "
+            "without a deploy while it is corrected."
+        ),
+    )
+    LOGIN_ATTEMPT_WINDOW_SECONDS: int = Field(
+        default=300,
+        ge=10,
+        le=86_400,
+        description=(
+            "How long attempts are remembered. Fixed from the first attempt, not sliding."
+        ),
+    )
+    LOGIN_MAX_ATTEMPTS_PER_ACCOUNT_IP: int = Field(
+        default=5,
+        ge=1,
+        le=1_000,
+        description=(
+            "Attempts at one account from one IP per window before that account is locked "
+            "for that IP. Small, because it is the limit that stops a single-source guesser, "
+            "and it cannot be used to lock the real user out from another address."
+        ),
+    )
+    LOGIN_MAX_ATTEMPTS_PER_ACCOUNT: int = Field(
+        default=20,
+        ge=1,
+        le=10_000,
+        description=(
+            "Attempts at one account, from all addresses it has no successful login from, "
+            "together per window before it is locked for such addresses. Larger than the "
+            "per-IP limit: this is what caps a guess spread over many addresses. Addresses "
+            "the account has logged in from (LOGIN_FAMILIAR_IP_TTL_SECONDS) are neither "
+            "counted nor locked by it, so a spread-out attack cannot lock the real user out "
+            "of their usual network."
+        ),
+    )
+    LOGIN_FAMILIAR_IP_TTL_SECONDS: int = Field(
+        default=2_592_000,
+        ge=0,
+        le=31_536_000,
+        description=(
+            "How long an address stays familiar to an account after a successful login from "
+            "it (each login restarts the time). Default 30 days. 0 turns the exemption off, "
+            "so every address is treated as a stranger."
+        ),
+    )
+    LOGIN_MAX_FAILURES_PER_IP: int = Field(
+        default=50,
+        ge=1,
+        le=100_000,
+        description=(
+            "Failed logins from one IP per window, across all usernames. Deliberately "
+            "generous: offices and proxies share an address. Only failures count."
+        ),
+    )
+    LOGIN_LOCKOUT_SECONDS: int = Field(
+        default=900,
+        ge=10,
+        le=86_400,
+        description=(
+            "How long a lockout lasts. Fixed: attempts made during it do not extend it, so "
+            "an attacker cannot keep a real user locked out by simply continuing."
+        ),
+    )
+    TRUSTED_PROXY_HOPS: int = Field(
+        default=0,
+        ge=0,
+        le=10,
+        description=(
+            "How many reverse proxies sit between the internet and this API, used to find the "
+            "real client address in X-Forwarded-For for rate limiting. 0 ignores the header "
+            "(cannot be forged, but behind a proxy every user then shares the proxy's "
+            "address). Example: router -> nginx -> api is 2. Too high is as unsafe as 0 is "
+            "blunt, so match your actual chain. See client_ip.py."
+        ),
     )
 
     # Celery

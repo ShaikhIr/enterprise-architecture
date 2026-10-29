@@ -164,13 +164,16 @@ const JsonViewer: React.FC<JsonViewerProps> = ({ content }) => {
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
-        // Strings (keys and values)
-        .replace(/"([^"]+)"(?=\s*:)/g, '<span style="color:#9C27B0">"$1"</span>') // keys
-        .replace(/:\s*"([^"]*)"/g, ': <span style="color:#2E7D32">"$1"</span>') // string values
+        // Strings (keys and values). Coloured with classes, not `style="…"` attributes: this
+        // markup is injected as a string, and a Content-Security-Policy without
+        // 'unsafe-inline' refuses style attributes that arrive that way (a nonce cannot
+        // authorise an attribute). The colours live in theme-overrides.css.
+        .replace(/"([^"]+)"(?=\s*:)/g, '<span class="em-json-key">"$1"</span>') // keys
+        .replace(/:\s*"([^"]*)"/g, ': <span class="em-json-string">"$1"</span>') // string values
         // Numbers
-        .replace(/:\s*(\d+\.?\d*)/g, ': <span style="color:#1565C0">$1</span>')
+        .replace(/:\s*(\d+\.?\d*)/g, ': <span class="em-json-number">$1</span>')
         // Booleans & null
-        .replace(/:\s*(true|false|null)/g, ': <span style="color:#E65100">$1</span>')
+        .replace(/:\s*(true|false|null)/g, ': <span class="em-json-literal">$1</span>')
     );
   }, [content]);
 

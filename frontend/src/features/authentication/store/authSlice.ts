@@ -18,7 +18,7 @@ import { fetchMenuPermissions, clearRbac } from '@core/rbac';
 
 import { sessionBus } from '@shared/services/sessionBus';
 import { sessionCache } from '@shared/services/sessionCache';
-import { extractApiError } from '@shared/utils/apiError';
+import { extractApiError, formatWait, getRetryAfterSeconds } from '@shared/utils/apiError';
 
 import { authApi } from '../api/authApi';
 import type { AuthState, CurrentUser, LoginRequest } from '../models/auth.types';
@@ -36,6 +36,25 @@ const initialState: AuthState = {
   error: null,
 };
 
+/**
+ * What to tell the user when a login attempt fails.
+ *
+ * Too many attempts (429) says how long to wait when the server said so, because "try again
+ * later" invites an immediate retry that is refused again. The server's text is the
+ * fallback; it is the same for every account, so it reveals nothing about which one.
+ */
+const loginErrorMessage = (error: unknown): string => {
+  const status = (error as { response?: { status?: number } })?.response?.status;
+  if (status === 429) {
+    const seconds = getRetryAfterSeconds(error);
+    if (seconds !== null) {
+      return `Too many login attempts. Please try again in ${formatWait(seconds)}.`;
+    }
+    return extractApiError(error, 'Too many login attempts. Please try again later.');
+  }
+  return extractApiError(error, 'Login failed. Please try again.');
+};
+
 export const loginThunk = createAsyncThunk(
   'auth/login',
   async (credentials: LoginRequest, { dispatch, rejectWithValue }) => {
@@ -51,8 +70,7 @@ export const loginThunk = createAsyncThunk(
       sessionBus.broadcastLogin();
       return user;
     } catch (error) {
-      const message = extractApiError(error, 'Login failed. Please try again.');
-      return rejectWithValue(message);
+      return rejectWithValue(loginErrorMessage(error));
     }
   },
 );

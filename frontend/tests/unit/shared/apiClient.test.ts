@@ -221,3 +221,102 @@ describe('apiClient', () => {
     });
   });
 });
+
+/**
+ * A 401 from `/auth/login` means "wrong password", not "your session expired". Treating it
+ * as the latter replays the login after a refresh, so one click on Sign in counts as two
+ * attempts against the server's login throttle, and when there is no refresh cookie the
+ * user is shown the refresh failure ("Missing refresh token") instead of why the login
+ * failed.
+ */
+describe('apiClient — session endpoints', () => {
+  const sessionExpired = vi.fn();
+
+  beforeEach(() => {
+    storageService.clearAccessToken();
+    sessionExpired.mockClear();
+    setSessionExpiredHandler(sessionExpired);
+  });
+
+  const loginRejects = (calls: { login: number }) =>
+    http.post('/api/v1/auth/login', () => {
+      calls.login += 1;
+      return HttpResponse.json({ detail: 'Invalid username or password' }, { status: 401 });
+    });
+
+  it('does not refresh and replay a rejected login', async () => {
+    const calls = { login: 0 };
+    let refreshes = 0;
+    server.use(
+      loginRejects(calls),
+      http.post(REFRESH_URL, () => {
+        refreshes += 1;
+        return HttpResponse.json({ access_token: 'fresh', token_type: 'Bearer', expires_in: 1800 });
+      }),
+    );
+
+    await expect(
+      apiClient.post('/auth/login', { username: 'alice', password: 'wrong' }),
+    ).rejects.toMatchObject({ response: { status: 401 } });
+
+    expect(calls.login).toBe(1); // one click, one attempt
+    expect(refreshes).toBe(0);
+  });
+
+  it("surfaces the login's own error when there is no refresh cookie", async () => {
+    server.use(
+      loginRejects({ login: 0 }),
+      http.post(REFRESH_URL, () =>
+        HttpResponse.json({ detail: 'Missing refresh token' }, { status: 401 }),
+      ),
+    );
+
+    await expect(
+      apiClient.post('/auth/login', { username: 'alice', password: 'wrong' }),
+    ).rejects.toMatchObject({
+      response: { status: 401, data: { detail: 'Invalid username or password' } },
+    });
+    expect(sessionExpired).not.toHaveBeenCalled();
+  });
+
+  it('passes a throttled login (429) through untouched', async () => {
+    let refreshes = 0;
+    server.use(
+      http.post('/api/v1/auth/login', () =>
+        HttpResponse.json(
+          { detail: 'Too many login attempts. Please try again later.' },
+          { status: 429, headers: { 'Retry-After': '900' } },
+        ),
+      ),
+      http.post(REFRESH_URL, () => {
+        refreshes += 1;
+        return HttpResponse.json({ access_token: 'fresh', token_type: 'Bearer', expires_in: 1800 });
+      }),
+    );
+
+    await expect(
+      apiClient.post('/auth/login', { username: 'alice', password: 'x' }),
+    ).rejects.toMatchObject({ response: { status: 429, headers: { 'retry-after': '900' } } });
+    expect(refreshes).toBe(0);
+  });
+
+  it('still refreshes and retries an expired token on an ordinary endpoint', async () => {
+    // The change above must not have switched off the behaviour it sits next to.
+    storageService.setAccessToken('stale');
+    let attempts = 0;
+    server.use(
+      http.get('/api/v1/ping', ({ request }) => {
+        attempts += 1;
+        return request.headers.get('authorization') === 'Bearer fresh'
+          ? HttpResponse.json({ ok: true })
+          : HttpResponse.json({ detail: 'expired' }, { status: 401 });
+      }),
+      refreshOk('fresh'),
+    );
+
+    const { data } = await apiClient.get('/ping');
+
+    expect(data).toEqual({ ok: true });
+    expect(attempts).toBe(2);
+  });
+});
