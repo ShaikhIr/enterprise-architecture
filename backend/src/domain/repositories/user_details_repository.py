@@ -17,6 +17,17 @@ class IUserDetailsRepository(ABC):
         ...
 
     @abstractmethod
+    async def get_by_email(self, email: str) -> UserDetails | None:
+        """
+        Retrieve a profile by its company email address (case-insensitive).
+
+        Used by the Microsoft SSO callback to resolve a verified Microsoft
+        email to the employee profile imported from the Darwin AD service.
+        Returns None when no imported profile carries that email.
+        """
+        ...
+
+    @abstractmethod
     async def get_many_by_user_ids(
         self, user_ids: list[int]
     ) -> dict[int, UserDetails]:

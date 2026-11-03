@@ -63,11 +63,17 @@ export const useUpdateUser = () => {
   });
 };
 
+export interface ImportEmployeesVariables {
+  employeeIds: string[];
+  defaultPassword?: string;
+}
+
 export const useImportEmployees = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (employeeIds: string[]) => userApi.importEmployees(employeeIds),
+    mutationFn: ({ employeeIds, defaultPassword }: ImportEmployeesVariables) =>
+      userApi.importEmployees(employeeIds, defaultPassword),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: USERS_QUERY_KEY });
     },

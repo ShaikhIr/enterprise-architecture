@@ -10,7 +10,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.application.ports.file_storage import IFileStorage
 from src.config.settings import settings
+from src.domain.repositories.user_details_repository import IUserDetailsRepository
 from src.domain.repositories.user_repository import IUserRepository
+from src.infrastructure.database.repositories.user_details_repository_impl import (
+    UserDetailsRepositoryImpl,
+)
 from src.infrastructure.database.repositories.user_repository_impl import (
     UserRepositoryImpl,
 )
@@ -76,8 +80,17 @@ class Container:
         return UserRepositoryImpl(session)
 
     @staticmethod
+    def get_user_details_repository(session: AsyncSession) -> IUserDetailsRepository:
+        return UserDetailsRepositoryImpl(session)
+
+    @staticmethod
     def get_auth_manager(
         user_repo: IUserRepository,
         jwt_provider: JWTProvider,
+        user_details_repo: IUserDetailsRepository,
     ) -> AuthManager:
-        return AuthManager(user_repository=user_repo, jwt_provider=jwt_provider)
+        return AuthManager(
+            user_repository=user_repo,
+            jwt_provider=jwt_provider,
+            user_details_repository=user_details_repo,
+        )

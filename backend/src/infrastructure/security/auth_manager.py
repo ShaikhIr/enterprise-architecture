@@ -8,8 +8,11 @@ Supports dual authentication:
 
 import logging
 from dataclasses import dataclass
+from typing import Any
 
 from src.config.settings import settings
+from src.domain.entities.user import User
+from src.domain.repositories.user_details_repository import IUserDetailsRepository
 from src.domain.repositories.user_repository import IUserRepository
 from src.infrastructure.security.jwt_provider import JWTProvider
 from src.infrastructure.security.password_encoder import verify_password
@@ -61,6 +64,33 @@ class InvalidCredentialsError(AuthenticationError):
         super().__init__("Invalid username or password", status_code=401)
 
 
+class MicrosoftEmailMissingError(AuthenticationError):
+    """Raised when a Microsoft Graph profile carries no email to verify against."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            "Microsoft account has no email — cannot map to a user",
+            status_code=400,
+        )
+
+
+class SsoUserNotProvisionedError(AuthenticationError):
+    """
+    Raised when a verified Microsoft email matches no imported employee profile.
+
+    The user authenticated with Microsoft successfully, but their employee
+    details were never imported from the Darwin AD service, so there is no
+    local account to sign them in to.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(
+            "No account found for this Microsoft email. "
+            "Please contact your administrator to import your profile from AD.",
+            status_code=403,
+        )
+
+
 class AuthManager:
     """Handles authentication operations: login and token refresh."""
 
@@ -68,9 +98,11 @@ class AuthManager:
         self,
         user_repository: IUserRepository,
         jwt_provider: JWTProvider,
+        user_details_repository: IUserDetailsRepository,
     ) -> None:
         self._user_repo = user_repository
         self._jwt = jwt_provider
+        self._user_details_repo = user_details_repository
 
     async def login(self, username: str, password: str) -> AuthTokenResponse:
         """
@@ -114,6 +146,71 @@ class AuthManager:
             access_token=access_token,
             refresh_token=refresh_token,
         )
+
+    async def microsoft_login(self, profile: dict[str, Any]) -> AuthTokenResponse:
+        """
+        Authenticate a user from a verified Microsoft Graph profile.
+
+        The Microsoft email is the verification key. It must resolve to a user
+        who already exists locally — primarily an employee imported from the
+        Darwin AD service, located by the email captured on their user_details
+        profile. Microsoft accounts with no matching imported profile (and no
+        matching local username) are rejected; the callback never provisions a
+        user whose employee details were never imported.
+
+        Flow:
+        1. Extract and normalise the email from the Graph profile.
+        2. Resolve the local user by user_details.email, then by username.
+        3. Reject if no local user is found.
+        4. Check is_active / is_blocked.
+        5. Issue an application JWT pair.
+
+        Raises:
+            MicrosoftEmailMissingError: Profile carried no email.
+            SsoUserNotProvisionedError: Email matched no imported/local user.
+            UserInactiveError: Account is deactivated.
+            UserBlockedError: Account is blocked.
+        """
+        upn = profile.get("userPrincipalName") or profile.get("mail") or ""
+        email = (profile.get("mail") or upn or "").strip().lower()
+        if not email:
+            raise MicrosoftEmailMissingError()
+
+        user = await self._resolve_sso_user(email)
+        if user is None:
+            logger.warning("Microsoft SSO rejected: no account for email %s", email)
+            raise SsoUserNotProvisionedError()
+
+        if not user.is_active:
+            raise UserInactiveError()
+        if user.is_blocked:
+            raise UserBlockedError()
+
+        access_token = self._jwt.create_access_token(user.username, user.id)
+        refresh_token = self._jwt.create_refresh_token(user.username, user.id)
+
+        return AuthTokenResponse(
+            access_token=access_token,
+            refresh_token=refresh_token,
+        )
+
+    async def _resolve_sso_user(self, email: str) -> User | None:
+        """
+        Resolve a Microsoft email to a local user.
+
+        Primary path: the employee profile imported from AD stores the email in
+        ``user_details.email`` while the user's ``username`` is their employee
+        id, so matching on email is the only way to link the SSO identity to the
+        imported account. Falls back to a username match for legacy users whose
+        username is itself the email.
+        """
+        details = await self._user_details_repo.get_by_email(email)
+        if details is not None and details.user_id is not None:
+            user = await self._user_repo.get_by_id(details.user_id)
+            if user is not None:
+                return user
+
+        return await self._user_repo.get_by_username(email)
 
     async def _validate_with_darwin(self, employee_id: str, password: str) -> None:
         """

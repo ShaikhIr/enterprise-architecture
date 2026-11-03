@@ -43,7 +43,10 @@ class EmployeeImportService:
         self._hasher = password_hasher
 
     async def import_employees(
-        self, darwin_response: dict[str, Any] | list[Any], actor: str
+        self,
+        darwin_response: dict[str, Any] | list[Any],
+        actor: str,
+        default_password: str | None = None,
     ) -> EmployeeImportResult:
         """
         Upsert every employee record Darwin returned.
@@ -52,8 +55,17 @@ class EmployeeImportService:
         `employeeData`, but tolerated as a bare list or as any dict whose first
         list-valued key holds the records, matching the shape Darwin has been
         observed to return.
+
+        `default_password`, when provided (non-blank), is the initial password set on
+        every newly created user; when omitted the employee id is used as the default,
+        preserving the original import contract. Either way the hash is only applied to
+        brand-new users — an existing user's password is never changed on re-import.
         """
         employee_data_list = self._extract_employee_list(darwin_response)
+
+        # A blank/whitespace-only default is treated as "not provided" so the caller
+        # cannot accidentally set every imported user's password to an empty string.
+        chosen_password = (default_password or "").strip() or None
 
         result = EmployeeImportResult()
         for emp_data in employee_data_list:
@@ -72,7 +84,7 @@ class EmployeeImportService:
             outcome = await self._writer.upsert_employee(
                 employee_id=emp_id,
                 details_fields=self._extract_details_fields(emp_data),
-                new_user_password_hash=self._hasher.hash(emp_id),
+                new_user_password_hash=self._hasher.hash(chosen_password or emp_id),
                 actor=actor,
             )
             result.total += 1

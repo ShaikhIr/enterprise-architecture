@@ -267,9 +267,14 @@ def get_password_hasher() -> IPasswordHasher:
 def get_auth_manager(
     user_repo: IUserRepository = Depends(get_user_repository),
     jwt_provider: JWTProvider = Depends(get_jwt_provider),
+    user_details_repo: IUserDetailsRepository = Depends(get_user_details_repository),
 ) -> AuthManager:
     """Provide authentication manager with dependencies."""
-    return AuthManager(user_repository=user_repo, jwt_provider=jwt_provider)
+    return AuthManager(
+        user_repository=user_repo,
+        jwt_provider=jwt_provider,
+        user_details_repository=user_details_repo,
+    )
 
 
 def get_client_ip(request: Request) -> str:

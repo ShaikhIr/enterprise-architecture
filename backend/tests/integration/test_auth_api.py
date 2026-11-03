@@ -14,8 +14,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from httpx import AsyncClient
 
-from src.api.v1.dependencies import get_user_repository
+from src.api.v1.dependencies import (
+    get_user_details_repository,
+    get_user_repository,
+)
 from src.domain.entities.user import User
+from src.domain.entities.user_details import UserDetails
 from src.infrastructure.security.password_encoder import hash_password
 from src.main import app
 
@@ -108,15 +112,36 @@ class TestCorrelationIdHeader:
 
 @pytest.fixture
 def sso_repo() -> AsyncMock:
-    """Repository where the incoming Microsoft user does not exist locally yet."""
+    """User repository where the incoming Microsoft user does not exist locally yet."""
     repo = AsyncMock()
     repo.get_by_username.return_value = None
+    repo.get_by_id.return_value = None
 
     async def _create(user: User) -> User:
         return user
 
     repo.create.side_effect = _create
     return repo
+
+
+@pytest.fixture
+def sso_details_repo() -> AsyncMock:
+    """
+    User-details repository with no imported profile for the incoming email.
+
+    The callback resolves the Microsoft email against ``user_details.email``
+    first; the default here (no match) forces the username fallback unless a
+    test overrides ``get_by_email``.
+    """
+    repo = AsyncMock()
+    repo.get_by_email.return_value = None
+    return repo
+
+
+def _bind_sso(user_repo: AsyncMock, details_repo: AsyncMock) -> None:
+    """Point the auth_manager's nested repository dependencies at the test doubles."""
+    app.dependency_overrides[get_user_repository] = lambda: user_repo
+    app.dependency_overrides[get_user_details_repository] = lambda: details_repo
 
 
 def _sso_client(
@@ -140,15 +165,26 @@ class TestMicrosoftSsoCallback:
     """
     POST /api/v1/auth/microsoft/callback
 
-    The auto-provisioning branch raised TypeError before this test existed: it
-    constructed `User(role="USER")`, but `role` was dropped from the entity in
-    migration c9d4e2f5a1b7. Any first-time SSO login returned 500.
+    The Microsoft email is the verification key: it must resolve to a locally
+    known user — primarily an employee imported from AD, whose email lives on
+    ``user_details`` while their username is the employee id. An email matching
+    no imported profile (and no local username) is rejected rather than silently
+    provisioned.
     """
 
-    async def test_first_login_auto_provisions_the_user(
-        self, client: AsyncClient, sso_repo: AsyncMock
+    async def test_login_resolves_imported_employee_by_email(
+        self, client: AsyncClient, sso_repo: AsyncMock, sso_details_repo: AsyncMock
     ) -> None:
-        app.dependency_overrides[get_user_repository] = lambda: sso_repo
+        """An AD-imported employee (username = employee id) is matched by email."""
+        imported = User(
+            id=99, username="E12345", password_hash="",
+            is_active=True, is_blocked=False,
+        )
+        sso_details_repo.get_by_email.return_value = UserDetails(
+            id=3, user_id=99, employee_id="E12345", email="new.user@corp.com"
+        )
+        sso_repo.get_by_id.return_value = imported
+        _bind_sso(sso_repo, sso_details_repo)
 
         with patch(
             "src.infrastructure.external.azure_sso.AzureSsoClient",
@@ -161,18 +197,34 @@ class TestMicrosoftSsoCallback:
         assert response.status_code == 200, response.text
         assert response.json()["access_token"]
         assert response.json()["token_type"] == "Bearer"
+        # Resolved via the imported profile — email normalised to lowercase.
+        sso_details_repo.get_by_email.assert_awaited_once_with("new.user@corp.com")
+        sso_repo.create.assert_not_awaited()
 
-        sso_repo.create.assert_awaited_once()
-        created: User = sso_repo.create.await_args.args[0]
-        assert created.username == "new.user@corp.com"  # normalised to lowercase
-        assert created.is_active is True
-        assert created.created_by == "microsoft_sso"
-
-    async def test_existing_user_is_not_reprovisioned(
-        self, client: AsyncClient, sso_repo: AsyncMock, active_user: User
+    async def test_unprovisioned_email_is_rejected_not_created(
+        self, client: AsyncClient, sso_repo: AsyncMock, sso_details_repo: AsyncMock
     ) -> None:
+        """No imported profile and no matching username → 403, never auto-created."""
+        _bind_sso(sso_repo, sso_details_repo)
+
+        with patch(
+            "src.infrastructure.external.azure_sso.AzureSsoClient",
+            return_value=_sso_client(),
+        ):
+            response = await client.post(
+                "/api/v1/auth/microsoft/callback", json={"code": "valid-code"}
+            )
+
+        assert response.status_code == 403, response.text
+        sso_repo.create.assert_not_awaited()
+
+    async def test_legacy_username_match_still_works(
+        self, client: AsyncClient, sso_repo: AsyncMock, sso_details_repo: AsyncMock,
+        active_user: User,
+    ) -> None:
+        """A user whose username IS the email (no imported profile) is accepted."""
         sso_repo.get_by_username.return_value = active_user
-        app.dependency_overrides[get_user_repository] = lambda: sso_repo
+        _bind_sso(sso_repo, sso_details_repo)
 
         with patch(
             "src.infrastructure.external.azure_sso.AzureSsoClient",
@@ -186,9 +238,11 @@ class TestMicrosoftSsoCallback:
         sso_repo.create.assert_not_awaited()
 
     async def test_refresh_cookie_is_httponly_and_scoped(
-        self, client: AsyncClient, sso_repo: AsyncMock
+        self, client: AsyncClient, sso_repo: AsyncMock, sso_details_repo: AsyncMock,
+        active_user: User,
     ) -> None:
-        app.dependency_overrides[get_user_repository] = lambda: sso_repo
+        sso_repo.get_by_username.return_value = active_user
+        _bind_sso(sso_repo, sso_details_repo)
 
         with patch(
             "src.infrastructure.external.azure_sso.AzureSsoClient",
@@ -203,10 +257,11 @@ class TestMicrosoftSsoCallback:
         assert "/api/v1/auth" in cookie
 
     async def test_blocked_user_is_rejected(
-        self, client: AsyncClient, sso_repo: AsyncMock, blocked_user: User
+        self, client: AsyncClient, sso_repo: AsyncMock, sso_details_repo: AsyncMock,
+        blocked_user: User,
     ) -> None:
         sso_repo.get_by_username.return_value = blocked_user
-        app.dependency_overrides[get_user_repository] = lambda: sso_repo
+        _bind_sso(sso_repo, sso_details_repo)
 
         with patch(
             "src.infrastructure.external.azure_sso.AzureSsoClient",
@@ -219,9 +274,9 @@ class TestMicrosoftSsoCallback:
         assert response.status_code == 403, response.text
 
     async def test_missing_code_returns_400(
-        self, client: AsyncClient, sso_repo: AsyncMock
+        self, client: AsyncClient, sso_repo: AsyncMock, sso_details_repo: AsyncMock
     ) -> None:
-        app.dependency_overrides[get_user_repository] = lambda: sso_repo
+        _bind_sso(sso_repo, sso_details_repo)
 
         with patch(
             "src.infrastructure.external.azure_sso.AzureSsoClient",
@@ -232,9 +287,9 @@ class TestMicrosoftSsoCallback:
         assert response.status_code == 400, response.text
 
     async def test_unconfigured_sso_returns_501(
-        self, client: AsyncClient, sso_repo: AsyncMock
+        self, client: AsyncClient, sso_repo: AsyncMock, sso_details_repo: AsyncMock
     ) -> None:
-        app.dependency_overrides[get_user_repository] = lambda: sso_repo
+        _bind_sso(sso_repo, sso_details_repo)
 
         with patch(
             "src.infrastructure.external.azure_sso.AzureSsoClient",
@@ -247,10 +302,10 @@ class TestMicrosoftSsoCallback:
         assert response.status_code == 501, response.text
 
     async def test_profile_without_email_returns_400(
-        self, client: AsyncClient, sso_repo: AsyncMock
+        self, client: AsyncClient, sso_repo: AsyncMock, sso_details_repo: AsyncMock
     ) -> None:
         """A Graph profile with no mail or UPN cannot be mapped to a user."""
-        app.dependency_overrides[get_user_repository] = lambda: sso_repo
+        _bind_sso(sso_repo, sso_details_repo)
 
         with patch(
             "src.infrastructure.external.azure_sso.AzureSsoClient",

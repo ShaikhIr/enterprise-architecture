@@ -349,34 +349,30 @@ async def microsoft_login() -> dict[str, Any]:
 async def microsoft_callback(
     body: dict[str, Any],
     response: Response,
-    user_repo: IUserRepository = Depends(get_user_repository),
+    auth_manager: AuthManager = Depends(get_auth_manager),
 ) -> TokenResponse:
     """
     POST /api/v1/auth/microsoft/callback
 
     Flow:
     1. Exchange code for Microsoft access_token via AzureSsoClient
-    2. Fetch Graph profile (UPN, email, employeeId, name)
-    3. Look up local user by username (email)
-    4. If not found → auto-provision with is_active=True
-    5. Issue app JWT pair
-    6. Return token response
+    2. Fetch Graph profile (UPN, email)
+    3. Delegate to AuthManager.microsoft_login — verifies the Microsoft email
+       against the employee profile imported from AD and issues the JWT pair
+    4. Set the refresh cookie and return the access token
 
     Errors:
-        400: Missing code or exchange failure
-        403: User account is inactive/blocked
+        400: Missing code, exchange failure, or Microsoft account has no email
+        403: User account is inactive/blocked, or not imported from AD
         501: Azure SSO not configured
+        502: Microsoft authentication service unreachable
     """
-    import secrets
-
     from src.infrastructure.external.azure_sso import (
         AzureAuthError,
         AzureSsoClient,
         AzureTokenMissingError,
         AzureUnavailableError,
     )
-    from src.infrastructure.security.jwt_provider import JWTProvider
-    from src.infrastructure.security.password_encoder import hash_password
 
     client = AzureSsoClient()
     if not client.is_configured:
@@ -408,53 +404,16 @@ async def microsoft_callback(
             detail="Could not reach Microsoft authentication service",
         ) from exc
 
-    # Extract user info from Graph profile
-    upn = ms_user.get("userPrincipalName") or ms_user.get("mail") or ""
-    email = (ms_user.get("mail") or upn or "").lower().strip()
+    # Verify the Microsoft email against an AD-imported profile and issue tokens
+    try:
+        result = await auth_manager.microsoft_login(ms_user)
+    except AuthenticationError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
 
-    if not email:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Microsoft account has no email — cannot map to a user",
-        )
-
-    # Find or create local user
-    user = await user_repo.get_by_username(email)
-
-    if user is None:
-        # Auto-provision: create local user from Microsoft profile
-        from src.domain.entities.user import User as UserEntity
-
-        user = UserEntity(
-            username=email,
-            password_hash=hash_password(secrets.token_urlsafe(32)),
-            is_active=True,
-            is_blocked=False,
-            created_by="microsoft_sso",
-            modified_by="microsoft_sso",
-        )
-        user = await user_repo.create(user)
-
-    if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="User account is inactive",
-        )
-    if user.is_blocked:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="User account is blocked",
-        )
-
-    # Issue application JWT pair
-    jwt_provider = JWTProvider()
-    access_token = jwt_provider.create_access_token(user.username, user.id)
-    refresh_token = jwt_provider.create_refresh_token(user.username, user.id)
-
-    _set_refresh_cookie(response, refresh_token)
+    _set_refresh_cookie(response, result.refresh_token)
 
     return TokenResponse(
-        access_token=access_token,
-        token_type="Bearer",
-        expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        access_token=result.access_token,
+        token_type=result.token_type,
+        expires_in=result.expires_in,
     )

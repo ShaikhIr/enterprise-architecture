@@ -10,6 +10,7 @@ import { Column } from 'primereact/column';
 import { DataTable } from 'primereact/datatable';
 import { Dialog } from 'primereact/dialog';
 import { InputText } from 'primereact/inputtext';
+import { Password } from 'primereact/password';
 import { Tag } from 'primereact/tag';
 
 import { useImportEmployees } from '../hooks/useUsers';
@@ -23,6 +24,7 @@ interface ImportEmployeeDialogProps {
 
 export const ImportEmployeeDialog = ({ visible, onHide, onSuccess }: ImportEmployeeDialogProps) => {
   const [employeeIds, setEmployeeIds] = useState('');
+  const [defaultPassword, setDefaultPassword] = useState('');
   const [results, setResults] = useState<ImportResult[] | null>(null);
   const importMutation = useImportEmployees();
 
@@ -35,7 +37,10 @@ export const ImportEmployeeDialog = ({ visible, onHide, onSuccess }: ImportEmplo
     if (ids.length === 0) return;
 
     try {
-      const response = await importMutation.mutateAsync(ids);
+      const response = await importMutation.mutateAsync({
+        employeeIds: ids,
+        defaultPassword: defaultPassword.trim() || undefined,
+      });
       setResults(response.results);
       if (response.created > 0 || response.updated > 0) {
         onSuccess?.();
@@ -47,6 +52,7 @@ export const ImportEmployeeDialog = ({ visible, onHide, onSuccess }: ImportEmplo
 
   const handleClose = () => {
     setEmployeeIds('');
+    setDefaultPassword('');
     setResults(null);
     onHide();
   };
@@ -107,8 +113,30 @@ export const ImportEmployeeDialog = ({ visible, onHide, onSuccess }: ImportEmplo
             aria-label="Employee IDs to import"
           />
           <small className="text-600">
-            Employees will be imported with username = Employee ID, default password = Employee ID,
-            role = USER
+            Employees are imported with username = Employee ID. Leave the default password blank to
+            use the Employee ID as the initial password.
+          </small>
+        </div>
+
+        {/* Optional default password for the newly created users */}
+        <div className="flex flex-column gap-2">
+          <label htmlFor="import-default-password" className="font-medium">
+            Default Password (optional)
+          </label>
+          <Password
+            id="import-default-password"
+            value={defaultPassword}
+            onChange={(e) => setDefaultPassword(e.target.value)}
+            placeholder="Defaults to Employee ID"
+            feedback={false}
+            toggleMask
+            className="w-full"
+            inputClassName="w-full"
+            disabled={!!results}
+            aria-label="Default password for imported employees"
+          />
+          <small className="text-600">
+            Applied only to newly created users. Existing users keep their current password.
           </small>
         </div>
 

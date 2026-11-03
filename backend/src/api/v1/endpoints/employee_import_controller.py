@@ -36,6 +36,13 @@ class ImportEmployeesRequest(BaseModel):
     """Request body for importing employees from Darwin AD."""
 
     employee_ids: list[str] = Field(..., description="List of employee IDs to import")
+    default_password: str | None = Field(
+        default=None,
+        description=(
+            "Initial password for newly created users. When omitted or blank, each new "
+            "user's employee id is used as the default password."
+        ),
+    )
 
 
 class ImportResult(BaseModel):
@@ -80,7 +87,9 @@ async def import_employees(
 
     Fetch employees from Darwin AD and upsert into users + user_details.
 
-    - New users: created with username=employee_id, password=hash(employee_id)
+    - New users: created with username=employee_id, password=hash(default_password or
+      employee_id). Imported users default to AD validation (is_validate_ad=True), so this
+      local password is the fallback used only if that flag is later turned off.
     - Existing users: password unchanged, user_details updated with latest Darwin data
 
     One employee failing does not fail the batch — see
@@ -96,7 +105,11 @@ async def import_employees(
         darwin_response.keys() if isinstance(darwin_response, dict) else type(darwin_response),
     )
 
-    result = await service.import_employees(darwin_response, actor=current_user.username)
+    result = await service.import_employees(
+        darwin_response,
+        actor=current_user.username,
+        default_password=request.default_password,
+    )
 
     return ImportEmployeesResponse(
         total=result.total,

@@ -56,9 +56,16 @@ export const userApi = {
     return data;
   },
 
-  importEmployees: async (employeeIds: string[]): Promise<ImportEmployeesResponse> => {
+  importEmployees: async (
+    employeeIds: string[],
+    defaultPassword?: string,
+  ): Promise<ImportEmployeesResponse> => {
+    // Only send default_password when the admin actually typed one; a blank value
+    // is left off so the backend applies its employee-id fallback.
+    const trimmed = defaultPassword?.trim();
     const { data } = await apiClient.post<ImportEmployeesResponse>('/users/import-employees', {
       employee_ids: employeeIds,
+      ...(trimmed ? { default_password: trimmed } : {}),
     });
     return data;
   },

@@ -4,7 +4,7 @@ Implements IUserDetailsRepository using SQLAlchemy async.
 """
 
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.domain.entities.user_details import UserDetails
@@ -20,6 +20,19 @@ class UserDetailsRepositoryImpl(IUserDetailsRepository):
 
     async def get_by_user_id(self, user_id: int) -> UserDetails | None:
         stmt = select(UserDetailsModel).where(UserDetailsModel.user_id == user_id)
+        result = await self._session.execute(stmt)
+        model = result.scalar_one_or_none()
+        return self._to_entity(model) if model else None
+
+    async def get_by_email(self, email: str) -> UserDetails | None:
+        normalized = email.strip().lower()
+        if not normalized:
+            return None
+        # Case-insensitive match: Microsoft Graph may return a differently-cased
+        # mail/UPN than the one captured during the Darwin AD import.
+        stmt = select(UserDetailsModel).where(
+            func.lower(UserDetailsModel.email) == normalized
+        )
         result = await self._session.execute(stmt)
         model = result.scalar_one_or_none()
         return self._to_entity(model) if model else None

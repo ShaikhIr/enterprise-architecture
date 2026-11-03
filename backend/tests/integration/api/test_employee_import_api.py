@@ -26,6 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.infrastructure.database.models.user_details_model import UserDetailsModel
 from src.infrastructure.database.models.user_model import UserModel
+from src.infrastructure.security.password_encoder import verify_password
 
 IMPORT_URL = "/api/v1/users/import-employees"
 
@@ -131,6 +132,55 @@ class TestSingleEmployeeImport:
         body = response.json()
         assert body["failed"] == 1
         assert body["results"][0]["employee_id"] == "unknown"
+
+
+class TestDefaultPassword:
+    """A new user's stored password hash reflects the chosen default."""
+
+    @staticmethod
+    async def _password_hash_for(db_session: AsyncSession, username: str) -> str:
+        user = (
+            await db_session.execute(
+                select(UserModel).where(UserModel.username == username)
+            )
+        ).scalar_one()
+        return user.password_hash
+
+    async def test_default_password_is_hashed_onto_new_users(
+        self,
+        admin_client: AsyncClient,
+        darwin_returns: DarwinStub,
+        db_session: AsyncSession,
+    ) -> None:
+        with darwin_returns([_employee("P1001")]):
+            response = await admin_client.post(
+                IMPORT_URL,
+                json={"employee_ids": ["P1001"], "default_password": "Welcome@123"},
+            )
+
+        assert response.status_code == 200, response.text
+        assert response.json()["created"] == 1
+
+        stored = await self._password_hash_for(db_session, "P1001")
+        assert verify_password("Welcome@123", stored) is True
+        assert verify_password("P1001", stored) is False
+
+    async def test_absent_default_password_falls_back_to_employee_id(
+        self,
+        admin_client: AsyncClient,
+        darwin_returns: DarwinStub,
+        db_session: AsyncSession,
+    ) -> None:
+        with darwin_returns([_employee("P1002")]):
+            response = await admin_client.post(
+                IMPORT_URL, json={"employee_ids": ["P1002"]}
+            )
+
+        assert response.status_code == 200, response.text
+        assert response.json()["created"] == 1
+
+        stored = await self._password_hash_for(db_session, "P1002")
+        assert verify_password("P1002", stored) is True
 
 
 class TestPartialFailureIsolation:

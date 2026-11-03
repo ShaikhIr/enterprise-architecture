@@ -8,9 +8,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from src.domain.entities.user import User
+from src.domain.entities.user_details import UserDetails
 from src.infrastructure.security.auth_manager import (
     AuthManager,
     InvalidCredentialsError,
+    MicrosoftEmailMissingError,
+    SsoUserNotProvisionedError,
     UserBlockedError,
     UserInactiveError,
 )
@@ -25,13 +28,30 @@ def mock_user_repo() -> AsyncMock:
 
 
 @pytest.fixture
+def mock_user_details_repo() -> AsyncMock:
+    repo = AsyncMock()
+    # Default: no imported profile matches, so microsoft_login falls back to the
+    # username lookup unless a test overrides this.
+    repo.get_by_email.return_value = None
+    return repo
+
+
+@pytest.fixture
 def jwt_provider() -> JWTProvider:
     return JWTProvider()
 
 
 @pytest.fixture
-def auth_manager(mock_user_repo: AsyncMock, jwt_provider: JWTProvider) -> AuthManager:
-    return AuthManager(user_repository=mock_user_repo, jwt_provider=jwt_provider)
+def auth_manager(
+    mock_user_repo: AsyncMock,
+    jwt_provider: JWTProvider,
+    mock_user_details_repo: AsyncMock,
+) -> AuthManager:
+    return AuthManager(
+        user_repository=mock_user_repo,
+        jwt_provider=jwt_provider,
+        user_details_repository=mock_user_details_repo,
+    )
 
 
 @pytest.fixture
@@ -232,3 +252,143 @@ class TestLoginViaActiveDirectory:
             pytest.raises(InvalidCredentialsError),
         ):
             await auth_manager.login("aduser", "AnyPassword")
+
+
+class TestMicrosoftLogin:
+    """
+    The SSO path: a verified Microsoft email must resolve to a locally-known
+    user — primarily an employee imported from AD, whose email lives on
+    user_details while their username is the employee id.
+    """
+
+    @staticmethod
+    def _imported_user() -> User:
+        # Username is the employee id (as set by the AD import), NOT the email.
+        return User(
+            id=42,
+            username="E12345",
+            password_hash="",
+            is_active=True,
+            is_blocked=False,
+        )
+
+    @pytest.mark.asyncio
+    async def test_resolves_imported_employee_by_user_details_email(
+        self,
+        auth_manager: AuthManager,
+        mock_user_repo: AsyncMock,
+        mock_user_details_repo: AsyncMock,
+    ) -> None:
+        """The AD-imported email (user_details.email) links the SSO identity."""
+        user = self._imported_user()
+        mock_user_details_repo.get_by_email.return_value = UserDetails(
+            id=7, user_id=user.id, employee_id="E12345", email="ada@example.com"
+        )
+        mock_user_repo.get_by_id.return_value = user
+
+        result = await auth_manager.microsoft_login({"mail": "Ada@Example.com"})
+
+        assert result.access_token
+        assert result.token_type == "Bearer"
+        # Matched by email, resolved by user_id — never by username here.
+        mock_user_details_repo.get_by_email.assert_awaited_once_with("ada@example.com")
+        mock_user_repo.get_by_id.assert_awaited_once_with(user.id)
+        mock_user_repo.get_by_username.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_falls_back_to_username_for_legacy_sso_user(
+        self,
+        auth_manager: AuthManager,
+        mock_user_repo: AsyncMock,
+        mock_user_details_repo: AsyncMock,
+    ) -> None:
+        """A user whose username IS the email (no imported profile) still works."""
+        mock_user_details_repo.get_by_email.return_value = None
+        mock_user_repo.get_by_username.return_value = User(
+            id=5,
+            username="legacy@example.com",
+            password_hash="",
+            is_active=True,
+            is_blocked=False,
+        )
+
+        result = await auth_manager.microsoft_login(
+            {"userPrincipalName": "legacy@example.com"}
+        )
+
+        assert result.access_token
+        mock_user_repo.get_by_username.assert_awaited_once_with("legacy@example.com")
+
+    @pytest.mark.asyncio
+    async def test_prefers_mail_over_upn(
+        self,
+        auth_manager: AuthManager,
+        mock_user_repo: AsyncMock,
+        mock_user_details_repo: AsyncMock,
+    ) -> None:
+        """When both are present, `mail` is the email used for verification."""
+        mock_user_repo.get_by_username.return_value = None
+
+        with pytest.raises(SsoUserNotProvisionedError):
+            await auth_manager.microsoft_login(
+                {"mail": "real@example.com", "userPrincipalName": "upn@example.com"}
+            )
+
+        mock_user_details_repo.get_by_email.assert_awaited_once_with("real@example.com")
+
+    @pytest.mark.asyncio
+    async def test_missing_email_is_rejected(self, auth_manager: AuthManager) -> None:
+        """A Microsoft profile with no mail/UPN cannot be verified."""
+        with pytest.raises(MicrosoftEmailMissingError):
+            await auth_manager.microsoft_login({"displayName": "No Email"})
+
+    @pytest.mark.asyncio
+    async def test_unprovisioned_email_is_rejected_not_auto_created(
+        self,
+        auth_manager: AuthManager,
+        mock_user_repo: AsyncMock,
+        mock_user_details_repo: AsyncMock,
+    ) -> None:
+        """An email matching no imported profile and no username is refused."""
+        mock_user_details_repo.get_by_email.return_value = None
+        mock_user_repo.get_by_username.return_value = None
+
+        with pytest.raises(SsoUserNotProvisionedError):
+            await auth_manager.microsoft_login({"mail": "stranger@example.com"})
+
+        # The callback must never silently provision a rogue account.
+        mock_user_repo.create.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_inactive_imported_user_is_rejected(
+        self,
+        auth_manager: AuthManager,
+        mock_user_repo: AsyncMock,
+        mock_user_details_repo: AsyncMock,
+    ) -> None:
+        user = self._imported_user()
+        user.is_active = False
+        mock_user_details_repo.get_by_email.return_value = UserDetails(
+            id=7, user_id=user.id, employee_id="E12345", email="ada@example.com"
+        )
+        mock_user_repo.get_by_id.return_value = user
+
+        with pytest.raises(UserInactiveError):
+            await auth_manager.microsoft_login({"mail": "ada@example.com"})
+
+    @pytest.mark.asyncio
+    async def test_blocked_imported_user_is_rejected(
+        self,
+        auth_manager: AuthManager,
+        mock_user_repo: AsyncMock,
+        mock_user_details_repo: AsyncMock,
+    ) -> None:
+        user = self._imported_user()
+        user.is_blocked = True
+        mock_user_details_repo.get_by_email.return_value = UserDetails(
+            id=7, user_id=user.id, employee_id="E12345", email="ada@example.com"
+        )
+        mock_user_repo.get_by_id.return_value = user
+
+        with pytest.raises(UserBlockedError):
+            await auth_manager.microsoft_login({"mail": "ada@example.com"})
