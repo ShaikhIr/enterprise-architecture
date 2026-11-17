@@ -1,1 +1,1 @@
-﻿# Database configuration (connection strings, pool settings)
+# Database configuration (connection strings, pool settings)

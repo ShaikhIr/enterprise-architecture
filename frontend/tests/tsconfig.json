@@ -1,0 +1,21 @@
+{
+  // Exists purely so the editor's TypeScript language server can find a project for
+  // files under tests/ at all. tsserver's "nearest config" discovery only ever looks
+  // for a file literally named tsconfig.json, walking up from whatever file is open —
+  // it has no reason to know the root-level tsconfig.test.json exists, since that name
+  // is only ever passed explicitly via `tsc -p tsconfig.test.json` (see package.json's
+  // type-check script, and eslint.config.js's `project` array). Without this file,
+  // tsserver's walk-up from tests/unit/... stops at ../tsconfig.json, whose
+  // `include: ["src"]` does not cover tests/, and every test file becomes an orphan
+  // with no path aliases and no project-wide types.
+  //
+  // `extends` resolves relative paths (baseUrl, paths, include) against the config file
+  // they were declared in, not the extending file — so `../tsconfig.json`'s `@app/*`
+  // etc. aliases still resolve correctly against `../src/*` from here.
+  //
+  // This file changes nothing about how the project actually gets type-checked: `npm
+  // run type-check`, `npm run lint`, and `npm test` all still go through
+  // `../tsconfig.test.json` exactly as before. This file is for the editor only.
+  "extends": "../tsconfig.json",
+  "include": ["**/*", "../src/vite-env.d.ts"]
+}

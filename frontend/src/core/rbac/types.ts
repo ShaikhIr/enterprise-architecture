@@ -4,10 +4,18 @@
  */
 
 export type PermissionScope = 'MENU' | 'API' | 'FIELD';
-export type PermissionAction = 'CREATE' | 'READ' | 'UPDATE' | 'DELETE' | 'EXECUTE' | 'EXPORT' | 'IMPORT' | 'APPROVE';
+export type PermissionAction =
+  | 'CREATE'
+  | 'READ'
+  | 'UPDATE'
+  | 'DELETE'
+  | 'EXECUTE'
+  | 'EXPORT'
+  | 'IMPORT'
+  | 'APPROVE';
 
 export interface Permission {
-  id: string;
+  id: number;
   code: string;
   name: string;
   description: string;
@@ -18,19 +26,33 @@ export interface Permission {
 }
 
 export interface Role {
-  id: string;
+  id: number;
   code: string;
   name: string;
   description: string;
   is_system: boolean;
   is_active: boolean;
-  tenant_id: string | null;
-  parent_role_id: string | null;
+  tenant_id: number | null;
+  parent_role_id: number | null;
   permissions: Permission[];
 }
 
 export interface MenuPermissionsResponse {
   menu_keys: string[];
+  permissions: Permission[];
+}
+
+/**
+ * The caller's API-scope grants, used to hide controls they could not use.
+ *
+ * Both shapes are returned because both are needed: `codes` gates a control by
+ * permission code, `resource_actions` gates it by the (resource, action) pair the
+ * endpoints actually authorise on. Neither is derivable from the other without
+ * assuming a naming convention nothing enforces.
+ */
+export interface ApiPermissionsResponse {
+  codes: string[];
+  resource_actions: Record<string, PermissionAction[]>;
   permissions: Permission[];
 }
 
@@ -40,22 +62,22 @@ export interface FieldPermissionsResponse {
 }
 
 export interface RoleAssignment {
-  id: string;
-  user_id: string;
-  role_id: string;
-  tenant_id: string | null;
+  id: number;
+  user_id: number;
+  role_id: number;
+  tenant_id: number | null;
   is_active: boolean;
   created_date: string;
 }
 
 export interface AuditLogEntry {
-  id: string;
-  actor_id: string | null;
+  id: number;
+  actor_id: number | null;
   actor_username: string;
   action: string;
   resource_type: string;
   resource_id: string;
-  tenant_id: string | null;
+  tenant_id: number | null;
   old_value: string | null;
   new_value: string | null;
   ip_address: string;

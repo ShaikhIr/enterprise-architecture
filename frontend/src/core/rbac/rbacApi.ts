@@ -4,7 +4,12 @@
  */
 
 import { apiClient } from '@shared/services/apiClient';
-import type { FieldPermissionsResponse, MenuPermissionsResponse } from './types';
+
+import type {
+  ApiPermissionsResponse,
+  FieldPermissionsResponse,
+  MenuPermissionsResponse,
+} from './types';
 
 const RBAC_BASE = '/rbac';
 
@@ -15,8 +20,17 @@ export const rbacApi = {
    */
   async getMenuPermissions(): Promise<MenuPermissionsResponse> {
     const response = await apiClient.get<MenuPermissionsResponse>(
-      `${RBAC_BASE}/my-permissions/menu`
+      `${RBAC_BASE}/my-permissions/menu`,
     );
+    return response.data;
+  },
+
+  /**
+   * Get the current user's API-level permissions.
+   * Used to hide create/edit/delete controls the caller cannot use.
+   */
+  async getApiPermissions(): Promise<ApiPermissionsResponse> {
+    const response = await apiClient.get<ApiPermissionsResponse>(`${RBAC_BASE}/my-permissions/api`);
     return response.data;
   },
 
@@ -26,7 +40,7 @@ export const rbacApi = {
    */
   async getFieldPermissions(resource: string): Promise<FieldPermissionsResponse> {
     const response = await apiClient.get<FieldPermissionsResponse>(
-      `${RBAC_BASE}/my-permissions/fields/${resource}`
+      `${RBAC_BASE}/my-permissions/fields/${resource}`,
     );
     return response.data;
   },

@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Employee AD Service integrates the Emcure Darwin Active Directory integrator as an external service within the enterprise architecture. It provides a proxy layer that exposes Darwin AD endpoints through our authenticated API, with ADMIN-only access control.
+The Employee AD Service integrates the Emcure Darwin Active Directory integrator as an external service within the enterprise architecture. It provides a proxy layer that exposes Darwin AD endpoints through our authenticated API, gated by the `services.employee_ad` permission (see "Security" below — not a hardcoded ADMIN role check).
 
 **Darwin Service Base URL:**
 ```
@@ -25,9 +25,9 @@ https://ad-prod-darwinsvc-prod.apps.emart.oneemcure.local/rest-doc/adintegrators
 │  ┌─────────────┐   ┌──────────────┐   ┌─────────────────────────┐  │
 │  │ MainLayout  │──▶│ AppRouter    │──▶│ EmployeeADServicePage   │  │
 │  │ (Sidebar)   │   │ (PrivateRoute│   │ - Health Check          │  │
-│  │ Services ▶  │   │  ADMIN)      │   │ - Validate Credentials  │  │
-│  │  Employee AD│   └──────────────┘   │ - Get Selected Employees│  │
-│  └─────────────┘                      │ - Get All Employees     │  │
+│  │ Services ▶  │   │  menuKey=    │   │ - Validate Credentials  │  │
+│  │  Employee AD│   │  "services") │   │ - Get Selected Employees│  │
+│  └─────────────┘   └──────────────┘   │ - Get All Employees     │  │
 │                                       │ - Get Hierarchy Data    │  │
 │                                       └───────────┬─────────────┘  │
 │                                                   │                 │
@@ -47,7 +47,7 @@ https://ad-prod-darwinsvc-prod.apps.emart.oneemcure.local/rest-doc/adintegrators
 │  ┌──────────────────────────────────────────────────────────────┐   │
 │  │ API Layer: employee_ad_controller.py                          │   │
 │  │ Router prefix: /api/v1/services/employee-ad                   │   │
-│  │ Dependencies: [require_role("ADMIN")]                         │   │
+│  │ Dependencies: [require_permission("services.employee_ad")]    │   │
 │  └──────────────────────────────────────────┬───────────────────┘   │
 │                                             │                       │
 │  ┌──────────────────────────────────────────▼───────────────────┐   │
@@ -102,7 +102,10 @@ EMPLOYEE_AD_BASE_URL=https://ad-prod-darwinsvc-prod.apps.emart.oneemcure.local/a
 
 ### API Endpoints
 
-All endpoints require JWT authentication with **ADMIN** role.
+All endpoints require JWT authentication plus the `services.employee_ad` permission
+(`dependencies=[Depends(require_permission("services.employee_ad"))]` on the router) —
+not a hardcoded role. Whichever role has been granted that permission works; only `ADMIN`
+holds it by default (see "Security" below).
 
 | Method | Path | Description | Darwin Endpoint |
 |--------|------|-------------|-----------------|
@@ -216,8 +219,12 @@ frontend/src/features/service-menu/
 - **Sidebar Section:** "Services"
 - **Menu Item:** "Employee AD" (icon: `pi pi-id-card`)
 - **Route:** `/services/employee-ad`
-- **Visibility:** ADMIN role only (`visible: user?.role === 'ADMIN'`)
-- **Route Guard:** `<PrivateRoute requiredRole="ADMIN">`
+- **Visibility:** gated by the `services` menu permission, exactly like every other nav
+  item — resolved through `MainLayout.tsx`'s inline `navItems` array (`menuKey: 'services'`
+  entry) filtered against the RBAC `menuKeys` the current user's roles carry. There is no
+  special-cased role check for this feature; a user with the `menu.services` permission
+  (on any role, not just `ADMIN`) sees it.
+- **Route Guard:** `<PrivateRoute menuKey="services">`
 
 ### Page Features
 
@@ -250,17 +257,26 @@ Uses the shared `apiClient` (Axios instance at `/api/v1`) which:
 
 ## Security
 
+All access control here is permission-based, consistent with the rest of the app — there
+is no hardcoded role name anywhere in this feature, frontend or backend.
+
 | Layer | Mechanism |
 |-------|-----------|
-| Frontend Route | `<PrivateRoute requiredRole="ADMIN">` |
-| Frontend Menu | `visible: user?.role === 'ADMIN'` |
-| Backend Router | `dependencies=[Depends(require_role("ADMIN"))]` |
+| Frontend Route | `<PrivateRoute menuKey="services">` |
+| Frontend Menu | Filtered by `MainLayout.tsx`'s `menuKey: 'services'` nav entry against the RBAC `menuKeys` loaded into `rbacSlice` on login |
+| Backend Router | `dependencies=[Depends(require_permission("services.employee_ad"))]` on the whole `employee_ad_controller.py` router |
 | Transport to Darwin | HTTPS with `verify=False` (internal CA) |
 
-Non-ADMIN users:
+A user lacking the `services` menu permission and the `services.employee_ad` API
+permission:
 - Cannot see the "Employee AD" menu item
-- Are redirected to `/unauthorized` if they navigate directly
-- Receive 403 from the backend API
+- Is redirected to `/unauthorized` if they navigate directly to `/services/employee-ad`
+- Receives 403 from the backend API if they call an endpoint under
+  `/api/v1/services/employee-ad/*` directly
+
+ADMIN-only in practice today — MANAGER and USER hold the `services` menu permission and
+would see the nav item, but neither is granted the `services.employee_ad` API permission
+(see `seed_rbac.py`'s `ROLE_PERMISSIONS`), so they'd get 403 on every call.
 
 ---
 

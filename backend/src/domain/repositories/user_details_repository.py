@@ -1,0 +1,54 @@
+"""
+User details repository interface (Port).
+Employee profile data sourced from the Darwin AD service, one row per user.
+"""
+
+from abc import ABC, abstractmethod
+
+from src.domain.entities.user_details import UserDetails
+
+
+class IUserDetailsRepository(ABC):
+    """Abstract repository for UserDetails persistence."""
+
+    @abstractmethod
+    async def get_by_user_id(self, user_id: int) -> UserDetails | None:
+        """Retrieve the profile attached to a user, if one exists."""
+        ...
+
+    @abstractmethod
+    async def get_by_email(self, email: str) -> UserDetails | None:
+        """
+        Retrieve a profile by its company email address (case-insensitive).
+
+        Used by the Microsoft SSO callback to resolve a verified Microsoft
+        email to the employee profile imported from the Darwin AD service.
+        Returns None when no imported profile carries that email.
+        """
+        ...
+
+    @abstractmethod
+    async def get_many_by_user_ids(
+        self, user_ids: list[int]
+    ) -> dict[int, UserDetails]:
+        """
+        Batch-load profiles for several users, keyed by user id.
+
+        Used to decorate a page of users without issuing a query per row.
+        """
+        ...
+
+    @abstractmethod
+    async def create(self, details: UserDetails) -> UserDetails:
+        """Persist a new profile row. Fails if `details.user_id` already has one."""
+        ...
+
+    @abstractmethod
+    async def update(self, details: UserDetails) -> UserDetails:
+        """
+        Overwrite an existing profile row's fields.
+
+        Raises:
+            ValueError: If `details.id` does not match an existing row.
+        """
+        ...

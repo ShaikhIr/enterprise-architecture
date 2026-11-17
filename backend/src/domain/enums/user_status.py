@@ -1,1 +1,1 @@
-﻿# User status enum (ACTIVE, INACTIVE, SUSPENDED, PENDING)
+# User status enum (ACTIVE, INACTIVE, SUSPENDED, PENDING)

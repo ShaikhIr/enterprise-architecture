@@ -5,15 +5,16 @@
  */
 
 import { useEffect, useState } from 'react';
+
 import { apiClient } from '@shared/services/apiClient';
 
 interface RoleOption {
   label: string;
-  value: string; // role ID (UUID)
+  value: number; // role ID (bigint)
 }
 
 interface RoleFromApi {
-  id: string;
+  id: number;
   code: string;
   name: string;
   is_active: boolean;

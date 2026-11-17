@@ -1,0 +1,18 @@
+{
+  // Type-checking and lint project for the test suite.
+  //
+  // Separate from tsconfig.json rather than folded into its `include`, so `npm run build`
+  // still compiles only what ships. ESLint needs every file it lints to belong to some
+  // project — its type-aware rules are driven by the TypeScript program — and without this
+  // a file under tests/ fails to parse at all.
+  //
+  // `src` is deliberately not listed. The files a test imports are pulled into the program
+  // by those imports, so listing them here as well would put them in two projects.
+  //
+  // `src/vite-env.d.ts` is the exception and has to be named. It is a global declaration
+  // rather than a module, so nothing imports it — it reaches the main project only by
+  // sitting under `include: ["src"]`. Without it `import.meta.env` is untyped, and any test
+  // that transitively reaches the store fails to compile.
+  "extends": "./tsconfig.json",
+  "include": ["tests", "src/vite-env.d.ts"]
+}

@@ -1,1 +1,1 @@
-﻿# API v1 Schemas
+# API v1 Schemas

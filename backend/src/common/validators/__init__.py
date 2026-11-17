@@ -1,1 +1,1 @@
-﻿# Common validators (email, phone, UUID format, etc.)
+# Common validators (email, phone, UUID format, etc.)

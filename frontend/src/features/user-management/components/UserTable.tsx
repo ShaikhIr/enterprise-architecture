@@ -4,18 +4,20 @@
  */
 
 import { useState } from 'react';
-import { DataTable, type DataTableFilterMeta } from 'primereact/datatable';
-import { Column } from 'primereact/column';
-import { Tag } from 'primereact/tag';
-import { Button } from 'primereact/button';
-import { Dialog } from 'primereact/dialog';
+
 import { FilterMatchMode } from 'primereact/api';
-import { InputText } from 'primereact/inputtext';
+import { Button } from 'primereact/button';
+import { Column } from 'primereact/column';
+import { DataTable, type DataTableFilterMeta } from 'primereact/datatable';
+import { Dialog } from 'primereact/dialog';
+import { Tag } from 'primereact/tag';
+import { Tree } from 'primereact/tree';
+import type { TreeNode } from 'primereact/treenode';
+
 import { apiClient } from '@shared/services/apiClient';
+
 import { userApi } from '../api/userApi';
 import type { User, UserRole } from '../models/User';
-import type { TreeNode } from 'primereact/treenode';
-import { Tree } from 'primereact/tree';
 
 interface UserTableProps {
   users: User[];
@@ -82,12 +84,18 @@ export const UserTable = ({ users, loading, onEdit }: UserTableProps) => {
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [historyDialogVisible, setHistoryDialogVisible] = useState(false);
   const [historyUser, setHistoryUser] = useState<string>('');
-  const [historyData, setHistoryData] = useState<{ action: string; ip_address: string; user_agent: string; created_at: string }[]>([]);
+  const [historyData, setHistoryData] = useState<
+    { action: string; ip_address: string; user_agent: string; created_at: string }[]
+  >([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
   const statusBodyTemplate = (rowData: User) => {
     if (rowData.is_blocked) return <Tag value="Blocked" severity="danger" />;
-    return rowData.is_active ? <Tag value="Active" severity="success" /> : <Tag value="Inactive" severity="warning" />;
+    return rowData.is_active ? (
+      <Tag value="Active" severity="success" />
+    ) : (
+      <Tag value="Inactive" severity="warning" />
+    );
   };
 
   const handleViewRoles = async (user: User) => {
@@ -103,12 +111,19 @@ export const UserTable = ({ users, loading, onEdit }: UserTableProps) => {
         children: role.permissions.map((perm) => ({
           key: `${role.id}-${perm.code}`,
           label: perm.name,
-          icon: perm.scope === 'MENU' ? 'pi pi-bars' : perm.scope === 'API' ? 'pi pi-server' : 'pi pi-eye',
+          icon:
+            perm.scope === 'MENU'
+              ? 'pi pi-bars'
+              : perm.scope === 'API'
+                ? 'pi pi-server'
+                : 'pi pi-eye',
         })),
       }));
       setRolesTreeData(treeNodes);
     } catch {
-      setRolesTreeData([{ key: 'error', label: 'Failed to load roles', icon: 'pi pi-exclamation-triangle' }]);
+      setRolesTreeData([
+        { key: 'error', label: 'Failed to load roles', icon: 'pi pi-exclamation-triangle' },
+      ]);
     } finally {
       setRolesLoading(false);
     }
@@ -133,7 +148,9 @@ export const UserTable = ({ users, loading, onEdit }: UserTableProps) => {
     setHistoryDialogVisible(true);
     setHistoryLoading(true);
     try {
-      const { data } = await apiClient.get<{ action: string; ip_address: string; user_agent: string; created_at: string }[]>(`/users/${user.id}/login-history`);
+      const { data } = await apiClient.get<
+        { action: string; ip_address: string; user_agent: string; created_at: string }[]
+      >(`/users/${user.id}/login-history`);
       setHistoryData(data);
     } catch {
       setHistoryData([]);
@@ -144,10 +161,46 @@ export const UserTable = ({ users, loading, onEdit }: UserTableProps) => {
 
   const actionsBodyTemplate = (rowData: User) => (
     <div className="flex gap-1">
-      <Button icon="pi pi-id-card" rounded outlined severity="secondary" size="small" onClick={() => handleViewDetails(rowData)} tooltip="Details" tooltipOptions={{ position: 'top' }} />
-      <Button icon="pi pi-history" rounded outlined severity="help" size="small" onClick={() => handleViewHistory(rowData)} tooltip="Login History" tooltipOptions={{ position: 'top' }} />
-      <Button icon="pi pi-shield" rounded outlined severity="warning" size="small" onClick={() => handleViewRoles(rowData)} tooltip="Roles" tooltipOptions={{ position: 'top' }} />
-      <Button icon="pi pi-pencil" rounded outlined severity="info" size="small" onClick={() => onEdit(rowData)} tooltip="Edit" tooltipOptions={{ position: 'top' }} />
+      <Button
+        icon="pi pi-id-card"
+        rounded
+        outlined
+        severity="secondary"
+        size="small"
+        onClick={() => handleViewDetails(rowData)}
+        tooltip="Details"
+        tooltipOptions={{ position: 'top' }}
+      />
+      <Button
+        icon="pi pi-history"
+        rounded
+        outlined
+        severity="help"
+        size="small"
+        onClick={() => handleViewHistory(rowData)}
+        tooltip="Login History"
+        tooltipOptions={{ position: 'top' }}
+      />
+      <Button
+        icon="pi pi-shield"
+        rounded
+        outlined
+        severity="warning"
+        size="small"
+        onClick={() => handleViewRoles(rowData)}
+        tooltip="Roles"
+        tooltipOptions={{ position: 'top' }}
+      />
+      <Button
+        icon="pi pi-pencil"
+        rounded
+        outlined
+        severity="info"
+        size="small"
+        onClick={() => onEdit(rowData)}
+        tooltip="Edit"
+        tooltipOptions={{ position: 'top' }}
+      />
     </div>
   );
 
@@ -168,18 +221,44 @@ export const UserTable = ({ users, loading, onEdit }: UserTableProps) => {
         aria-label="Users table"
       >
         <Column field="username" header="Username" sortable filter filterPlaceholder="Search..." />
-        <Column field="employee_id" header="Employee ID" sortable filter filterPlaceholder="Search..." />
-        <Column field="employee_name" header="Employee Name" sortable filter filterPlaceholder="Search..." />
+        <Column
+          field="employee_id"
+          header="Employee ID"
+          sortable
+          filter
+          filterPlaceholder="Search..."
+        />
+        <Column
+          field="employee_name"
+          header="Employee Name"
+          sortable
+          filter
+          filterPlaceholder="Search..."
+        />
         <Column field="email" header="Email" sortable filter filterPlaceholder="Search..." />
-        <Column header="Last Login" body={(row) => row.last_login ? formatDate(row.last_login) : '—'} sortable field="last_login" />
+        <Column
+          header="Last Login"
+          body={(row) => (row.last_login ? formatDate(row.last_login) : '—')}
+          sortable
+          field="last_login"
+        />
         <Column header="Status" body={statusBodyTemplate} style={{ width: '6rem' }} />
         <Column header="Actions" body={actionsBodyTemplate} style={{ width: '9rem' }} />
       </DataTable>
 
       {/* Roles Tree Dialog */}
-      <Dialog header={`Roles — ${rolesDialogUser}`} visible={rolesDialogVisible} onHide={() => setRolesDialogVisible(false)} style={{ width: '550px' }} modal>
+      <Dialog
+        header={`Roles — ${rolesDialogUser}`}
+        visible={rolesDialogVisible}
+        onHide={() => setRolesDialogVisible(false)}
+        style={{ width: '550px' }}
+        modal
+      >
         {rolesLoading ? (
-          <div className="flex align-items-center justify-content-center p-4"><i className="pi pi-spin pi-spinner text-2xl" /><span className="ml-2">Loading...</span></div>
+          <div className="flex align-items-center justify-content-center p-4">
+            <i className="pi pi-spin pi-spinner text-2xl" />
+            <span className="ml-2">Loading...</span>
+          </div>
         ) : rolesTreeData.length === 0 ? (
           <p className="text-600 p-3">No roles assigned.</p>
         ) : (
@@ -188,34 +267,81 @@ export const UserTable = ({ users, loading, onEdit }: UserTableProps) => {
       </Dialog>
 
       {/* User Details Dialog */}
-      <Dialog header={`Employee Details — ${detailsUser}`} visible={detailsDialogVisible} onHide={() => setDetailsDialogVisible(false)} style={{ width: '650px' }} modal>
+      <Dialog
+        header={`Employee Details — ${detailsUser}`}
+        visible={detailsDialogVisible}
+        onHide={() => setDetailsDialogVisible(false)}
+        style={{ width: '650px' }}
+        modal
+      >
         {detailsLoading ? (
-          <div className="flex align-items-center justify-content-center p-4"><i className="pi pi-spin pi-spinner text-2xl" /><span className="ml-2">Loading...</span></div>
+          <div className="flex align-items-center justify-content-center p-4">
+            <i className="pi pi-spin pi-spinner text-2xl" />
+            <span className="ml-2">Loading...</span>
+          </div>
         ) : !detailsData ? (
           <p className="text-600 p-3">No employee details available.</p>
         ) : (
           <div className="grid p-2" style={{ fontSize: '0.813rem' }}>
-            {Object.entries(detailsData).filter(([key, v]) => v && !['id', 'is_active', 'is_blocked', 'is_validate_ad'].includes(key)).map(([key, value]) => (
-              <div key={key} className="col-6 mb-2">
-                <div className="text-600 text-xs uppercase">{key.replace(/_/g, ' ')}</div>
-                <div className="text-900 font-medium">
-                  {(key === 'created_date' || key === 'modified_date') ? formatDate(String(value)) : String(value)}
+            {Object.entries(detailsData)
+              .filter(
+                ([key, v]) =>
+                  v && !['id', 'is_active', 'is_blocked', 'is_validate_ad'].includes(key),
+              )
+              .map(([key, value]) => (
+                <div key={key} className="col-6 mb-2">
+                  <div className="text-600 text-xs uppercase">{key.replace(/_/g, ' ')}</div>
+                  <div className="text-900 font-medium">
+                    {key === 'created_date' || key === 'modified_date'
+                      ? formatDate(String(value))
+                      : String(value)}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
           </div>
         )}
       </Dialog>
 
       {/* Login History Dialog */}
-      <Dialog header={`Login History — ${historyUser}`} visible={historyDialogVisible} onHide={() => setHistoryDialogVisible(false)} style={{ width: '650px' }} modal>
+      <Dialog
+        header={`Login History — ${historyUser}`}
+        visible={historyDialogVisible}
+        onHide={() => setHistoryDialogVisible(false)}
+        style={{ width: '650px' }}
+        modal
+      >
         {historyLoading ? (
-          <div className="flex align-items-center justify-content-center p-4"><i className="pi pi-spin pi-spinner text-2xl" /><span className="ml-2">Loading...</span></div>
+          <div className="flex align-items-center justify-content-center p-4">
+            <i className="pi pi-spin pi-spinner text-2xl" />
+            <span className="ml-2">Loading...</span>
+          </div>
         ) : historyData.length === 0 ? (
           <p className="text-600 p-3">No login history available.</p>
         ) : (
-          <DataTable value={historyData} size="small" stripedRows paginator rows={10} emptyMessage="No history">
-            <Column field="action" header="Action" body={(row) => <Tag value={row.action} severity={row.action === 'LOGIN_SUCCESS' ? 'success' : row.action === 'LOGOUT' ? 'info' : 'danger'} />} />
+          <DataTable
+            value={historyData}
+            size="small"
+            stripedRows
+            paginator
+            rows={10}
+            emptyMessage="No history"
+          >
+            <Column
+              field="action"
+              header="Action"
+              body={(row) => (
+                <Tag
+                  value={row.action}
+                  severity={
+                    row.action === 'LOGIN_SUCCESS'
+                      ? 'success'
+                      : row.action === 'LOGOUT'
+                        ? 'info'
+                        : 'danger'
+                  }
+                />
+              )}
+            />
             <Column field="ip_address" header="IP Address" />
             <Column field="created_at" header="Time" body={(row) => formatDate(row.created_at)} />
           </DataTable>

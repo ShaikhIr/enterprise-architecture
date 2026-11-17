@@ -1,10 +1,11 @@
-﻿"""
+"""
 JWT token creation, validation, and decoding.
 Handles access tokens and refresh tokens with configurable expiry.
 """
 
-from datetime import datetime, timedelta, timezone
-from uuid import UUID
+import uuid
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import jwt
 
@@ -21,12 +22,14 @@ class TokenPayload:
         token_type: str,
         iat: datetime,
         exp: datetime,
+        jti: str | None = None,
     ) -> None:
         self.sub = sub
         self.user_id = user_id
         self.token_type = token_type
         self.iat = iat
         self.exp = exp
+        self.jti = jti
 
 
 class JWTProvider:
@@ -38,9 +41,9 @@ class JWTProvider:
         self._access_expire_minutes = settings.ACCESS_TOKEN_EXPIRE_MINUTES
         self._refresh_expire_days = settings.REFRESH_TOKEN_EXPIRE_DAYS
 
-    def create_access_token(self, username: str, user_id: UUID) -> str:
+    def create_access_token(self, username: str, user_id: int) -> str:
         """Generate an access token with short-lived expiry."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         payload = {
             "sub": username,
             "user_id": str(user_id),
@@ -50,13 +53,21 @@ class JWTProvider:
         }
         return jwt.encode(payload, self._secret_key, algorithm=self._algorithm)
 
-    def create_refresh_token(self, username: str, user_id: UUID) -> str:
-        """Generate a refresh token with longer expiry."""
-        now = datetime.now(timezone.utc)
+    def create_refresh_token(
+        self, username: str, user_id: int, jti: str | None = None
+    ) -> str:
+        """
+        Generate a refresh token with longer expiry.
+
+        `jti` is the token's unique id. The server records it so the token can be spent
+        once and revoked; a fresh random one is generated when the caller supplies none.
+        """
+        now = datetime.now(UTC)
         payload = {
             "sub": username,
             "user_id": str(user_id),
             "token_type": "refresh",
+            "jti": jti or uuid.uuid4().hex,
             "iat": now,
             "exp": now + timedelta(days=self._refresh_expire_days),
         }
@@ -92,12 +103,16 @@ class JWTProvider:
             sub=payload["sub"],
             user_id=payload["user_id"],
             token_type=payload["token_type"],
-            iat=datetime.fromtimestamp(payload["iat"], tz=timezone.utc),
-            exp=datetime.fromtimestamp(payload["exp"], tz=timezone.utc),
+            iat=datetime.fromtimestamp(payload["iat"], tz=UTC),
+            exp=datetime.fromtimestamp(payload["exp"], tz=UTC),
+            jti=payload.get("jti"),
         )
 
-    def decode_token(self, token: str) -> dict:
+    def decode_token(self, token: str) -> dict[str, Any]:
         """Decode a token without type validation. Returns raw payload dict."""
-        return jwt.decode(
+        # jwt.decode is typed as returning Any; bind it so the declared return
+        # type is actually enforced rather than silently widened.
+        payload: dict[str, Any] = jwt.decode(
             token, self._secret_key, algorithms=[self._algorithm]
         )
+        return payload

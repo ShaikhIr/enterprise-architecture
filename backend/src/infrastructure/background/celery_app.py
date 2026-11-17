@@ -1,1 +1,1 @@
-﻿# Celery application configuration
+# Celery application configuration

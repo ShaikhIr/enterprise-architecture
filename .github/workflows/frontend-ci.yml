@@ -1,0 +1,62 @@
+name: Frontend CI
+
+# Runs the same four checks the frontend's testing standard requires before a change is done:
+# type-check, lint, tests, production build. Until now they were enforced only by local Husky
+# hooks, which a contributor can skip.
+#
+# NOTE: this file must live at the repository root (.github/workflows/); GitHub Actions does not
+# read workflows from subdirectories.
+
+on:
+  push:
+    branches: [main, master, develop]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/frontend-ci.yml"
+  pull_request:
+    paths:
+      - "frontend/**"
+      - ".github/workflows/frontend-ci.yml"
+
+concurrency:
+  group: frontend-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: frontend
+
+jobs:
+  quality:
+    name: Type check, lint, tests, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        # `npm ci` installs exactly what package-lock.json pins. That matters here: vitest must
+        # resolve the same `vite` as the project (see "Version discipline" in the testing
+        # standard), and an unpinned install can silently bring in a second copy.
+        run: npm ci
+        env:
+          # The `prepare` script installs Git hooks, which a CI checkout has no use for.
+          HUSKY: "0"
+
+      - name: Type check
+        run: npm run type-check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build

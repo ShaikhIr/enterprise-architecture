@@ -1,14 +1,20 @@
-# Microsoft OAuth2 / Azure AD SSO — Implementation Analysis
+# Microsoft OAuth2 / Azure AD SSO — Implementation Reference
 
-**Source Project:** `emcatalyst-migration`
-**Date:** June 2026
-**Status:** Fully implemented (Frontend + Backend)
+**Status:** Implemented (Frontend + Backend).
+
+This document previously described a different project entirely (`emcatalyst-migration`,
+with a `backend/app/...`, `routers/`, `core/config.py` layout and a `frontend/src/features/auth/...`
+folder). None of those paths exist here. It has been rewritten against this repo's actual
+`backend/src/...` layout and `frontend/src/features/authentication/...` folder — verify
+paths below against the source tree if this drifts again.
 
 ---
 
 ## Executive Summary
 
-The EMCatalyst application implements Microsoft Azure AD Single Sign-On using the **OAuth2 Authorization Code flow** (without PKCE on the backend, using a confidential client with client_secret). The implementation spans both the React frontend and FastAPI backend, with a clean separation of concerns.
+This application supports Microsoft Azure AD Single Sign-On using the **OAuth2
+Authorization Code flow**, without PKCE, using a confidential client (`client_secret` held
+server-side only). The implementation spans the React frontend and FastAPI backend.
 
 ---
 
@@ -24,22 +30,22 @@ sequenceDiagram
 
     U->>FE: Click "Sign in with Microsoft"
     FE->>BE: GET /api/v1/auth/microsoft/login
-    BE-->>FE: { auth_url: "https://login.microsoftonline.com/..." }
-    FE->>U: Redirect browser to auth_url
+    BE-->>FE: { auth_url, redirect_uri }
+    FE->>U: window.location.href = auth_url (full-page redirect)
     U->>AZ: User authenticates (MFA, consent)
-    AZ->>FE: Redirect to /auth/microsoft/callback?code=XXXX
-    FE->>BE: POST /api/v1/auth/microsoft/callback { code: "XXXX" }
+    AZ->>FE: Redirect to {AZURE_REDIRECT_URI}?code=XXXX
+    FE->>BE: POST /api/v1/auth/microsoft/callback { code }
     BE->>AZ: POST /oauth2/v2.0/token (exchange code for tokens)
-    AZ-->>BE: { access_token, id_token }
-    BE->>GR: GET /v1.0/me (with MS access_token)
-    GR-->>BE: { userPrincipalName, mail, givenName, ... }
-    BE->>BE: Find/create local user by email or employee_id
+    AZ-->>BE: { access_token, ... }
+    BE->>GR: GET /v1.0/me (Bearer <MS access_token>)
+    GR-->>BE: { userPrincipalName, mail, ... }
+    BE->>BE: Find user by username=email, or auto-provision
     BE->>BE: Issue app JWT pair (access + refresh)
-    BE-->>FE: { access_token, refresh_token, expires_in }
-    FE->>FE: Store tokens in memory (tokenManager)
-    FE->>BE: GET /api/v1/users/me (with app access_token)
-    BE-->>FE: User profile
-    FE->>U: Navigate to dashboard
+    BE-->>FE: { access_token, ... } + Set-Cookie refresh_token (HttpOnly)
+    FE->>FE: storageService.setAccessToken(access_token) (in memory)
+    FE->>BE: dispatch(fetchCurrentUser()) → GET /api/v1/auth/me
+    BE-->>FE: current user
+    FE->>U: navigate('/dashboard')
 ```
 
 ---
@@ -49,174 +55,173 @@ sequenceDiagram
 | Layer | Technology |
 |-------|-----------|
 | Identity Provider | Azure Active Directory (Microsoft Entra ID) |
-| Protocol | OAuth2 Authorization Code Grant |
-| Backend HTTP | `httpx` (async) for Microsoft API calls |
-| Token Storage (FE) | In-memory only (never localStorage) |
-| Refresh Token | httpOnly secure cookie (SameSite=Lax) |
-| App Tokens | HS256 JWT (issued by backend) |
+| Protocol | OAuth2 Authorization Code Grant, no PKCE |
+| Backend HTTP | `httpx` (async), imported lazily inside `exchange_code_for_profile` |
+| Token Storage (FE) | In-memory only, via `storageService` (never localStorage/sessionStorage) |
+| Refresh Token | HttpOnly, path-scoped, `SameSite` cookie, set by the backend |
+| App Tokens | JWT signed with `JWT_ALGORITHM` (HS256 by default), issued by `JWTProvider` |
 
 ---
 
-## Environment Variables Required
+## Environment Variables
+
+Defined in `src/config/settings.py`, overridable via `.env`:
 
 ```env
-# Azure AD / Microsoft SSO
 AZURE_CLIENT_ID=<Application (client) ID from Azure App Registration>
 AZURE_CLIENT_SECRET=<Client secret value>
 AZURE_TENANT_ID=<Directory (tenant) ID>
-AZURE_REDIRECT_URI=http://localhost:5173/auth/microsoft/callback
+AZURE_REDIRECT_URI=http://localhost:6769/auth/microsoft/callback
 ```
 
-If `AZURE_REDIRECT_URI` is not set, it defaults to `{FRONTEND_URL}/auth/microsoft/callback`.
+`AZURE_REDIRECT_URI` defaults to `http://localhost:6769/auth/microsoft/callback` if unset
+(`AzureSsoClient.__init__`) — note the port matches this project's dev frontend
+(`vite.config.ts` / `dev.ps1`, port 6769), not a generic `5173`.
 
 ---
 
 ## Backend Implementation
 
-### File: `backend/app/infrastructure/external/azure_sso/azure_client.py`
+### `src/infrastructure/external/azure_sso/azure_client.py`
 
 **Class: `AzureSsoClient`**
 
-Responsibilities:
-- Encapsulates all outbound calls to Microsoft identity endpoints
-- Builds the OAuth2 authorization URL
-- Exchanges authorization code for tokens at Azure's `/token` endpoint
-- Fetches user profile from Microsoft Graph API (`/v1.0/me`)
-
-**Key Methods:**
-
-| Method | Purpose |
+| Member | Purpose |
 |--------|---------|
-| `is_configured` | Checks if `client_id` and `tenant_id` are set |
-| `build_authorization_url()` | Returns `(auth_url, redirect_uri)` tuple |
-| `exchange_code_for_profile(code)` | Exchanges code → tokens → Graph profile |
+| `is_configured` | `True` when both `AZURE_CLIENT_ID` and `AZURE_TENANT_ID` are set |
+| `build_authorization_url()` | Returns `(auth_url, redirect_uri)`. Scopes: `openid profile email User.Read`. `prompt=select_account` |
+| `exchange_code_for_profile(code)` | POSTs to Azure's `/oauth2/v2.0/token`, then GETs `https://graph.microsoft.com/v1.0/me` with the resulting Microsoft access token. Returns the raw Graph profile dict. |
 
-**OAuth Scopes Requested:**
-```
-openid profile email User.Read
-```
+**Error hierarchy** (`src/infrastructure/external/azure_sso/__init__.py` re-exports all of
+these): `AzureSsoError` (base) → `AzureTokenMissingError` (token endpoint responded with no
+`access_token`), `AzureAuthError` (Microsoft returned an HTTP error status; carries
+`.detail`), `AzureUnavailableError` (Microsoft unreachable — `httpx.RequestError`).
 
-**Error Handling:**
-- `AzureTokenMissingError` → HTTP 400 (no access_token in response)
-- `AzureAuthError` → HTTP 400 (Microsoft returned HTTP error)
-- `AzureUnavailableError` → HTTP 502 (Microsoft unreachable)
+There is **no separate `state` or `nonce` parameter** generated or validated on this flow —
+see Security Considerations below.
 
----
+### `src/api/v1/endpoints/auth_controller.py`
 
-### File: `backend/app/api/v1/routers/auth.py`
-
-**Endpoints:**
+The Microsoft endpoints live in the same controller as local login/logout/refresh — there
+is no dedicated `routers/auth.py` or `microsoft_controller.py` file.
 
 #### `GET /api/v1/auth/microsoft/login`
 
-Returns the Azure AD authorization URL. Frontend redirects the browser to this URL.
-
 ```json
-Response: {
-  "success": true,
-  "data": {
-    "auth_url": "https://login.microsoftonline.com/{tenant}/oauth2/v2.0/authorize?...",
-    "redirect_uri": "http://localhost:5173/auth/microsoft/callback"
-  }
+{
+  "auth_url": "https://login.microsoftonline.com/{tenant}/oauth2/v2.0/authorize?...",
+  "redirect_uri": "http://localhost:6769/auth/microsoft/callback"
 }
 ```
 
-Returns 501 if Azure SSO is not configured.
+Returns `501 Not Implemented` if `AzureSsoClient.is_configured` is `False`.
 
 #### `POST /api/v1/auth/microsoft/callback`
-
-Exchanges the authorization code for application JWT tokens.
 
 ```json
 Request: { "code": "0.AXkA..." }
 Response: {
-  "success": true,
-  "data": {
-    "access_token": "eyJ...",
-    "refresh_token": "eyJ...",
-    "token_type": "Bearer",
-    "expires_in": 1800
-  }
+  "access_token": "eyJ...",
+  "token_type": "Bearer",
+  "expires_in": 1800
 }
 ```
 
-**Callback Flow:**
-1. Exchange `code` for Microsoft access_token via `AzureSsoClient`
-2. Fetch Graph profile (UPN, email, employeeId, name)
-3. Look up local user by `employee_id` first, then by `email` (case-insensitive)
-4. If user not found → **auto-provision** with `validate_with_ad=True`, random password
-5. If user is inactive → HTTP 403
-6. Issue app JWT pair via `JwtService.create_token_pair()`
-7. Set refresh token as httpOnly cookie
-8. Return token response
+(No `refresh_token` field in the JSON body — it's delivered via `Set-Cookie`, same as local
+login. `response_model=TokenResponse, response_model_exclude_none=True` on this route, same
+schema local login uses.)
+
+**Actual callback flow** (`microsoft_callback` in `auth_controller.py`):
+
+1. Validate `AzureSsoClient.is_configured`; `501` if not.
+2. Require a non-empty `code` in the request body; `400` if missing.
+3. `client.exchange_code_for_profile(code)` → Microsoft Graph profile dict. Maps
+   `AzureTokenMissingError`/`AzureAuthError` → `400`, `AzureUnavailableError` → `502`.
+4. Extract `email = (profile.get("mail") or profile.get("userPrincipalName") or "").lower().strip()`.
+   `400` if there's no email at all.
+5. **Look up the local user by `username == email` only** — `user_repo.get_by_username(email)`.
+   There is no separate employee-id lookup step; `username` and `email` are the same
+   lookup key for SSO users in this codebase.
+6. If not found: auto-provision a new `User` with `username=email`,
+   `password_hash=hash_password(secrets.token_urlsafe(32))` (a random password the user
+   never uses), `is_active=True`, `is_blocked=False`, `created_by="microsoft_sso"`. Note:
+   `is_validate_ad` is left at its column default (`True`) rather than being set explicitly —
+   this doesn't matter for the SSO path itself (no local-vs-AD branch runs here), but it does
+   mean an auto-provisioned SSO user would validate against Darwin AD, not locally, if they
+   later tried the regular username/password login form with the same username.
+7. `403` if the resolved user is inactive or blocked.
+8. Issue a JWT pair via `JWTProvider` (not a `JwtService.create_token_pair()` — that class
+   name doesn't exist in this codebase), set the refresh token as an HttpOnly cookie via the
+   same `_set_refresh_cookie()` helper local login uses, and return the access token.
+
+No role is assigned on auto-provision — same as the manual employee-import flow, since
+`users` has no `role` column (see [VALIDATE_AD_IMPLEMENTATION.md](./VALIDATE_AD_IMPLEMENTATION.md)).
+An auto-provisioned SSO user has **no permissions at all** until an administrator assigns a
+role via `POST /api/v1/rbac/assignments`.
 
 ---
 
 ## Frontend Implementation
 
-### File: `frontend/src/features/auth/api/authApi.ts`
+### `frontend/src/features/authentication/api/microsoftApi.ts`
 
 ```typescript
-// Get the Microsoft login URL from backend
-export async function getMicrosoftLoginUrl(): Promise<MicrosoftLoginUrlResponse> {
-  return api.get<MicrosoftLoginUrlResponse>('/auth/microsoft/login');
-}
-
-// Exchange authorization code for app tokens
-export async function microsoftCallback(data: MicrosoftCallbackRequest): Promise<TokenResponse> {
-  return api.post<TokenResponse>('/auth/microsoft/callback', data);
-}
-```
-
-### File: `frontend/src/features/auth/components/LoginPage.tsx`
-
-The "Sign in with Microsoft" button:
-```typescript
-const handleMicrosoftLogin = async (): Promise<void> => {
-  try {
-    const res = await getMicrosoftLoginUrl();
-    window.location.href = res.auth_url; // Full-page redirect to Azure AD
-  } catch (err) {
-    toast.error('Microsoft login not available');
-  }
+export const microsoftApi = {
+  getLoginUrl: async (): Promise<MicrosoftLoginUrlResponse> => { /* GET /auth/microsoft/login */ },
+  exchangeCode: async (code: string): Promise<TokenResponse> => { /* POST /auth/microsoft/callback */ },
 };
 ```
 
-### File: `frontend/src/features/auth/components/MicrosoftCallbackPage.tsx`
+This is a distinct file from `authApi.ts` (which only handles `/auth/login`, `/refresh`,
+`/me`, `/logout`) — not one shared file exporting bare `getMicrosoftLoginUrl()` /
+`microsoftCallback()` functions. `microsoftApi` is an object with two methods.
 
-Handles the redirect back from Azure AD:
-1. Extracts `code` from URL query parameters
-2. Calls `microsoftCallback({ code })` to exchange for app tokens
-3. Stores tokens in memory via `setTokens(access_token, refresh_token)`
-4. Fetches user profile via `getMe()`
-5. Dispatches `setAuth()` to Redux store
-6. Navigates to dashboard
+### `frontend/src/features/authentication/pages/LoginPage.tsx`
 
-Shows a spinner during processing and an error card if something fails.
+Renders the "Sign in with Microsoft" button. On click, calls `microsoftApi.getLoginUrl()`
+and does a full-page redirect: `window.location.href = res.auth_url`.
 
----
+### `frontend/src/features/authentication/pages/MicrosoftCallbackPage.tsx`
 
-### File: `frontend/src/features/auth/utils/tokenManager.ts`
+Handles the Azure redirect back:
 
-**Security Model:**
-- Access token: stored in JavaScript variable (never localStorage/sessionStorage)
-- Refresh token: stored in memory variable + httpOnly cookie for session persistence
-- Proactive refresh: triggers when token expiry - now < 60 seconds
-- Concurrent refresh requests are queued (only one refresh runs at a time)
-- Session restoration on page reload via `tryRestoreSession()` (uses httpOnly cookie)
+1. Reads `code` (and `error` / `error_description`) from the URL query string via
+   `useSearchParams()`.
+2. Calls `microsoftApi.exchangeCode(code)`.
+3. `storageService.setAccessToken(tokenRes.access_token)` — stores the access token in
+   memory.
+4. `dispatch(fetchCurrentUser())` — an `authSlice` thunk that fetches the profile, loads
+   RBAC permissions, and broadcasts the login to other tabs.
+5. Navigates to `sessionStorage.getItem('redirectAfterLogin') ?? '/dashboard'`, then clears
+   that key.
+6. On error, shows an error card with a "Back to Login" button rather than the spinner.
+
+Files/paths are under `pages/`, not a `components/` subfolder — `authentication/components/`
+exists but is empty scaffolding (`.gitkeep` only).
+
+### Token storage: `frontend/src/shared/services/storageService.ts`
+
+There is **no `tokenManager.ts` file in this project** (that name/pattern exists in sibling
+repos in this workspace — `catalyst`, `RWE_Module`, `develop-jenkin-01` — not here). The
+actual mechanism is `storageService`, a plain module-level `let accessToken: string | null`
+with `getAccessToken` / `setAccessToken` / `clearAccessToken` / `isAuthenticated`. It does
+not itself implement proactive refresh or a queued single-flight refresh — that logic lives
+in `frontend/src/shared/services/apiClient.ts`'s `refreshAccessTokenOnce()` (a 401-triggered,
+de-duplicated refresh, shared by `authApi.refresh()`) and in the `authSlice`'s
+`bootstrapSession` thunk (session restore on page load, using the refresh cookie).
 
 ---
 
 ## Azure App Registration Setup
 
 1. **Azure Portal** → Azure Active Directory → App Registrations → New Registration
-2. **Name:** EMCatalyst SSO
-3. **Redirect URI:** `https://yourdomain.com/auth/microsoft/callback` (type: Web)
-4. **API Permissions:** Add `User.Read` (Microsoft Graph, Delegated)
-5. **Certificates & Secrets:** Create a client secret → copy the **Value**
-6. **Copy from Overview:**
-   - Application (client) ID → `AZURE_CLIENT_ID`
-   - Directory (tenant) ID → `AZURE_TENANT_ID`
+2. **Redirect URI:** whatever `AZURE_REDIRECT_URI` is configured to (type: Web) — for local
+   dev, `http://localhost:6769/auth/microsoft/callback`
+3. **API Permissions:** `User.Read` (Microsoft Graph, Delegated)
+4. **Certificates & Secrets:** create a client secret → copy the **Value** into
+   `AZURE_CLIENT_SECRET`
+5. From the app's Overview blade: Application (client) ID → `AZURE_CLIENT_ID`; Directory
+   (tenant) ID → `AZURE_TENANT_ID`
 
 ---
 
@@ -224,53 +229,45 @@ Shows a spinner during processing and an error card if something fails.
 
 | Aspect | Implementation |
 |--------|---------------|
-| Client Type | Confidential (client_secret on backend, never exposed to frontend) |
-| PKCE | Not used (not needed for confidential clients) |
-| Token Storage | In-memory only — XSS-safe |
-| Refresh Token | httpOnly, Secure, SameSite=Lax cookie |
-| User Provisioning | Auto-creates user on first SSO login |
-| AD Password | Random 32-char token (user never uses local password) |
-| Inactive Users | Blocked with HTTP 403 |
-| State Parameter | Not implemented (vulnerability: CSRF on callback) |
+| Client Type | Confidential — `AZURE_CLIENT_SECRET` is read server-side only (`settings.py`), never sent to the frontend |
+| PKCE | Not used |
+| Token Storage (frontend) | In-memory only via `storageService` — XSS-resistant |
+| Refresh Token | HttpOnly cookie, set by the same `_set_refresh_cookie()` helper as local login, scoped to `settings.REFRESH_COOKIE_PATH` |
+| User Provisioning | Auto-creates a local user on first SSO login, keyed by email, with no role assigned |
+| Auto-provisioned password | Random 32-byte URL-safe token via `secrets.token_urlsafe(32)`, hashed — never surfaced to the user |
+| Inactive/blocked users | Rejected with `403` after profile lookup, same as local login |
+| `state` parameter | **Not implemented** — `build_authorization_url()` does not generate one, and the callback does not validate one. This is a real CSRF gap on the callback endpoint in this codebase today, not a hypothetical. |
+| `nonce` / `id_token` validation | Not implemented — the flow never requests or inspects an `id_token`; it relies on the Graph `/me` call after code exchange instead |
 
-### Recommendations for Production
+### Suggestions if hardening this flow
 
-1. **Add `state` parameter** to the authorization URL and validate on callback (prevents CSRF)
-2. **Add `nonce`** to validate the `id_token` if using implicit claims
-3. **Consider PKCE** even for confidential clients (defense in depth)
-4. **Rate-limit** the callback endpoint to prevent brute-force code attempts
-5. **Log SSO events** (successful login, failed code exchange, user provisioned)
+1. Add a `state` parameter to `build_authorization_url()`, store it (e.g. in a short-lived
+   signed cookie or server-side cache keyed by a request id), and validate it in
+   `microsoft_callback` before exchanging the code — this is the one concrete, currently-real
+   gap in an otherwise conventional confidential-client flow.
+2. Rate-limit `POST /api/v1/auth/microsoft/callback` — nothing currently throttles repeated
+   code-exchange attempts.
+3. Log SSO-specific audit events (successful SSO login, failed code exchange, user
+   auto-provisioned via SSO) the way `AuditService.log_login` does for local login —
+   currently the Microsoft callback path does not call `AuditService` at all, so SSO logins
+   don't appear in the login-history audit trail the way local logins do.
 
 ---
 
 ## Route Configuration (Frontend)
 
-```typescript
-// In router configuration:
-{ path: '/auth/microsoft/callback', element: <MicrosoftCallbackPage /> }
+Registered in `frontend/src/app/router/AppRouter.tsx`, alongside `/login`, outside the
+`<PrivateRoute>`-guarded section — no auth guard, since the user has not authenticated with
+this app yet when Azure redirects back:
+
+```tsx
+<Route path="/auth/microsoft/callback" element={<MicrosoftCallbackPage />} />
 ```
 
-This route must be **public** (no auth guard) since the user hasn't authenticated yet when Azure redirects back.
-
----
-
-## Data Flow Summary
-
-```
-Frontend Login Button
-    → GET /auth/microsoft/login (backend builds Azure URL)
-    → Browser redirects to Azure AD
-    → User authenticates with Microsoft
-    → Azure redirects to /auth/microsoft/callback?code=XXX
-    → Frontend MicrosoftCallbackPage extracts code
-    → POST /auth/microsoft/callback { code }
-    → Backend exchanges code → MS tokens → Graph profile
-    → Backend finds/creates local user
-    → Backend issues app JWT pair
-    → Frontend stores tokens in memory
-    → Frontend fetches user profile
-    → Frontend navigates to dashboard
-```
+This matches the default `AZURE_REDIRECT_URI` path component
+(`http://localhost:6769/auth/microsoft/callback`). If `AZURE_REDIRECT_URI` is changed in
+`.env`, this route must be updated to match, and the Azure App Registration's redirect URI
+must match both.
 
 ---
 
@@ -278,12 +275,13 @@ Frontend Login Button
 
 | Path | Purpose |
 |------|---------|
-| `backend/app/infrastructure/external/azure_sso/azure_client.py` | Azure AD HTTP client (build URL, exchange code, fetch profile) |
-| `backend/app/infrastructure/external/azure_sso/__init__.py` | Exports AzureSsoClient and error classes |
-| `backend/app/api/v1/routers/auth.py` | `/microsoft/login` and `/microsoft/callback` endpoints |
-| `backend/app/core/config.py` | `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, `AZURE_TENANT_ID`, `AZURE_REDIRECT_URI` |
-| `frontend/src/features/auth/api/authApi.ts` | `getMicrosoftLoginUrl()`, `microsoftCallback()` |
-| `frontend/src/features/auth/components/LoginPage.tsx` | "Sign in with Microsoft" button handler |
-| `frontend/src/features/auth/components/MicrosoftCallbackPage.tsx` | OAuth callback page (code exchange) |
-| `frontend/src/features/auth/utils/tokenManager.ts` | In-memory token storage + proactive refresh |
-| `frontend/src/shared/api/apiClient.ts` | Axios with 401 refresh interceptor |
+| `backend/src/infrastructure/external/azure_sso/azure_client.py` | `AzureSsoClient` — build auth URL, exchange code, fetch Graph profile |
+| `backend/src/infrastructure/external/azure_sso/__init__.py` | Re-exports the client and its exception hierarchy |
+| `backend/src/api/v1/endpoints/auth_controller.py` | `microsoft_login` / `microsoft_callback` route handlers (alongside local login/logout/refresh) |
+| `backend/src/config/settings.py` | `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, `AZURE_TENANT_ID`, `AZURE_REDIRECT_URI` |
+| `frontend/src/features/authentication/api/microsoftApi.ts` | `microsoftApi.getLoginUrl()`, `microsoftApi.exchangeCode()` |
+| `frontend/src/features/authentication/pages/LoginPage.tsx` | "Sign in with Microsoft" button handler |
+| `frontend/src/features/authentication/pages/MicrosoftCallbackPage.tsx` | OAuth callback page |
+| `frontend/src/features/authentication/store/authSlice.ts` | `fetchCurrentUser`, `bootstrapSession` thunks |
+| `frontend/src/shared/services/storageService.ts` | In-memory access-token store |
+| `frontend/src/shared/services/apiClient.ts` | Axios client; `refreshAccessTokenOnce()` de-duplicated refresh + 401 interceptor |

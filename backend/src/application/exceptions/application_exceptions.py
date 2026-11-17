@@ -1,1 +1,1 @@
-﻿# Application-level exceptions (validation errors, not found, unauthorized, etc.)
+# Application-level exceptions (validation errors, not found, unauthorized, etc.)

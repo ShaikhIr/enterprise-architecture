@@ -1,12 +1,11 @@
-﻿"""
+"""
 Audit Log domain entity.
 Captures all security-relevant operations: role changes, permission grants, etc.
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import StrEnum
-from uuid import UUID, uuid4
 
 
 class AuditAction(StrEnum):
@@ -40,6 +39,9 @@ class AuditAction(StrEnum):
     # Authentication events
     LOGIN_SUCCESS = "LOGIN_SUCCESS"
     LOGIN_FAILED = "LOGIN_FAILED"
+    # An account (or address) was locked after repeated failed logins. One entry per
+    # lockout, not one per refused attempt: see LoginThrottleService.
+    LOGIN_LOCKED = "LOGIN_LOCKED"
     TOKEN_REFRESHED = "TOKEN_REFRESHED"
 
     # Tenant operations
@@ -67,16 +69,16 @@ class AuditLog:
         metadata: Additional structured data (JSON).
     """
 
-    id: UUID = field(default_factory=uuid4)
-    actor_id: UUID | None = field(default=None)
+    id: int = field(default=0)
+    actor_id: int | None = field(default=None)
     actor_username: str = field(default="system")
     action: str = field(default="")
     resource_type: str = field(default="")
     resource_id: str = field(default="")
-    tenant_id: UUID | None = field(default=None)
+    tenant_id: int | None = field(default=None)
     old_value: str | None = field(default=None)  # JSON string
     new_value: str | None = field(default=None)  # JSON string
     ip_address: str = field(default="")
     user_agent: str = field(default="")
     extra_data: str | None = field(default=None)   # JSON string
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))

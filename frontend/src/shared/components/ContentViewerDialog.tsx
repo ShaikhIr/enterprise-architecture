@@ -14,10 +14,16 @@
  */
 
 import React, { useMemo } from 'react';
-import { Dialog } from 'primereact/dialog';
-import { Button } from 'primereact/button';
 
-export type ContentType = 'json' | 'text' | 'pdf' | 'html';
+import { Button } from 'primereact/button';
+import { Dialog } from 'primereact/dialog';
+
+/**
+ * There is deliberately no `html` type. Rendering a string as markup is an injection sink for
+ * whatever ends up in it (audit values, user-entered text); the viewer shows text, never markup.
+ * The one place markup is built (the JSON highlighter) escapes its input first.
+ */
+export type ContentType = 'json' | 'text' | 'pdf';
 
 interface ContentViewerDialogProps {
   /** Controls dialog visibility */
@@ -57,7 +63,6 @@ export const ContentViewerDialog: React.FC<ContentViewerDialogProps> = ({
           return content;
         }
       case 'text':
-      case 'html':
       default:
         return content;
     }
@@ -112,14 +117,6 @@ export const ContentViewerDialog: React.FC<ContentViewerDialogProps> = ({
         return <JsonViewer content={formattedContent || ''} />;
       case 'pdf':
         return <PdfViewer url={contentUrl || ''} />;
-      case 'html':
-        return (
-          <div
-            className="p-3 border-round surface-ground overflow-auto"
-            style={{ maxHeight: '500px' }}
-            dangerouslySetInnerHTML={{ __html: content || '' }}
-          />
-        );
       case 'text':
       default:
         return (
@@ -158,27 +155,28 @@ interface JsonViewerProps {
 const JsonViewer: React.FC<JsonViewerProps> = ({ content }) => {
   // Simple syntax highlighting for JSON
   const highlighted = useMemo(() => {
-    return content
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      // Strings (keys and values)
-      .replace(/"([^"]+)"(?=\s*:)/g, '<span style="color:#9C27B0">"$1"</span>')  // keys
-      .replace(/:\s*"([^"]*)"/g, ': <span style="color:#2E7D32">"$1"</span>')     // string values
-      // Numbers
-      .replace(/:\s*(\d+\.?\d*)/g, ': <span style="color:#1565C0">$1</span>')
-      // Booleans & null
-      .replace(/:\s*(true|false|null)/g, ': <span style="color:#E65100">$1</span>');
+    return (
+      content
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        // Strings (keys and values). Coloured with classes, not `style="…"` attributes: this
+        // markup is injected as a string, and a Content-Security-Policy without
+        // 'unsafe-inline' refuses style attributes that arrive that way (a nonce cannot
+        // authorise an attribute). The colours live in theme-overrides.css.
+        .replace(/"([^"]+)"(?=\s*:)/g, '<span class="em-json-key">"$1"</span>') // keys
+        .replace(/:\s*"([^"]*)"/g, ': <span class="em-json-string">"$1"</span>') // string values
+        // Numbers
+        .replace(/:\s*(\d+\.?\d*)/g, ': <span class="em-json-number">$1</span>')
+        // Booleans & null
+        .replace(/:\s*(true|false|null)/g, ': <span class="em-json-literal">$1</span>')
+    );
   }, [content]);
 
   return (
     <div
-      className="border-round overflow-auto"
-      style={{
-        maxHeight: '500px',
-        background: '#FAFAFA',
-        border: '1px solid var(--surface-border)',
-      }}
+      className="border-round border-1 surface-border surface-ground overflow-auto"
+      style={{ maxHeight: '500px' }}
     >
       <pre
         className="m-0 p-3 text-sm"

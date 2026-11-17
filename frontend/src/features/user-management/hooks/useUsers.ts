@@ -4,6 +4,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
 import { userApi } from '../api/userApi';
 import type { CreateUserRequest, UpdateUserRequest } from '../models/User';
 
@@ -17,7 +18,20 @@ export const useUsers = (skip = 0, limit = 100) => {
   });
 };
 
-export const useUser = (userId: string) => {
+/**
+ * The whole directory, for turning user ids into names.
+ *
+ * Separate from `useUsers` so the paged table and the name lookup do not share a
+ * cache entry: the table wants one page, a lookup wants all of them.
+ */
+export const useAllUsers = () =>
+  useQuery({
+    queryKey: [...USERS_QUERY_KEY, 'all'],
+    queryFn: () => userApi.listAllUsers(),
+    staleTime: 30_000,
+  });
+
+export const useUser = (userId: number) => {
   return useQuery({
     queryKey: ['user', userId],
     queryFn: () => userApi.getUserById(userId),
@@ -41,7 +55,7 @@ export const useUpdateUser = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ userId, request }: { userId: string; request: UpdateUserRequest }) =>
+    mutationFn: ({ userId, request }: { userId: number; request: UpdateUserRequest }) =>
       userApi.updateUser(userId, request),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: USERS_QUERY_KEY });
@@ -49,11 +63,17 @@ export const useUpdateUser = () => {
   });
 };
 
+export interface ImportEmployeesVariables {
+  employeeIds: string[];
+  defaultPassword?: string;
+}
+
 export const useImportEmployees = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (employeeIds: string[]) => userApi.importEmployees(employeeIds),
+    mutationFn: ({ employeeIds, defaultPassword }: ImportEmployeesVariables) =>
+      userApi.importEmployees(employeeIds, defaultPassword),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: USERS_QUERY_KEY });
     },

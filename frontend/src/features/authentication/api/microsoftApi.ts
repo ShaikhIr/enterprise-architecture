@@ -4,6 +4,7 @@
  */
 
 import { apiClient } from '@shared/services/apiClient';
+
 import type { TokenResponse } from '../models/auth.types';
 
 export interface MicrosoftLoginUrlResponse {
@@ -13,6 +14,11 @@ export interface MicrosoftLoginUrlResponse {
 
 export interface MicrosoftCallbackRequest {
   code: string;
+  /**
+   * The `state` Microsoft returned. The server compares it with the one it issued to this
+   * browser at sign-in start (held in an HttpOnly cookie) and refuses the callback otherwise.
+   */
+  state: string;
 }
 
 export const microsoftApi = {
@@ -27,10 +33,13 @@ export const microsoftApi = {
 
   /**
    * Exchange the Microsoft authorization code for application JWT tokens.
-   * Called after Azure AD redirects back with ?code=XXX.
+   * Called after Azure AD redirects back with ?code=XXX&state=YYY.
    */
-  exchangeCode: async (code: string): Promise<TokenResponse> => {
-    const { data } = await apiClient.post<TokenResponse>('/auth/microsoft/callback', { code });
+  exchangeCode: async (code: string, state: string): Promise<TokenResponse> => {
+    const { data } = await apiClient.post<TokenResponse>('/auth/microsoft/callback', {
+      code,
+      state,
+    });
     return data;
   },
 };

@@ -1,4 +1,4 @@
-﻿"""
+"""
 Audit logging service.
 Records all security-relevant operations to the audit_logs table.
 Designed to be non-blocking — audit failures do not break business flows.
@@ -6,11 +6,11 @@ Designed to be non-blocking — audit failures do not break business flows.
 
 import json
 import logging
-from uuid import UUID
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.domain.entities.audit_log import AuditAction, AuditLog
+from src.domain.entities.audit_log import AuditAction
 from src.infrastructure.database.models.audit_log_model import AuditLogModel
 
 logger = logging.getLogger(__name__)
@@ -31,17 +31,17 @@ class AuditService:
     async def log(
         self,
         *,
-        actor_id: UUID | None = None,
+        actor_id: int | None = None,
         actor_username: str = "system",
         action: str | AuditAction,
         resource_type: str,
         resource_id: str = "",
-        tenant_id: UUID | None = None,
-        old_value: dict | None = None,
-        new_value: dict | None = None,
+        tenant_id: int | None = None,
+        old_value: dict[str, Any] | None = None,
+        new_value: dict[str, Any] | None = None,
         ip_address: str = "",
         user_agent: str = "",
-        metadata: dict | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """
         Write a single audit log entry.
@@ -50,13 +50,14 @@ class AuditService:
         to avoid disrupting the calling business operation.
         """
         try:
+            # actor_id and tenant_id are bigint FK columns; pass the int through.
             entry = AuditLogModel(
-                actor_id=str(actor_id) if actor_id else None,
+                actor_id=actor_id,
                 actor_username=actor_username,
                 action=str(action),
                 resource_type=resource_type,
                 resource_id=str(resource_id),
-                tenant_id=str(tenant_id) if tenant_id else None,
+                tenant_id=tenant_id,
                 old_value=json.dumps(old_value) if old_value else None,
                 new_value=json.dumps(new_value) if new_value else None,
                 ip_address=ip_address,
@@ -73,12 +74,12 @@ class AuditService:
     async def log_role_assigned(
         self,
         *,
-        actor_id: UUID,
+        actor_id: int,
         actor_username: str,
-        user_id: UUID,
-        role_id: UUID,
+        user_id: int,
+        role_id: int,
         role_code: str,
-        tenant_id: UUID | None = None,
+        tenant_id: int | None = None,
         ip_address: str = "",
     ) -> None:
         """Log a role being assigned to a user."""
@@ -96,12 +97,12 @@ class AuditService:
     async def log_role_revoked(
         self,
         *,
-        actor_id: UUID,
+        actor_id: int,
         actor_username: str,
-        user_id: UUID,
-        role_id: UUID,
+        user_id: int,
+        role_id: int,
         role_code: str,
-        tenant_id: UUID | None = None,
+        tenant_id: int | None = None,
         ip_address: str = "",
     ) -> None:
         """Log a role being revoked from a user."""
@@ -119,12 +120,12 @@ class AuditService:
     async def log_permission_change(
         self,
         *,
-        actor_id: UUID,
+        actor_id: int,
         actor_username: str,
         action: AuditAction,
-        role_id: UUID,
+        role_id: int,
         permission_code: str,
-        tenant_id: UUID | None = None,
+        tenant_id: int | None = None,
         ip_address: str = "",
     ) -> None:
         """Log a permission being granted to or revoked from a role."""
@@ -142,7 +143,7 @@ class AuditService:
     async def log_login(
         self,
         *,
-        user_id: UUID | None,
+        user_id: int | None,
         username: str,
         success: bool,
         ip_address: str = "",
@@ -155,6 +156,30 @@ class AuditService:
             actor_id=user_id,
             actor_username=username,
             action=action,
+            resource_type="Authentication",
+            resource_id=username,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            metadata={"reason": reason} if reason else None,
+        )
+
+    async def log_login_locked(
+        self,
+        *,
+        username: str,
+        ip_address: str = "",
+        user_agent: str = "",
+        reason: str = "",
+    ) -> None:
+        """
+        Log that repeated failed logins locked an account (or an account for one address).
+
+        Written once when the lockout starts, never per refused attempt: an attacker who
+        keeps hammering a locked account would otherwise fill `audit_logs` for free.
+        """
+        await self.log(
+            actor_username=username,
+            action=AuditAction.LOGIN_LOCKED,
             resource_type="Authentication",
             resource_id=username,
             ip_address=ip_address,

@@ -1,27 +1,40 @@
-﻿"""
+"""
 Application settings using Pydantic BaseSettings.
 Loads configuration from environment variables and .env files.
 """
 
+from pathlib import Path
+from typing import Literal
+
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings
-from pydantic import Field
 
 
 class Settings(BaseSettings):
-    """Enterprise application configuration."""
+    """Enterprise Architecture application configuration."""
 
     # Application
-    APP_NAME: str = Field(default="Enterprise FastAPI", description="Application name")
+    APP_NAME: str = Field(
+        default="Enterprise Architecture", description="Application name"
+    )
     APP_VERSION: str = Field(default="1.0.0", description="Application version")
     DEBUG: bool = Field(default=False, description="Debug mode")
 
     # Database
     DATABASE_URL: str = Field(
-        default="postgresql+asyncpg://postgres:postgres@localhost:5432/enterprise_db",
+        default="postgresql+asyncpg://postgres:postgres@localhost:5432/base-app-setup",
         description="Async database connection string",
     )
     DB_POOL_SIZE: int = Field(default=20, description="Database connection pool size")
     DB_MAX_OVERFLOW: int = Field(default=10, description="Max overflow connections")
+    TEST_DATABASE_URL: str = Field(
+        default="",
+        description=(
+            "Async connection string for the integration test database. "
+            "When empty, tests derive it from DATABASE_URL by appending '_test' "
+            "to the database name. The name must end with '_test' as a safety guard."
+        ),
+    )
 
     # JWT Authentication
     JWT_SECRET_KEY: str = Field(
@@ -35,20 +48,217 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = Field(
         default=7, description="Refresh token expiry in days"
     )
+    REFRESH_REUSE_GRACE_SECONDS: int = Field(
+        default=10,
+        ge=0,
+        le=300,
+        description=(
+            "Refresh tokens are single-use: each refresh rotates the cookie to a new token. "
+            "Two tabs that refresh at the same instant both present the same token, and the "
+            "second must not be mistaken for theft. A token spent less than this many seconds "
+            "ago is answered with a new access token only (no new cookie, session kept); a "
+            "token replayed after it ends the whole session. 0 disables the allowance."
+        ),
+    )
+
+    # File storage
+    UPLOAD_DIR: str = Field(
+        default="storage",
+        description=(
+            "Base directory for everything the application writes to disk. "
+            "Relative LOG_FILE_PATH values are resolved beneath it (see the "
+            "`log_file` property), and file uploads should be rooted here too "
+            "once that feature exists. A relative value is taken from the "
+            "process working directory."
+        ),
+    )
 
     # Logging
     LOG_LEVEL: str = Field(default="INFO", description="Logging level")
     LOG_FILE_PATH: str = Field(
-        default="logs/application.log", description="Log file path"
+        default="logs/application.log",
+        description=(
+            "Log file path. Relative values are resolved beneath UPLOAD_DIR; "
+            "an absolute value is used verbatim. Read it through the `log_file` "
+            "property rather than directly."
+        ),
     )
     LOG_MAX_BYTES: int = Field(
         default=10 * 1024 * 1024, description="Max log file size (10MB)"
     )
     LOG_BACKUP_COUNT: int = Field(default=10, description="Number of log backups")
 
+    # ─── Object storage (S3) ───
+    # When STORAGE_BACKEND=s3 files are stored in the bucket; otherwise they are
+    # written to disk under UPLOAD_DIR (see the `log_file`/`storage_root`
+    # properties). The S3_* fields are read only when the backend is 's3'.
+    STORAGE_BACKEND: Literal["local", "s3"] = Field(
+        default="local",
+        description=(
+            "Which IFileStorage implementation the container registers. Typed as "
+            "a literal so a typo fails at startup rather than silently falling "
+            "back to disk in production."
+        ),
+    )
+    S3_BUCKET: str = Field(
+        default="", description="Bucket name only, not an ARN or URL"
+    )
+    S3_REGION: str = Field(default="ap-south-1", description="Bucket's region")
+    S3_KEY_PREFIX: str = Field(
+        default="",
+        description=(
+            "Prepended to every key. Lets several apps and environments share one "
+            "bucket without collisions, and lets each app's IAM policy be scoped "
+            "to its own prefix. Example: 'architecture/prod'."
+        ),
+    )
+    S3_ACCESS_KEY_ID: str = Field(
+        default="",
+        description=(
+            "Leave empty wherever an instance role, task role or OIDC federation "
+            "is available; boto3 finds those itself. Static keys are the least "
+            "safe option and the only one needing rotation."
+        ),
+    )
+    S3_SECRET_ACCESS_KEY: SecretStr = Field(
+        default=SecretStr(""),
+        description=(
+            "SecretStr so it cannot be leaked by a stray log of the settings "
+            "object or an error page that renders config."
+        ),
+    )
+    S3_ENDPOINT_URL: str = Field(
+        default="",
+        description="Set for MinIO/Wasabi/R2/Ceph. Empty means real AWS.",
+    )
+    S3_ADDRESSING_STYLE: str = Field(
+        default="",
+        description=(
+            "Empty selects 'virtual' for AWS and 'path' for a custom endpoint. "
+            "Never set 'auto' on AWS: it breaks presigned URLs."
+        ),
+    )
+    S3_CHECKSUM_MODE: Literal["when_supported", "when_required"] = Field(
+        default="when_required",
+        description=(
+            "'when_required' avoids the aws-chunked upload encoding that proxies "
+            "drop. Change only if uploads are verified working without it."
+        ),
+    )
+    S3_CA_BUNDLE: str = Field(
+        default="",
+        description=(
+            "PEM bundle including any internal root CA, for networks doing TLS "
+            "inspection. Empty uses botocore's own roots."
+        ),
+    )
+    S3_PRESIGN_EXPIRY_SECONDS: int = Field(
+        default=900,
+        ge=30,
+        le=7 * 24 * 3600,
+        description=(
+            "Lifetime of download URLs. Anyone holding the URL can read the "
+            "object until it expires, so keep it short - long enough to start a "
+            "download on a slow connection, not long enough to be shared around."
+        ),
+    )
+    STORAGE_MAX_UPLOAD_BYTES: int = Field(
+        default=25 * 1024 * 1024,
+        ge=1024,
+        description="Largest accepted upload, enforced while streaming.",
+    )
+
     # Redis (Optional Cache)
     REDIS_URL: str = Field(
-        default="redis://localhost:6379/0", description="Redis connection URL"
+        default="redis://localhost:6379/0",
+        description=(
+            "Redis connection URL. Also holds the login-throttle counters, shared by every "
+            "API replica. Empty, or unreachable, falls back to per-process counters."
+        ),
+    )
+
+    # ─── Login throttling (brute-force / credential-stuffing protection) ───
+    #
+    # Applies to POST /auth/login. Attempts are counted per account from one IP, per account
+    # across the addresses it has no successful login from, and per IP; see
+    # LoginThrottleService for how they fit together.
+    LOGIN_THROTTLE_ENABLED: bool = Field(
+        default=True,
+        description=(
+            "Master switch. Leave on; it exists so a misconfigured limit can be turned off "
+            "without a deploy while it is corrected."
+        ),
+    )
+    LOGIN_ATTEMPT_WINDOW_SECONDS: int = Field(
+        default=300,
+        ge=10,
+        le=86_400,
+        description=(
+            "How long attempts are remembered. Fixed from the first attempt, not sliding."
+        ),
+    )
+    LOGIN_MAX_ATTEMPTS_PER_ACCOUNT_IP: int = Field(
+        default=5,
+        ge=1,
+        le=1_000,
+        description=(
+            "Attempts at one account from one IP per window before that account is locked "
+            "for that IP. Small, because it is the limit that stops a single-source guesser, "
+            "and it cannot be used to lock the real user out from another address."
+        ),
+    )
+    LOGIN_MAX_ATTEMPTS_PER_ACCOUNT: int = Field(
+        default=20,
+        ge=1,
+        le=10_000,
+        description=(
+            "Attempts at one account, from all addresses it has no successful login from, "
+            "together per window before it is locked for such addresses. Larger than the "
+            "per-IP limit: this is what caps a guess spread over many addresses. Addresses "
+            "the account has logged in from (LOGIN_FAMILIAR_IP_TTL_SECONDS) are neither "
+            "counted nor locked by it, so a spread-out attack cannot lock the real user out "
+            "of their usual network."
+        ),
+    )
+    LOGIN_FAMILIAR_IP_TTL_SECONDS: int = Field(
+        default=2_592_000,
+        ge=0,
+        le=31_536_000,
+        description=(
+            "How long an address stays familiar to an account after a successful login from "
+            "it (each login restarts the time). Default 30 days. 0 turns the exemption off, "
+            "so every address is treated as a stranger."
+        ),
+    )
+    LOGIN_MAX_FAILURES_PER_IP: int = Field(
+        default=50,
+        ge=1,
+        le=100_000,
+        description=(
+            "Failed logins from one IP per window, across all usernames. Deliberately "
+            "generous: offices and proxies share an address. Only failures count."
+        ),
+    )
+    LOGIN_LOCKOUT_SECONDS: int = Field(
+        default=900,
+        ge=10,
+        le=86_400,
+        description=(
+            "How long a lockout lasts. Fixed: attempts made during it do not extend it, so "
+            "an attacker cannot keep a real user locked out by simply continuing."
+        ),
+    )
+    TRUSTED_PROXY_HOPS: int = Field(
+        default=0,
+        ge=0,
+        le=10,
+        description=(
+            "How many reverse proxies sit between the internet and this API, used to find the "
+            "real client address in X-Forwarded-For for rate limiting. 0 ignores the header "
+            "(cannot be forged, but behind a proxy every user then shares the proxy's "
+            "address). Example: router -> nginx -> api is 2. Too high is as unsafe as 0 is "
+            "blunt, so match your actual chain. See client_ip.py."
+        ),
     )
 
     # Celery
@@ -61,7 +271,7 @@ class Settings(BaseSettings):
         default="http://localhost:4317", description="OpenTelemetry exporter endpoint"
     )
     OTEL_SERVICE_NAME: str = Field(
-        default="enterprise-api", description="OpenTelemetry service name"
+        default="compliance-api", description="OpenTelemetry service name"
     )
 
     # Azure AD / Microsoft SSO
@@ -69,7 +279,7 @@ class Settings(BaseSettings):
     AZURE_CLIENT_SECRET: str = Field(default="", description="Azure App Registration client secret")
     AZURE_TENANT_ID: str = Field(default="", description="Azure AD tenant ID")
     AZURE_REDIRECT_URI: str = Field(
-        default="http://localhost:3000/auth/microsoft/callback",
+        default="http://localhost:6769/auth/microsoft/callback",
         description="OAuth2 redirect URI (must match Azure App Registration)",
     )
 
@@ -79,9 +289,49 @@ class Settings(BaseSettings):
         description="Base URL for the Darwin AD integrator service",
     )
 
+
+
     # CORS
     CORS_ORIGINS: list[str] = Field(
-        default=["http://localhost:3000"], description="Allowed CORS origins"
+        default=["http://localhost:6769"], description="Allowed CORS origins"
+    )
+
+    # ─── Auth Cookies (refresh token) ───
+    REFRESH_COOKIE_NAME: str = Field(
+        default="refresh_token", description="Name of the HttpOnly refresh token cookie"
+    )
+    REFRESH_COOKIE_PATH: str = Field(
+        default="/api/v1/auth",
+        description="Path scope for the refresh cookie (only sent to auth endpoints)",
+    )
+    COOKIE_SECURE: bool = Field(
+        default=False,
+        description="Send cookies only over HTTPS. Set True in production.",
+    )
+    COOKIE_SAMESITE: Literal["lax", "strict", "none"] = Field(
+        default="lax",
+        description=(
+            "SameSite policy for auth cookies. Typed as a literal so an invalid "
+            "value in .env fails at startup instead of silently producing a "
+            "malformed Set-Cookie header."
+        ),
+    )
+    COOKIE_DOMAIN: str = Field(
+        default="",
+        description="Cookie domain. Empty means host-only (recommended for same-origin).",
+    )
+    SSO_TXN_COOKIE_NAME: str = Field(
+        default="sso_txn",
+        description=(
+            "Name of the short-lived HttpOnly cookie that binds a Microsoft sign-in to the "
+            "browser that started it (holds the OAuth `state` and PKCE verifier)."
+        ),
+    )
+    SSO_TXN_TTL_SECONDS: int = Field(
+        default=600,
+        ge=60,
+        le=3600,
+        description="How long a started Microsoft sign-in may take to come back.",
     )
 
     model_config = {
@@ -89,6 +339,32 @@ class Settings(BaseSettings):
         "env_file_encoding": "utf-8",
         "case_sensitive": True,
     }
+
+    # ─── Derived paths ───
+    #
+    # Exposed as properties rather than fields so there is a single place that
+    # decides how UPLOAD_DIR and LOG_FILE_PATH combine. Callers should use these
+    # instead of joining the raw strings themselves.
+
+    @property
+    def storage_root(self) -> Path:
+        """UPLOAD_DIR as an absolute path. Not created here — writers do that."""
+        return Path(self.UPLOAD_DIR).expanduser().resolve()
+
+    @property
+    def log_file(self) -> Path:
+        """
+        Absolute path of the application log file.
+
+        A relative LOG_FILE_PATH lands beneath UPLOAD_DIR, so everything the app
+        writes shares one configured root. An absolute LOG_FILE_PATH wins, which
+        keeps container deployments that mount a dedicated log volume working
+        without also having to move UPLOAD_DIR.
+        """
+        configured = Path(self.LOG_FILE_PATH).expanduser()
+        if configured.is_absolute():
+            return configured
+        return self.storage_root / configured
 
 
 # Singleton settings instance

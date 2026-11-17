@@ -1,1 +1,1 @@
-﻿# Domain Layer - pure business logic, no external dependencies
+# Domain Layer - pure business logic, no external dependencies

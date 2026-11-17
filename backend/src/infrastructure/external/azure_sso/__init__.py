@@ -1,4 +1,4 @@
-﻿"""Azure AD / Microsoft SSO integration adapter."""
+"""Azure AD / Microsoft SSO integration adapter."""
 
 from src.infrastructure.external.azure_sso.azure_client import (
     AzureAuthError,
@@ -6,6 +6,7 @@ from src.infrastructure.external.azure_sso.azure_client import (
     AzureSsoError,
     AzureTokenMissingError,
     AzureUnavailableError,
+    SsoTransaction,
 )
 
 __all__ = [
@@ -14,4 +15,5 @@ __all__ = [
     "AzureSsoError",
     "AzureTokenMissingError",
     "AzureUnavailableError",
+    "SsoTransaction",
 ]

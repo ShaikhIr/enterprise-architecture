@@ -1,13 +1,11 @@
-﻿"""
+"""
 SQLAlchemy declarative base with audit mixin.
 All ORM models inherit from this to get automatic audit field population.
 """
 
-from datetime import datetime, timezone
-from uuid import uuid4
+from datetime import UTC, datetime
 
-from sqlalchemy import Column, DateTime, String
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import BigInteger, DateTime, String
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -24,12 +22,16 @@ class AuditMixin:
     Fields are auto-populated:
     - created_date: Set on INSERT (UTC)
     - modified_date: Set on INSERT and UPDATE (UTC)
+
+    Note: `id` is a database-generated bigint (identity/sequence), assigned on
+    INSERT. No client-side default — the row must be flushed before its id is
+    known, which is why entities carry the sentinel 0 until persisted.
     """
 
-    id: Mapped[str] = mapped_column(
-        UUID(as_uuid=True),
+    id: Mapped[int] = mapped_column(
+        BigInteger,
         primary_key=True,
-        default=uuid4,
+        autoincrement=True,
         nullable=False,
     )
     created_by: Mapped[str] = mapped_column(
@@ -38,7 +40,7 @@ class AuditMixin:
     created_date: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
-        default=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
     )
     modified_by: Mapped[str] = mapped_column(
         String(255), nullable=False, default="system"
@@ -46,8 +48,8 @@ class AuditMixin:
     modified_date: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
     )
 
 

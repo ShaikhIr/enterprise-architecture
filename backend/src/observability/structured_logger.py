@@ -1,4 +1,4 @@
-﻿"""
+"""
 Enterprise structured logger using structlog.
 Console: Human-readable colored output (development).
 File: JSON format (handled separately in logging_config.py).
@@ -6,6 +6,7 @@ File: JSON format (handled separately in logging_config.py).
 
 import logging
 import sys
+from typing import Any
 
 import structlog
 
@@ -14,8 +15,8 @@ from src.observability.correlation import get_correlation_id
 
 
 def _add_correlation_id(
-    logger: logging.Logger, method_name: str, event_dict: dict
-) -> dict:
+    logger: logging.Logger, method_name: str, event_dict: dict[str, Any]
+) -> dict[str, Any]:
     """Processor that injects the current correlation ID into every log entry."""
     correlation_id = get_correlation_id()
     if correlation_id:
@@ -28,7 +29,7 @@ def configure_logging() -> None:
     Configure structlog for clean, readable console output.
     Silences noisy loggers (SQLAlchemy, uvicorn access).
     """
-    shared_processors: list = [
+    shared_processors: list[Any] = [
         structlog.contextvars.merge_contextvars,
         structlog.stdlib.add_log_level,
         structlog.stdlib.add_logger_name,
@@ -71,7 +72,9 @@ def configure_logging() -> None:
 
     # Silence noisy third-party loggers
     logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
-    logging.getLogger("uvicorn.error").setLevel(logging.WARNING)
+    # Keep uvicorn.error at INFO so lifecycle messages
+    # ("Application startup complete.", "Uvicorn running on ...") are visible.
+    logging.getLogger("uvicorn.error").setLevel(logging.INFO)
     logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
     logging.getLogger("sqlalchemy.pool").setLevel(logging.WARNING)
     logging.getLogger("watchfiles").setLevel(logging.WARNING)
@@ -79,4 +82,7 @@ def configure_logging() -> None:
 
 def get_logger(name: str = __name__) -> structlog.stdlib.BoundLogger:
     """Get a structured logger instance bound to the given name."""
-    return structlog.get_logger(name)
+    # structlog.get_logger is typed as returning Any; bind it so the declared
+    # return type is actually enforced.
+    logger: structlog.stdlib.BoundLogger = structlog.get_logger(name)
+    return logger

@@ -1,15 +1,22 @@
-﻿"""
+"""
 RBAC Management API endpoints.
 Thin controller — delegates all business logic to RbacService.
 """
 
-from uuid import UUID
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.v1.dependencies import get_current_active_user
+from src.api.v1.dependencies import (
+    get_audit_log_repository,
+    get_current_active_user,
+    get_permission_repository,
+    get_permission_resolver,
+    get_role_assignment_repository,
+    get_role_repository,
+)
 from src.api.v1.schemas.rbac_schema import (
+    ApiPermissionsResponse,
     AuditLogListResponse,
     AuditLogResponse,
     FieldPermissionsResponse,
@@ -28,7 +35,11 @@ from src.api.v1.schemas.rbac_schema import (
 )
 from src.application.services.rbac_service import RbacService
 from src.domain.entities.user import User
-from src.infrastructure.database.session import get_db_session
+from src.domain.repositories.audit_log_repository import IAuditLogRepository
+from src.domain.repositories.permission_repository import IPermissionRepository
+from src.domain.repositories.role_assignment_repository import IRoleAssignmentRepository
+from src.domain.repositories.role_repository import IRoleRepository
+from src.domain.services.permission_resolver import IPermissionResolver
 from src.infrastructure.security.permission_manager import require_permission
 
 router = APIRouter(prefix="/rbac", tags=["RBAC"])
@@ -42,8 +53,21 @@ def _get_client_ip(request: Request) -> str:
     return request.client.host if request.client else ""
 
 
-def _get_rbac_service(session: AsyncSession = Depends(get_db_session)) -> RbacService:
-    return RbacService(session=session)
+def _get_rbac_service(
+    permission_repo: IPermissionRepository = Depends(get_permission_repository),
+    role_repo: IRoleRepository = Depends(get_role_repository),
+    assignment_repo: IRoleAssignmentRepository = Depends(get_role_assignment_repository),
+    audit_repo: IAuditLogRepository = Depends(get_audit_log_repository),
+    permission_resolver: IPermissionResolver = Depends(get_permission_resolver),
+) -> RbacService:
+    """FastAPI dependency — builds RbacService from repository ports."""
+    return RbacService(
+        permission_repo=permission_repo,
+        role_repo=role_repo,
+        assignment_repo=assignment_repo,
+        audit_repo=audit_repo,
+        permission_resolver=permission_resolver,
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -91,7 +115,7 @@ async def create_permission(
             ip_address=_get_client_ip(request),
         )
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
     return PermissionResponse.model_validate(perm)
 
 
@@ -107,7 +131,7 @@ async def create_permission(
     dependencies=[Depends(require_permission("rbac.read"))],
 )
 async def list_roles(
-    tenant_id: UUID | None = Query(default=None),
+    tenant_id: int | None = Query(default=None),
     service: RbacService = Depends(_get_rbac_service),
 ) -> RoleListResponse:
     data = await service.list_roles(tenant_id=tenant_id)
@@ -142,7 +166,7 @@ async def create_role(
             ip_address=_get_client_ip(request),
         )
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
     return RoleResponse.model_validate(role)
 
 
@@ -153,7 +177,7 @@ async def create_role(
     dependencies=[Depends(require_permission("rbac.update"))],
 )
 async def update_role(
-    role_id: UUID,
+    role_id: int,
     request_body: RoleUpdate,
     request: Request,
     current_user: User = Depends(get_current_active_user),
@@ -173,10 +197,10 @@ async def update_role(
     except ValueError as e:
         msg = str(e)
         if "not found" in msg:
-            raise HTTPException(status_code=404, detail=msg)
+            raise HTTPException(status_code=404, detail=msg) from e
         if "cannot be modified" in msg:
-            raise HTTPException(status_code=403, detail=msg)
-        raise HTTPException(status_code=400, detail=msg)
+            raise HTTPException(status_code=403, detail=msg) from e
+        raise HTTPException(status_code=400, detail=msg) from e
     return RoleResponse.model_validate(role)
 
 
@@ -196,7 +220,7 @@ async def grant_permission_to_role(
     request: Request,
     current_user: User = Depends(get_current_active_user),
     service: RbacService = Depends(_get_rbac_service),
-) -> dict:
+) -> dict[str, Any]:
     try:
         return await service.grant_permission(
             role_id=request_body.role_id,
@@ -208,10 +232,10 @@ async def grant_permission_to_role(
     except ValueError as e:
         msg = str(e)
         if "not found" in msg:
-            raise HTTPException(status_code=404, detail=msg)
+            raise HTTPException(status_code=404, detail=msg) from e
         if "already granted" in msg:
-            raise HTTPException(status_code=409, detail=msg)
-        raise HTTPException(status_code=400, detail=msg)
+            raise HTTPException(status_code=409, detail=msg) from e
+        raise HTTPException(status_code=400, detail=msg) from e
 
 
 @router.post(
@@ -224,7 +248,7 @@ async def revoke_permission_from_role(
     request: Request,
     current_user: User = Depends(get_current_active_user),
     service: RbacService = Depends(_get_rbac_service),
-) -> dict:
+) -> dict[str, Any]:
     try:
         return await service.revoke_permission(
             role_id=request_body.role_id,
@@ -234,7 +258,7 @@ async def revoke_permission_from_role(
             ip_address=_get_client_ip(request),
         )
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -267,10 +291,10 @@ async def assign_role(
     except ValueError as e:
         msg = str(e)
         if "not found" in msg:
-            raise HTTPException(status_code=404, detail=msg)
+            raise HTTPException(status_code=404, detail=msg) from e
         if "already assigned" in msg:
-            raise HTTPException(status_code=409, detail=msg)
-        raise HTTPException(status_code=400, detail=msg)
+            raise HTTPException(status_code=409, detail=msg) from e
+        raise HTTPException(status_code=400, detail=msg) from e
     return RoleAssignmentResponse.model_validate(assignment)
 
 
@@ -284,7 +308,7 @@ async def revoke_role(
     request: Request,
     current_user: User = Depends(get_current_active_user),
     service: RbacService = Depends(_get_rbac_service),
-) -> dict:
+) -> dict[str, Any]:
     try:
         return await service.revoke_role(
             user_id=request_body.user_id,
@@ -295,7 +319,7 @@ async def revoke_role(
             ip_address=_get_client_ip(request),
         )
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -320,13 +344,38 @@ async def get_my_menu_permissions(
 
 
 @router.get(
+    "/my-permissions/api",
+    response_model=ApiPermissionsResponse,
+    summary="Get current user's API permissions",
+)
+async def get_my_api_permissions(
+    current_user: User = Depends(get_current_active_user),
+    service: RbacService = Depends(_get_rbac_service),
+) -> ApiPermissionsResponse:
+    """
+    GET /api/v1/rbac/my-permissions/api
+
+    Lets the UI hide controls the caller could not use anyway. Guarded by
+    authentication alone, like the menu equivalent: it only ever reports the
+    caller's own grants, and needing a permission to discover your permissions
+    would be circular.
+    """
+    data = await service.get_my_api_permissions(current_user)
+    return ApiPermissionsResponse(
+        codes=data["codes"],
+        resource_actions=data["resource_actions"],
+        permissions=[PermissionResponse.model_validate(p) for p in data["permissions"]],
+    )
+
+
+@router.get(
     "/my-permissions/all",
     summary="Get ALL permissions for the current user (debug)",
 )
 async def get_my_all_permissions(
     current_user: User = Depends(get_current_active_user),
     service: RbacService = Depends(_get_rbac_service),
-) -> dict:
+) -> dict[str, Any]:
     return await service.get_my_all_permissions(current_user)
 
 

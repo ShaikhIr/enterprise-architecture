@@ -4,9 +4,12 @@
  */
 
 import { configureStore } from '@reduxjs/toolkit';
-import { useDispatch, useSelector, TypedUseSelectorHook } from 'react-redux';
-import authReducer from '@features/authentication/store/authSlice';
+import type { TypedUseSelectorHook } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
+
 import { rbacReducer } from '@core/rbac';
+
+import authReducer from '@features/authentication/store/authSlice';
 
 export const store = configureStore({
   reducer: {

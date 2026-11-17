@@ -1,1 +1,1 @@
-﻿# Application exceptions
+# Application exceptions

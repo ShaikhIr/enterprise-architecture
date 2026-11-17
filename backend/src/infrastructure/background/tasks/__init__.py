@@ -1,1 +1,1 @@
-﻿# Celery Tasks
+# Celery Tasks

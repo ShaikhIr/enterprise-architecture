@@ -4,14 +4,23 @@
  */
 
 import { useState } from 'react';
-import { InputText } from 'primereact/inputtext';
+
 import { Button } from 'primereact/button';
-import { Dialog } from 'primereact/dialog';
-import { DataTable } from 'primereact/datatable';
 import { Column } from 'primereact/column';
+import { DataTable } from 'primereact/datatable';
+import { Dialog } from 'primereact/dialog';
+import { InputText } from 'primereact/inputtext';
+import { Password } from 'primereact/password';
 import { Tag } from 'primereact/tag';
+
+import { extractApiError } from '@shared/utils/apiError';
+
 import { useImportEmployees } from '../hooks/useUsers';
 import type { ImportResult } from '../models/User';
+
+/** Bounds the server enforces on a default password (bcrypt reads at most 72 bytes). */
+const MIN_PASSWORD_LENGTH = 8;
+const MAX_PASSWORD_LENGTH = 72;
 
 interface ImportEmployeeDialogProps {
   visible: boolean;
@@ -21,8 +30,17 @@ interface ImportEmployeeDialogProps {
 
 export const ImportEmployeeDialog = ({ visible, onHide, onSuccess }: ImportEmployeeDialogProps) => {
   const [employeeIds, setEmployeeIds] = useState('');
+  const [defaultPassword, setDefaultPassword] = useState('');
   const [results, setResults] = useState<ImportResult[] | null>(null);
   const importMutation = useImportEmployees();
+  const [importError, setImportError] = useState<string | null>(null);
+
+  const trimmedPassword = defaultPassword.trim();
+  const passwordError =
+    trimmedPassword.length > 0 &&
+    (trimmedPassword.length < MIN_PASSWORD_LENGTH || trimmedPassword.length > MAX_PASSWORD_LENGTH)
+      ? `Use ${MIN_PASSWORD_LENGTH} to ${MAX_PASSWORD_LENGTH} characters, or leave it blank.`
+      : null;
 
   const handleImport = async () => {
     const ids = employeeIds
@@ -30,22 +48,29 @@ export const ImportEmployeeDialog = ({ visible, onHide, onSuccess }: ImportEmplo
       .map((id) => id.trim())
       .filter(Boolean);
 
-    if (ids.length === 0) return;
+    if (ids.length === 0 || passwordError) return;
 
+    setImportError(null);
     try {
-      const response = await importMutation.mutateAsync(ids);
+      const response = await importMutation.mutateAsync({
+        employeeIds: ids,
+        defaultPassword: trimmedPassword || undefined,
+      });
       setResults(response.results);
       if (response.created > 0 || response.updated > 0) {
         onSuccess?.();
       }
-    } catch {
-      // Error handled via toast in parent
+    } catch (err: unknown) {
+      // Shown inside the dialog, next to the fields that may be the cause.
+      setImportError(extractApiError(err, 'The import failed. Please try again.'));
     }
   };
 
   const handleClose = () => {
     setEmployeeIds('');
+    setDefaultPassword('');
     setResults(null);
+    setImportError(null);
     onHide();
   };
 
@@ -73,7 +98,7 @@ export const ImportEmployeeDialog = ({ visible, onHide, onSuccess }: ImportEmplo
           icon="pi pi-download"
           onClick={handleImport}
           loading={importMutation.isPending}
-          disabled={!employeeIds.trim()}
+          disabled={!employeeIds.trim() || !!passwordError}
         />
       )}
     </div>
@@ -105,9 +130,41 @@ export const ImportEmployeeDialog = ({ visible, onHide, onSuccess }: ImportEmplo
             aria-label="Employee IDs to import"
           />
           <small className="text-600">
-            Employees will be imported with username = Employee ID, default password = Employee ID, role = USER
+            Employees are imported with username = Employee ID. They sign in through the corporate
+            directory, so leave the default password blank unless a local password is needed.
           </small>
         </div>
+
+        {/* Optional default password for the newly created users */}
+        <div className="flex flex-column gap-2">
+          <label htmlFor="import-default-password" className="font-medium">
+            Default Password (optional)
+          </label>
+          <Password
+            id="import-default-password"
+            value={defaultPassword}
+            onChange={(e) => setDefaultPassword(e.target.value)}
+            placeholder="Blank: a random password is set"
+            invalid={!!passwordError}
+            feedback={false}
+            toggleMask
+            className="w-full"
+            inputClassName="w-full"
+            disabled={!!results}
+            aria-label="Default password for imported employees"
+          />
+          <small className="text-600">
+            Applied only to newly created users. Existing users keep their current password.
+            Left blank, each new user gets a random password nobody knows.
+          </small>
+          {passwordError && <small className="p-error">{passwordError}</small>}
+        </div>
+
+        {importError && (
+          <small className="p-error" role="alert">
+            {importError}
+          </small>
+        )}
 
         {/* Results table */}
         {results && (

@@ -1,12 +1,10 @@
-﻿"""
+"""
 Pydantic schemas for RBAC API endpoints.
 """
 
 from datetime import datetime
-from uuid import UUID
 
 from pydantic import BaseModel, Field
-
 
 # ─── Permission Schemas ───
 
@@ -27,7 +25,7 @@ class PermissionCreate(BaseModel):
 class PermissionResponse(BaseModel):
     """Permission read response."""
 
-    id: UUID
+    id: int
     code: str
     name: str
     description: str
@@ -49,8 +47,8 @@ class RoleCreate(BaseModel):
     code: str = Field(..., min_length=2, max_length=50)
     name: str = Field(..., min_length=1, max_length=255)
     description: str = Field(default="")
-    tenant_id: UUID | None = Field(default=None)
-    parent_role_id: UUID | None = Field(default=None)
+    tenant_id: int | None = Field(default=None)
+    parent_role_id: int | None = Field(default=None)
 
 
 class RoleUpdate(BaseModel):
@@ -59,20 +57,20 @@ class RoleUpdate(BaseModel):
     name: str | None = Field(default=None, max_length=255)
     description: str | None = Field(default=None)
     is_active: bool | None = Field(default=None)
-    parent_role_id: UUID | None = Field(default=None)
+    parent_role_id: int | None = Field(default=None)
 
 
 class RoleResponse(BaseModel):
     """Role read response."""
 
-    id: UUID
+    id: int
     code: str
     name: str
     description: str
     is_system: bool
     is_active: bool
-    tenant_id: UUID | None
-    parent_role_id: UUID | None
+    tenant_id: int | None
+    parent_role_id: int | None
     permissions: list[PermissionResponse] = []
     created_date: datetime
     modified_date: datetime
@@ -93,26 +91,26 @@ class RoleListResponse(BaseModel):
 class RoleAssignRequest(BaseModel):
     """Assign a role to a user."""
 
-    user_id: UUID
-    role_id: UUID
-    tenant_id: UUID | None = Field(default=None)
+    user_id: int
+    role_id: int
+    tenant_id: int | None = Field(default=None)
 
 
 class RoleRevokeRequest(BaseModel):
     """Revoke a role from a user."""
 
-    user_id: UUID
-    role_id: UUID
-    tenant_id: UUID | None = Field(default=None)
+    user_id: int
+    role_id: int
+    tenant_id: int | None = Field(default=None)
 
 
 class RoleAssignmentResponse(BaseModel):
     """Role assignment read response."""
 
-    id: UUID
-    user_id: UUID
-    role_id: UUID
-    tenant_id: UUID | None
+    id: int
+    user_id: int
+    role_id: int
+    tenant_id: int | None
     is_active: bool
     created_date: datetime
 
@@ -125,15 +123,15 @@ class RoleAssignmentResponse(BaseModel):
 class PermissionGrantRequest(BaseModel):
     """Grant a permission to a role."""
 
-    role_id: UUID
-    permission_id: UUID
+    role_id: int
+    permission_id: int
 
 
 class PermissionRevokeRequest(BaseModel):
     """Revoke a permission from a role."""
 
-    role_id: UUID
-    permission_id: UUID
+    role_id: int
+    permission_id: int
 
 
 # ─── Menu Permissions Response ───
@@ -143,6 +141,25 @@ class MenuPermissionsResponse(BaseModel):
     """User's menu access permissions for frontend consumption."""
 
     menu_keys: list[str]
+    permissions: list[PermissionResponse]
+
+
+# ─── API Permissions Response ───
+
+
+class ApiPermissionsResponse(BaseModel):
+    """
+    User's API-scope permissions, for driving UI affordances.
+
+    `codes` and `resource_actions` describe the same grants two ways because the
+    frontend needs both: a gate written against a permission code
+    (`countries.create`), and a check written against the pair the backend actually
+    authorises on (`countries` + `CREATE`). Deriving one from the other in the UI
+    would mean assuming a naming convention that nothing enforces.
+    """
+
+    codes: list[str]
+    resource_actions: dict[str, list[str]]
     permissions: list[PermissionResponse]
 
 
@@ -162,13 +179,13 @@ class FieldPermissionsResponse(BaseModel):
 class AuditLogResponse(BaseModel):
     """Audit log entry response."""
 
-    id: UUID
-    actor_id: UUID | None
+    id: int
+    actor_id: int | None
     actor_username: str
     action: str
     resource_type: str
     resource_id: str
-    tenant_id: UUID | None
+    tenant_id: int | None
     old_value: str | None
     new_value: str | None
     ip_address: str

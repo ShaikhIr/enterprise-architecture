@@ -1,31 +1,53 @@
-﻿"""
+"""
 User management API endpoints.
 Thin controller — delegates all business logic to UserService.
 """
 
-from uuid import UUID
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.v1.dependencies import get_current_active_user, get_user_repository
+from src.api.v1.dependencies import (
+    get_audit_log_repository,
+    get_current_active_user,
+    get_password_hasher,
+    get_role_assignment_repository,
+    get_role_repository,
+    get_user_details_repository,
+    get_user_repository,
+)
 from src.api.v1.schemas.user_request import CreateUserRequest, UpdateUserRequest
 from src.api.v1.schemas.user_response import UserDetailResponse, UserListResponse, UserResponse
 from src.application.services.user_service import UserService
 from src.domain.entities.user import User
+from src.domain.repositories.audit_log_repository import IAuditLogRepository
+from src.domain.repositories.role_assignment_repository import IRoleAssignmentRepository
+from src.domain.repositories.role_repository import IRoleRepository
+from src.domain.repositories.user_details_repository import IUserDetailsRepository
 from src.domain.repositories.user_repository import IUserRepository
-from src.infrastructure.database.session import get_db_session
+from src.domain.services.password_hasher import IPasswordHasher
 from src.infrastructure.security.permission_manager import require_api_permission
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
 
 def _get_user_service(
-    session: AsyncSession = Depends(get_db_session),
     user_repo: IUserRepository = Depends(get_user_repository),
+    user_details_repo: IUserDetailsRepository = Depends(get_user_details_repository),
+    role_repo: IRoleRepository = Depends(get_role_repository),
+    assignment_repo: IRoleAssignmentRepository = Depends(get_role_assignment_repository),
+    audit_repo: IAuditLogRepository = Depends(get_audit_log_repository),
+    password_hasher: IPasswordHasher = Depends(get_password_hasher),
 ) -> UserService:
-    """FastAPI dependency — creates UserService with injected dependencies."""
-    return UserService(session=session, user_repo=user_repo)
+    """FastAPI dependency — builds UserService from repository ports."""
+    return UserService(
+        user_repo=user_repo,
+        user_details_repo=user_details_repo,
+        role_repo=role_repo,
+        assignment_repo=assignment_repo,
+        audit_repo=audit_repo,
+        password_hasher=password_hasher,
+    )
 
 
 @router.get(
@@ -59,7 +81,7 @@ async def create_user(
     try:
         return await service.create_user(request=request, actor=current_user)
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
 
 
 @router.get(
@@ -68,7 +90,7 @@ async def create_user(
     summary="Get user by ID",
 )
 async def get_user(
-    user_id: UUID,
+    user_id: int,
     current_user: User = Depends(get_current_active_user),
     service: UserService = Depends(_get_user_service),
 ) -> UserResponse:
@@ -77,7 +99,7 @@ async def get_user(
         user = await service.get_user(user_id)
         return UserService._to_response(user)
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
 
 
 @router.patch(
@@ -87,7 +109,7 @@ async def get_user(
     dependencies=[Depends(require_api_permission("users", "UPDATE"))],
 )
 async def update_user(
-    user_id: UUID,
+    user_id: int,
     request: UpdateUserRequest,
     current_user: User = Depends(get_current_active_user),
     service: UserService = Depends(_get_user_service),
@@ -96,7 +118,7 @@ async def update_user(
     try:
         return await service.update_user(user_id=user_id, request=request, actor=current_user)
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
 
 
 @router.get(
@@ -105,7 +127,7 @@ async def update_user(
     summary="Get full user details (all employee AD fields)",
 )
 async def get_user_details(
-    user_id: UUID,
+    user_id: int,
     current_user: User = Depends(get_current_active_user),
     service: UserService = Depends(_get_user_service),
 ) -> UserDetailResponse:
@@ -113,7 +135,7 @@ async def get_user_details(
     try:
         return await service.get_user_details(user_id)
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
 
 
 @router.get(
@@ -121,10 +143,10 @@ async def get_user_details(
     summary="Get roles assigned to a user",
 )
 async def get_user_roles(
-    user_id: UUID,
+    user_id: int,
     current_user: User = Depends(get_current_active_user),
     service: UserService = Depends(_get_user_service),
-) -> dict:
+) -> dict[str, Any]:
     """GET /api/v1/users/{user_id}/roles"""
     return await service.get_user_roles(user_id)
 
@@ -134,10 +156,10 @@ async def get_user_roles(
     summary="Get login/logout history for a user",
 )
 async def get_user_login_history(
-    user_id: UUID,
+    user_id: int,
     limit: int = Query(default=20, ge=1, le=100),
     current_user: User = Depends(get_current_active_user),
     service: UserService = Depends(_get_user_service),
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """GET /api/v1/users/{user_id}/login-history"""
     return await service.get_login_history(user_id=user_id, limit=limit)

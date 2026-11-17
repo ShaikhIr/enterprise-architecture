@@ -1,25 +1,124 @@
-﻿"""
+"""
 FastAPI dependency injection for API v1.
 Provides current user resolution from JWT tokens and service factories.
 """
 
-from uuid import UUID
+import logging
+from functools import lru_cache
+from typing import TYPE_CHECKING
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.api.client_ip import check_proxy_configuration, resolve_client_ip
+from src.application.ports.employee_import_writer import IEmployeeImportWriter
+from src.application.ports.login_attempt_store import ILoginAttemptStore
+from src.application.ports.session_authenticator import ILoginAuditor, ISessionAuthenticator
+from src.application.ports.sso_client import ISsoClient
+from src.application.services.directory_credential_check_service import (
+    DirectoryCredentialCheckService,
+)
+from src.application.services.login_service import LoginService
+from src.application.services.login_throttle_service import (
+    LoginThrottlePolicy,
+    LoginThrottleService,
+)
 from src.domain.entities.user import User
+from src.domain.repositories.approval_matrix_repository import IApprovalMatrixRepository
+from src.domain.repositories.audit_log_repository import IAuditLogRepository
+from src.domain.repositories.category_of_law_repository import ICategoryOfLawRepository
+from src.domain.repositories.country_repository import ICountryRepository
+from src.domain.repositories.legislation_repository import ILegislationRepository
+from src.domain.repositories.permission_repository import IPermissionRepository
+from src.domain.repositories.refresh_token_repository import IRefreshTokenRepository
+from src.domain.repositories.role_assignment_repository import IRoleAssignmentRepository
+from src.domain.repositories.role_repository import IRoleRepository
+from src.domain.repositories.rule_repository import IRuleRepository
+from src.domain.repositories.state_repository import IStateRepository
+from src.domain.repositories.task_type_repository import ITaskTypeRepository
+from src.domain.repositories.user_details_repository import IUserDetailsRepository
 from src.domain.repositories.user_repository import IUserRepository
+from src.domain.repositories.workflow_definition_repository import (
+    IWorkflowDefinitionRepository,
+)
+from src.domain.repositories.workflow_instance_repository import (
+    IWorkflowInstanceRepository,
+)
+from src.domain.services.password_hasher import IPasswordHasher
+from src.domain.services.permission_resolver import IPermissionResolver
+from src.infrastructure.database.audit_context import set_audit_actor
+from src.infrastructure.database.repositories.approval_matrix_repository_impl import (
+    ApprovalMatrixRepositoryImpl,
+)
+from src.infrastructure.database.repositories.audit_log_repository_impl import (
+    AuditLogRepositoryImpl,
+)
+from src.infrastructure.database.repositories.category_of_law_repository_impl import (
+    CategoryOfLawRepositoryImpl,
+)
+from src.infrastructure.database.repositories.country_repository_impl import (
+    CountryRepositoryImpl,
+)
+from src.infrastructure.database.repositories.legislation_repository_impl import (
+    LegislationRepositoryImpl,
+)
+from src.infrastructure.database.repositories.permission_repository_impl import (
+    PermissionRepositoryImpl,
+)
+from src.infrastructure.database.repositories.refresh_token_repository_impl import (
+    RefreshTokenRepositoryImpl,
+)
+from src.infrastructure.database.repositories.role_assignment_repository_impl import (
+    RoleAssignmentRepositoryImpl,
+)
+from src.infrastructure.database.repositories.role_repository_impl import (
+    RoleRepositoryImpl,
+)
+from src.infrastructure.database.repositories.rule_repository_impl import (
+    RuleRepositoryImpl,
+)
+from src.infrastructure.database.repositories.state_repository_impl import (
+    StateRepositoryImpl,
+)
+from src.infrastructure.database.repositories.task_type_repository_impl import (
+    TaskTypeRepositoryImpl,
+)
+from src.infrastructure.database.repositories.user_details_repository_impl import (
+    UserDetailsRepositoryImpl,
+)
 from src.infrastructure.database.repositories.user_repository_impl import (
     UserRepositoryImpl,
 )
+from src.infrastructure.database.repositories.workflow_definition_repository_impl import (
+    WorkflowDefinitionRepositoryImpl,
+)
+from src.infrastructure.database.repositories.workflow_instance_repository_impl import (
+    WorkflowInstanceRepositoryImpl,
+)
 from src.infrastructure.database.session import get_db_session
+from src.infrastructure.external.azure_sso import AzureSsoClient
+from src.infrastructure.external.employee_ad.employee_ad_client import EmployeeADClient
 from src.infrastructure.security.auth_manager import AuthManager
 from src.infrastructure.security.jwt_provider import JWTProvider
+from src.infrastructure.security.password_hasher_impl import BcryptPasswordHasher
+
+if TYPE_CHECKING:
+    # Only for the return-type annotation on get_audit_service, which imports AuditService
+    # lazily inside the function body — matching get_permission_resolver's existing pattern
+    # for PermissionManager below, rather than adding it to this file's module-level imports.
+    from src.infrastructure.security.audit_service import AuditService
+
+logger = logging.getLogger(__name__)
 
 # Bearer token extraction scheme (enables Swagger "Authorize" button)
-bearer_scheme = HTTPBearer(auto_error=True)
+#
+# auto_error=False so that a missing Authorization header reaches get_current_user and is
+# answered with 401. Left to itself, HTTPBearer answers 403, which reads as "authenticated
+# but not allowed" and is not something a client should retry. The SPA holds its access
+# token in memory only, so the first requests after a page reload legitimately arrive
+# without one; they need the 401 that tells the client to refresh and try again.
+bearer_scheme = HTTPBearer(auto_error=False)
 
 
 def get_jwt_provider() -> JWTProvider:
@@ -34,16 +133,284 @@ def get_user_repository(
     return UserRepositoryImpl(session)
 
 
+def get_country_repository(
+    session: AsyncSession = Depends(get_db_session),
+) -> ICountryRepository:
+    """Provide country repository with injected session."""
+    return CountryRepositoryImpl(session)
+
+
+def get_state_repository(
+    session: AsyncSession = Depends(get_db_session),
+) -> IStateRepository:
+    """Provide state repository with injected session."""
+    return StateRepositoryImpl(session)
+
+
+def get_category_of_law_repository(
+    session: AsyncSession = Depends(get_db_session),
+) -> ICategoryOfLawRepository:
+    """Provide category of law repository with injected session."""
+    return CategoryOfLawRepositoryImpl(session)
+
+
+def get_legislation_repository(
+    session: AsyncSession = Depends(get_db_session),
+) -> ILegislationRepository:
+    """Provide legislation repository with injected session."""
+    return LegislationRepositoryImpl(session)
+
+
+def get_rule_repository(
+    session: AsyncSession = Depends(get_db_session),
+) -> IRuleRepository:
+    """Provide rule repository with injected session."""
+    return RuleRepositoryImpl(session)
+
+
+def get_task_type_repository(
+    session: AsyncSession = Depends(get_db_session),
+) -> ITaskTypeRepository:
+    """Provide task type repository with injected session."""
+    return TaskTypeRepositoryImpl(session)
+
+
+def get_workflow_definition_repository(
+    session: AsyncSession = Depends(get_db_session),
+) -> IWorkflowDefinitionRepository:
+    """Provide workflow definition repository with injected session."""
+    return WorkflowDefinitionRepositoryImpl(session)
+
+
+def get_workflow_instance_repository(
+    session: AsyncSession = Depends(get_db_session),
+) -> IWorkflowInstanceRepository:
+    """Provide workflow instance repository with injected session."""
+    return WorkflowInstanceRepositoryImpl(session)
+
+
+def get_approval_matrix_repository(
+    session: AsyncSession = Depends(get_db_session),
+) -> IApprovalMatrixRepository:
+    """Provide approval matrix repository with injected session."""
+    return ApprovalMatrixRepositoryImpl(session)
+
+
+def get_permission_repository(
+    session: AsyncSession = Depends(get_db_session),
+) -> IPermissionRepository:
+    """Provide permission repository with injected session."""
+    return PermissionRepositoryImpl(session)
+
+
+def get_role_repository(
+    session: AsyncSession = Depends(get_db_session),
+) -> IRoleRepository:
+    """Provide role repository with injected session."""
+    return RoleRepositoryImpl(session)
+
+
+def get_role_assignment_repository(
+    session: AsyncSession = Depends(get_db_session),
+) -> IRoleAssignmentRepository:
+    """Provide role assignment repository with injected session."""
+    return RoleAssignmentRepositoryImpl(session)
+
+
+def get_audit_log_repository(
+    session: AsyncSession = Depends(get_db_session),
+) -> IAuditLogRepository:
+    """Provide audit log repository with injected session."""
+    return AuditLogRepositoryImpl(session)
+
+
+def get_permission_resolver(
+    session: AsyncSession = Depends(get_db_session),
+) -> IPermissionResolver:
+    """Provide the effective-permission read model with injected session."""
+    from src.infrastructure.security.permission_manager import PermissionManager
+
+    return PermissionManager(session)
+
+
+def get_user_details_repository(
+    session: AsyncSession = Depends(get_db_session),
+) -> IUserDetailsRepository:
+    """Provide user details repository with injected session."""
+    return UserDetailsRepositoryImpl(session)
+
+
+def get_audit_service(session: AsyncSession = Depends(get_db_session)) -> "AuditService":
+    """
+    Provide the audit-writing service with injected session.
+
+    Same shape as `get_permission_resolver`: an infrastructure adapter that needs the
+    request's session is built once here, so controllers depend on the factory instead
+    of importing `AuditService` and constructing it inline.
+    """
+    from src.infrastructure.security.audit_service import AuditService
+
+    return AuditService(session)
+
+
+def get_employee_import_writer(
+    session: AsyncSession = Depends(get_db_session),
+    user_repo: IUserRepository = Depends(get_user_repository),
+    user_details_repo: IUserDetailsRepository = Depends(get_user_details_repository),
+) -> IEmployeeImportWriter:
+    """
+    Provide the employee-import writer, attached to the request's own session.
+
+    `UnitOfWork.from_session(session)` rather than `UnitOfWork()`: the request-scoped
+    session from `get_db_session` still owns the commit at the end of the request; this
+    writer only needs `savepoint()` from the unit of work, not a second transaction.
+    """
+    from src.infrastructure.database.repositories.employee_import_writer_impl import (
+        EmployeeImportWriterImpl,
+    )
+    from src.infrastructure.database.unit_of_work import UnitOfWork
+
+    uow = UnitOfWork.from_session(session)
+    return EmployeeImportWriterImpl(uow, user_repo, user_details_repo)
+
+
+def get_password_hasher() -> IPasswordHasher:
+    """Provide the password hashing service."""
+    return BcryptPasswordHasher()
+
+
+def get_refresh_token_repository(
+    session: AsyncSession = Depends(get_db_session),
+) -> IRefreshTokenRepository:
+    """Provide refresh token repository with injected session."""
+    return RefreshTokenRepositoryImpl(session)
+
+
+@lru_cache(maxsize=1)
+def get_employee_ad_client() -> EmployeeADClient:
+    """
+    Provide the Darwin AD client.
+
+    One per process: it holds only the configured base URL, and opens its HTTP connection per
+    call. Controllers depend on this factory instead of building the client themselves, which
+    is also what lets a test override it with `app.dependency_overrides`.
+    """
+    return EmployeeADClient()
+
+
+def get_azure_sso_client() -> ISsoClient:
+    """Provide the Microsoft SSO client, built per request so it reads current settings."""
+    return AzureSsoClient()
+
+
 def get_auth_manager(
     user_repo: IUserRepository = Depends(get_user_repository),
     jwt_provider: JWTProvider = Depends(get_jwt_provider),
+    user_details_repo: IUserDetailsRepository = Depends(get_user_details_repository),
+    refresh_token_repo: IRefreshTokenRepository = Depends(get_refresh_token_repository),
+    directory: EmployeeADClient = Depends(get_employee_ad_client),
 ) -> AuthManager:
     """Provide authentication manager with dependencies."""
-    return AuthManager(user_repository=user_repo, jwt_provider=jwt_provider)
+    return AuthManager(
+        user_repository=user_repo,
+        jwt_provider=jwt_provider,
+        user_details_repository=user_details_repo,
+        refresh_token_repository=refresh_token_repo,
+        directory=directory,
+    )
+
+
+def get_client_ip(request: Request) -> str:
+    """
+    The address to rate-limit this request under.
+
+    Not the address written to the audit log: that one reads the left-most X-Forwarded-For
+    hop, which the client controls. This one comes from the socket peer, or from
+    X-Forwarded-For counted from the right by TRUSTED_PROXY_HOPS, so a forged header cannot
+    move it. See `src.api.client_ip`.
+    """
+    from src.config.settings import settings
+
+    check_proxy_configuration(request, settings.TRUSTED_PROXY_HOPS)
+    return resolve_client_ip(request, settings.TRUSTED_PROXY_HOPS)
+
+
+@lru_cache(maxsize=1)
+def _login_attempt_store() -> ILoginAttemptStore:
+    """
+    The process-wide login-attempt store.
+
+    One per process rather than per request: the counters have to outlive a request, and a
+    Redis client wants its connection pool reused. Redis when REDIS_URL is set, falling back
+    to per-process counters if it is unreachable; per-process alone when it is empty.
+    """
+    from redis.asyncio import Redis
+
+    from src.config.settings import settings
+    from src.infrastructure.cache.in_memory_login_attempt_store import (
+        InMemoryLoginAttemptStore,
+    )
+    from src.infrastructure.cache.redis_login_attempt_store import RedisLoginAttemptStore
+    from src.infrastructure.cache.resilient_login_attempt_store import (
+        ResilientLoginAttemptStore,
+    )
+
+    in_process = InMemoryLoginAttemptStore()
+    if not settings.REDIS_URL:
+        return in_process
+    # Short timeouts: when Redis is down, a login should not wait on it. The resilient
+    # wrapper then stops trying for a while instead of paying the timeout on every call.
+    client = Redis.from_url(
+        settings.REDIS_URL,
+        decode_responses=True,
+        socket_connect_timeout=1.0,
+        socket_timeout=1.0,
+    )
+    return ResilientLoginAttemptStore(RedisLoginAttemptStore(client), in_process)
+
+
+def get_login_throttle_service() -> LoginThrottleService:
+    """Provide the login throttle, configured from settings."""
+    from src.config.settings import settings
+
+    policy = LoginThrottlePolicy(
+        enabled=settings.LOGIN_THROTTLE_ENABLED,
+        window_seconds=settings.LOGIN_ATTEMPT_WINDOW_SECONDS,
+        max_attempts_per_account_ip=settings.LOGIN_MAX_ATTEMPTS_PER_ACCOUNT_IP,
+        max_attempts_per_account=settings.LOGIN_MAX_ATTEMPTS_PER_ACCOUNT,
+        max_failures_per_ip=settings.LOGIN_MAX_FAILURES_PER_IP,
+        lockout_seconds=settings.LOGIN_LOCKOUT_SECONDS,
+        familiar_ip_ttl_seconds=settings.LOGIN_FAMILIAR_IP_TTL_SECONDS,
+    )
+    return LoginThrottleService(_login_attempt_store(), policy)
+
+
+def get_directory_credential_check_service(
+    directory: EmployeeADClient = Depends(get_employee_ad_client),
+    throttle: LoginThrottleService = Depends(get_login_throttle_service),
+) -> DirectoryCredentialCheckService:
+    """Provide the throttled credential check used by the Employee AD service screen."""
+    return DirectoryCredentialCheckService(directory=directory, throttle=throttle)
+
+
+def get_session_authenticator(
+    auth_manager: AuthManager = Depends(get_auth_manager),
+) -> ISessionAuthenticator:
+    """Provide the token-issuing authenticator behind its port (the controllers' view of it)."""
+    return auth_manager
+
+
+def get_login_service(
+    authenticator: ISessionAuthenticator = Depends(get_session_authenticator),
+    throttle: LoginThrottleService = Depends(get_login_throttle_service),
+    audit: ILoginAuditor = Depends(get_audit_service),
+) -> LoginService:
+    """Provide the login use case, wired to the throttle, the authenticator and the audit log."""
+    return LoginService(authenticator=authenticator, throttle=throttle, auditor=audit)
 
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     jwt_provider: JWTProvider = Depends(get_jwt_provider),
     user_repo: IUserRepository = Depends(get_user_repository),
 ) -> User:
@@ -54,14 +421,23 @@ async def get_current_user(
         HTTPException 401: If token is missing, invalid, or expired.
         HTTPException 401: If user does not exist.
     """
+    if credentials is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     try:
         payload = jwt_provider.verify_token(credentials.credentials, expected_type="access")
     except Exception as e:
+        # Why it failed (expired, bad signature, wrong type) helps a forger, not the client.
+        logger.info("Access token rejected: %s", e)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid or expired token: {e}",
+            detail="Invalid or expired token",
             headers={"WWW-Authenticate": "Bearer"},
-        )
+        ) from e
 
     user = await user_repo.get_by_username(payload.sub)
     if user is None:
@@ -70,6 +446,19 @@ async def get_current_user(
             detail="User not found",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+    # Attach the identity to the audit context so the SQLAlchemy audit listener
+    # can attribute every write in this request without threading the user
+    # through the service and repository signatures.
+    #
+    # This has to happen here rather than in AuditContextMiddleware: middleware
+    # runs before dependencies, so it has no authenticated user to record. This
+    # dependency shares a task context with the route handler and its database
+    # session, so the value is visible at flush time.
+    #
+    # tenant_id is not set — users are not yet scoped to a tenant. Add it here
+    # once UserModel carries one.
+    set_audit_actor(actor_id=user.id, actor_username=user.username)
 
     return user
 

@@ -3,21 +3,24 @@
  * POST /api/v1/auth/login
  */
 
-import { useForm, Controller } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { InputText } from 'primereact/inputtext';
-import { Password } from 'primereact/password';
+
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from 'primereact/button';
 import { Divider } from 'primereact/divider';
+import { InputText } from 'primereact/inputtext';
 import { Message } from 'primereact/message';
+import { Password } from 'primereact/password';
+import { useForm, Controller } from 'react-hook-form';
+import { useNavigate } from 'react-router-dom';
+import { z } from 'zod';
+
 import { useAppDispatch, useAppSelector } from '@app/store';
-import { loginThunk, clearError } from '../store/authSlice';
-import { microsoftApi } from '../api/microsoftApi';
+
 import emcureLogo from '@assets/images/emcure-logo.svg';
 
+import { microsoftApi } from '../api/microsoftApi';
+import { loginThunk, clearError } from '../store/authSlice';
 
 const loginSchema = z.object({
   username: z.string().min(3, 'Username must be at least 3 characters'),
@@ -47,7 +50,9 @@ export const LoginPage = () => {
     if (loginThunk.fulfilled.match(result)) {
       const redirect = sessionStorage.getItem('redirectAfterLogin') || '/dashboard';
       sessionStorage.removeItem('redirectAfterLogin');
-      navigate(redirect);
+      // `replace` so /login is dropped from history rather than pushed over:
+      // pressing Back from the dashboard should not return to the login form.
+      navigate(redirect, { replace: true });
     }
   };
 
@@ -71,21 +76,18 @@ export const LoginPage = () => {
       <div className="em-login-card p-6 w-full" style={{ maxWidth: '420px' }}>
         {/* Logo / Header */}
         <div className="text-center mb-5">
-          <div
-            className="text-3xl font-bold mb-2"
-            style={{ color: 'var(--color-primary)' }}
-          >
-            <img src={emcureLogo} alt="Emcure — cure and beyond" style={{ height: '56px', width: 'auto' }} />
+          <div className="text-3xl font-bold mb-2" style={{ color: 'var(--color-primary)' }}>
+            <img
+              src={emcureLogo}
+              alt="Emcure — cure and beyond"
+              style={{ height: '56px', width: 'auto' }}
+            />
           </div>
-          <span style={{ color: 'var(--color-text-secondary)' }}>
-            Enterprise App Template
-          </span>
+          <span style={{ color: 'var(--color-text-secondary)' }}>Enterprise Architecture</span>
         </div>
 
         {/* Error Message */}
-        {error && (
-          <Message severity="error" text={error} className="w-full mb-4" />
-        )}
+        {error && <Message severity="error" text={error} className="w-full mb-4" />}
 
         {/* Login Form */}
         <form onSubmit={handleSubmit(onSubmit)}>
