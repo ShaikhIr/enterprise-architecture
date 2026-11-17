@@ -6,6 +6,7 @@ the build instead of being spotted in review (or not at all). Pure static
 analysis of import lines — no database, no app startup.
 """
 
+import re
 from pathlib import Path
 
 SRC = Path(__file__).resolve().parents[2] / "src"
@@ -106,6 +107,45 @@ class TestControllerBoundaries:
             "controllers must not import sqlalchemy or AsyncSession — depend on a "
             "repository/port from dependencies.py instead:\n" + "\n".join(offenders)
         )
+
+
+    # Constructor calls that build an infrastructure adapter. `XService(...)` is deliberately
+    # absent: a controller's private `_get_x_service` factory legitimately assembles an
+    # application service from injected ports.
+    ADAPTER_CONSTRUCTION = re.compile(
+        r"\b(?:\w+RepositoryImpl|\w+Client|PermissionManager|AuthManager|AuditService)\("
+    )
+
+    def test_controllers_do_not_construct_adapters(self) -> None:
+        """
+        An adapter built inside a route body, or once at import time, cannot be replaced in a
+        test with `app.dependency_overrides`, which is how tests ended up patching module
+        attributes (`_ad_client`) instead. Take it from a `Depends()` factory in
+        `dependencies.py`, the one place adapters are built.
+        """
+        offenders = []
+        for path in _python_files("api/v1/endpoints"):
+            for lineno, line in enumerate(path.read_bytes().decode("utf-8-sig").splitlines(), 1):
+                stripped = line.strip()
+                if stripped.startswith(("#", '"""', "'''")) or "import " in stripped:
+                    continue
+                if self.ADAPTER_CONSTRUCTION.search(stripped):
+                    offenders.append(f"{path.relative_to(SRC)}:{lineno}  {stripped}")
+        assert not offenders, (
+            "controllers must not construct infrastructure adapters; inject them with "
+            "Depends() from dependencies.py:\n" + "\n".join(offenders)
+        )
+
+    def test_the_guard_recognises_the_patterns_it_exists_for(self) -> None:
+        for construction in (
+            "client = AzureSsoClient()",
+            "_ad_client = EmployeeADClient()",
+            "repo = UserRepositoryImpl(session)",
+            "resolver = PermissionManager(session)",
+            "audit = AuditService(session)",
+        ):
+            assert self.ADAPTER_CONSTRUCTION.search(construction), construction
+        assert not self.ADAPTER_CONSTRUCTION.search("return ItemService(item_repo=item_repo)")
 
 
 class TestTransactionBoundaries:

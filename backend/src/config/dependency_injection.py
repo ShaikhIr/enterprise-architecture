@@ -8,10 +8,15 @@ from functools import lru_cache
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.application.ports.directory_credentials import IDirectoryCredentialValidator
 from src.application.ports.file_storage import IFileStorage
 from src.config.settings import settings
+from src.domain.repositories.refresh_token_repository import IRefreshTokenRepository
 from src.domain.repositories.user_details_repository import IUserDetailsRepository
 from src.domain.repositories.user_repository import IUserRepository
+from src.infrastructure.database.repositories.refresh_token_repository_impl import (
+    RefreshTokenRepositoryImpl,
+)
 from src.infrastructure.database.repositories.user_details_repository_impl import (
     UserDetailsRepositoryImpl,
 )
@@ -84,13 +89,21 @@ class Container:
         return UserDetailsRepositoryImpl(session)
 
     @staticmethod
+    def get_refresh_token_repository(session: AsyncSession) -> IRefreshTokenRepository:
+        return RefreshTokenRepositoryImpl(session)
+
+    @staticmethod
     def get_auth_manager(
         user_repo: IUserRepository,
         jwt_provider: JWTProvider,
         user_details_repo: IUserDetailsRepository,
+        refresh_token_repo: IRefreshTokenRepository,
+        directory: IDirectoryCredentialValidator,
     ) -> AuthManager:
         return AuthManager(
             user_repository=user_repo,
             jwt_provider=jwt_provider,
             user_details_repository=user_details_repo,
+            refresh_token_repository=refresh_token_repo,
+            directory=directory,
         )

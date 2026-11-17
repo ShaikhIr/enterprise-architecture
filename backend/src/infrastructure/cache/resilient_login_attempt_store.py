@@ -49,6 +49,9 @@ class ResilientLoginAttemptStore(ILoginAttemptStore):
     async def increment(self, key: str, window_seconds: int) -> CounterState:
         return await self._run(lambda store: store.increment(key, window_seconds))
 
+    async def decrement(self, key: str) -> None:
+        await self._run(lambda store: store.decrement(key))
+
     async def set_lock(self, key: str, seconds: int) -> bool:
         return await self._run(lambda store: store.set_lock(key, seconds))
 

@@ -11,14 +11,12 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.responses import Response
 
+from src.application.exceptions.auth_exceptions import AuthenticationError
 from src.domain.exceptions.domain_exceptions import (
     BusinessRuleViolationError,
     DomainError,
     DuplicateEntityError,
     EntityNotFoundError,
-)
-from src.infrastructure.security.auth_manager import (
-    AuthenticationError,
 )
 from src.observability.correlation import get_correlation_id
 from src.observability.structured_logger import get_logger
@@ -33,6 +31,23 @@ DOMAIN_ERROR_STATUS: dict[type[DomainError], int] = {
     BusinessRuleViolationError: status.HTTP_409_CONFLICT,
 }
 DEFAULT_DOMAIN_ERROR_STATUS = status.HTTP_400_BAD_REQUEST
+
+
+def _error_body(message: str, correlation_id: str | None) -> dict[str, object]:
+    """
+    The JSON body of an error response.
+
+    `detail` is the shape every other error in this API uses (FastAPI's `HTTPException`,
+    the login route, 422 validation), and the one the API standard requires. `message` and
+    `success` are kept alongside it because existing clients read them; both carry the same
+    text, so a client can use whichever it already knows.
+    """
+    return {
+        "detail": message,
+        "success": False,
+        "message": message,
+        "correlation_id": correlation_id,
+    }
 
 
 class ExceptionHandlerMiddleware(BaseHTTPMiddleware):
@@ -67,11 +82,7 @@ class ExceptionHandlerMiddleware(BaseHTTPMiddleware):
             status_code=DOMAIN_ERROR_STATUS.get(
                 type(error), DEFAULT_DOMAIN_ERROR_STATUS
             ),
-            content={
-                "success": False,
-                "message": error.message,
-                "correlation_id": correlation_id,
-            },
+            content=_error_body(error.message, correlation_id),
         )
 
     def _handle_auth_error(
@@ -93,11 +104,7 @@ class ExceptionHandlerMiddleware(BaseHTTPMiddleware):
         # auth layer that raised it.
         return JSONResponse(
             status_code=error.status_code,
-            content={
-                "success": False,
-                "message": error.message,
-                "correlation_id": correlation_id,
-            },
+            content=_error_body(error.message, correlation_id),
         )
 
     def _handle_unexpected_error(
@@ -119,9 +126,5 @@ class ExceptionHandlerMiddleware(BaseHTTPMiddleware):
 
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={
-                "success": False,
-                "message": "Internal Server Error",
-                "correlation_id": correlation_id,
-            },
+            content=_error_body("Internal Server Error", correlation_id),
         )

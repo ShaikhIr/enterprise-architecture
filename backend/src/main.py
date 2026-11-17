@@ -18,6 +18,7 @@ from src.api.middleware.request_logging import RequestLoggingMiddleware
 from src.api.v1.router import api_v1_router
 from src.config.dependency_injection import Container
 from src.config.logging_config import configure_file_logging
+from src.config.security_checks import validate_security_configuration
 from src.config.settings import settings
 from src.observability.structured_logger import configure_logging, get_logger
 
@@ -67,6 +68,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Startup
     configure_logging()
     configure_file_logging()
+    validate_security_configuration(settings)
     log_login_throttle_configuration()
 
     # Prove object storage is usable before traffic arrives, so a bucket typo or
@@ -89,8 +91,10 @@ app = FastAPI(
         "Enterprise Architecture API — enterprise-grade "
         "FastAPI with Clean Architecture"
     ),
-    docs_url="/docs",
-    redoc_url="/redoc",
+    # The interactive docs list every route and request shape. Useful while developing,
+    # an information gift to anyone probing a deployment, so they follow DEBUG.
+    docs_url="/docs" if settings.DEBUG else None,
+    redoc_url="/redoc" if settings.DEBUG else None,
     lifespan=lifespan,
 )
 

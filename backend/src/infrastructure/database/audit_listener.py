@@ -44,7 +44,12 @@ logger = logging.getLogger(__name__)
 
 # Tables never audited. `audit_logs` must stay here to prevent recursion;
 # anything else added is a deliberate decision to stop recording a table.
-EXCLUDED_TABLES: frozenset[str] = frozenset({"audit_logs"})
+#
+# `refresh_tokens` is high-churn session bookkeeping (a row per login and per token
+# refresh), not business data. Logins, logouts and lockouts are audited explicitly through
+# `AuditService`, which is the record that matters; a row-level trail of every rotation
+# would only bury it.
+EXCLUDED_TABLES: frozenset[str] = frozenset({"audit_logs", "refresh_tokens"})
 
 # Column values replaced with a placeholder. The fact that the field changed
 # stays auditable; the secret itself must never land in the trail.

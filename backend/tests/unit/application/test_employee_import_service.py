@@ -93,7 +93,7 @@ def service(
 
 
 class TestDefaultPassword:
-    async def test_without_default_password_new_user_gets_employee_id_as_password(
+    async def test_without_default_password_the_employee_id_is_not_the_password(
         self,
         service: EmployeeImportService,
         writer: FakeEmployeeImportWriter,
@@ -102,7 +102,19 @@ class TestDefaultPassword:
         await service.import_employees({"employeeData": [_employee("E1001")]}, actor="admin")
 
         stored = writer.hash_for("E1001")
-        assert hasher.verify("E1001", stored) is True
+        # Guessable by every colleague, so it must not be what the account is left with.
+        assert hasher.verify("E1001", stored) is False
+
+    async def test_without_default_password_each_new_user_gets_a_different_one(
+        self,
+        service: EmployeeImportService,
+        writer: FakeEmployeeImportWriter,
+    ) -> None:
+        await service.import_employees(
+            {"employeeData": [_employee("E1"), _employee("E2")]}, actor="admin"
+        )
+
+        assert writer.hash_for("E1") != writer.hash_for("E2")
 
     async def test_default_password_is_applied_to_new_users(
         self,
@@ -121,7 +133,7 @@ class TestDefaultPassword:
         # The employee id must no longer be accepted as the password.
         assert hasher.verify("E1002", stored) is False
 
-    async def test_blank_default_password_falls_back_to_employee_id(
+    async def test_blank_default_password_is_treated_as_not_provided(
         self,
         service: EmployeeImportService,
         writer: FakeEmployeeImportWriter,
@@ -134,7 +146,9 @@ class TestDefaultPassword:
         )
 
         stored = writer.hash_for("E1003")
-        assert hasher.verify("E1003", stored) is True
+        # Neither the blank value nor the employee id: a random password nobody knows.
+        assert hasher.verify("   ", stored) is False
+        assert hasher.verify("E1003", stored) is False
 
     async def test_default_password_applies_to_every_new_user_in_the_batch(
         self,

@@ -14,19 +14,21 @@ fix, so they document two defects:
    partial-success contract cannot be honoured.
 """
 
-from collections.abc import Callable
-from contextlib import AbstractContextManager
+from collections.abc import Callable, Iterator
+from contextlib import AbstractContextManager, contextmanager
 from typing import Any
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 from httpx import AsyncClient
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.api.v1.dependencies import get_employee_ad_client
 from src.infrastructure.database.models.user_details_model import UserDetailsModel
 from src.infrastructure.database.models.user_model import UserModel
 from src.infrastructure.security.password_encoder import verify_password
+from src.main import app
 
 IMPORT_URL = "/api/v1/users/import-employees"
 
@@ -46,24 +48,26 @@ def _employee(employee_id: str, first: str = "Ada", last: str = "Lovelace") -> d
     }
 
 
-# Calling the fixture returns a context manager that patches the AD client for
-# the duration of the `with` block.
+# Calling the fixture returns a context manager that makes the AD client answer with the
+# given employees for the duration of the `with` block.
 DarwinStub = Callable[[list[dict[str, Any]]], AbstractContextManager[Any]]
 
 
 @pytest.fixture
 def darwin_returns() -> DarwinStub:
-    """Patch the module-level AD client so no network call is made."""
+    """Override the injected AD client so no network call is made."""
 
-    def _apply(employees: list[dict[str, Any]]) -> AbstractContextManager[Any]:
-        mock = AsyncMock()
-        mock.get_selected_employees.return_value = {"employeeData": employees}
-        return patch(
-            "src.api.v1.endpoints.employee_import_controller._ad_client", mock
-        )
+    @contextmanager
+    def _apply(employees: list[dict[str, Any]]) -> Iterator[None]:
+        stub = AsyncMock()
+        stub.get_selected_employees.return_value = {"employeeData": employees}
+        app.dependency_overrides[get_employee_ad_client] = lambda: stub
+        try:
+            yield
+        finally:
+            app.dependency_overrides.pop(get_employee_ad_client, None)
 
     return _apply
-
 
 class TestSingleEmployeeImport:
     async def test_new_employee_is_created(
@@ -165,22 +169,66 @@ class TestDefaultPassword:
         assert verify_password("Welcome@123", stored) is True
         assert verify_password("P1001", stored) is False
 
-    async def test_absent_default_password_falls_back_to_employee_id(
+    async def test_absent_default_password_leaves_a_password_nobody_knows(
         self,
         admin_client: AsyncClient,
         darwin_returns: DarwinStub,
         db_session: AsyncSession,
     ) -> None:
-        with darwin_returns([_employee("P1002")]):
+        with darwin_returns([_employee("P1002"), _employee("P1003")]):
             response = await admin_client.post(
-                IMPORT_URL, json={"employee_ids": ["P1002"]}
+                IMPORT_URL, json={"employee_ids": ["P1002", "P1003"]}
             )
 
         assert response.status_code == 200, response.text
-        assert response.json()["created"] == 1
+        assert response.json()["created"] == 2
 
-        stored = await self._password_hash_for(db_session, "P1002")
-        assert verify_password("P1002", stored) is True
+        first = await self._password_hash_for(db_session, "P1002")
+        second = await self._password_hash_for(db_session, "P1003")
+        # Not the employee id (which every colleague can guess), and not shared.
+        assert verify_password("P1002", first) is False
+        assert verify_password("P1003", second) is False
+        assert first != second
+
+    async def test_blank_default_password_is_treated_as_absent(
+        self,
+        admin_client: AsyncClient,
+        darwin_returns: DarwinStub,
+        db_session: AsyncSession,
+    ) -> None:
+        with darwin_returns([_employee("P1004")]):
+            response = await admin_client.post(
+                IMPORT_URL, json={"employee_ids": ["P1004"], "default_password": "   "}
+            )
+
+        assert response.status_code == 200, response.text
+        stored = await self._password_hash_for(db_session, "P1004")
+        assert verify_password("   ", stored) is False
+        assert verify_password("P1004", stored) is False
+
+    @pytest.mark.parametrize("password", ["short", "1234567", "x" * 73, "é" * 40])
+    async def test_an_unusable_default_password_is_rejected(
+        self, admin_client: AsyncClient, darwin_returns: DarwinStub, password: str
+    ) -> None:
+        """Too short to be a password, or too long for bcrypt to read all of it."""
+        with darwin_returns([_employee("P1005")]):
+            response = await admin_client.post(
+                IMPORT_URL, json={"employee_ids": ["P1005"], "default_password": password}
+            )
+
+        assert response.status_code == 422, response.text
+
+    async def test_a_default_password_at_the_limits_is_accepted(
+        self, admin_client: AsyncClient, darwin_returns: DarwinStub
+    ) -> None:
+        for index, password in enumerate(["12345678", "x" * 72]):
+            employee_id = f"P11{index}"
+            with darwin_returns([_employee(employee_id)]):
+                response = await admin_client.post(
+                    IMPORT_URL,
+                    json={"employee_ids": [employee_id], "default_password": password},
+                )
+            assert response.status_code == 200, response.text
 
 
 class TestPartialFailureIsolation:

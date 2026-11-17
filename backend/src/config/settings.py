@@ -48,6 +48,18 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = Field(
         default=7, description="Refresh token expiry in days"
     )
+    REFRESH_REUSE_GRACE_SECONDS: int = Field(
+        default=10,
+        ge=0,
+        le=300,
+        description=(
+            "Refresh tokens are single-use: each refresh rotates the cookie to a new token. "
+            "Two tabs that refresh at the same instant both present the same token, and the "
+            "second must not be mistaken for theft. A token spent less than this many seconds "
+            "ago is answered with a new access token only (no new cookie, session kept); a "
+            "token replayed after it ends the whole session. 0 disables the allowance."
+        ),
+    )
 
     # File storage
     UPLOAD_DIR: str = Field(
@@ -307,6 +319,19 @@ class Settings(BaseSettings):
     COOKIE_DOMAIN: str = Field(
         default="",
         description="Cookie domain. Empty means host-only (recommended for same-origin).",
+    )
+    SSO_TXN_COOKIE_NAME: str = Field(
+        default="sso_txn",
+        description=(
+            "Name of the short-lived HttpOnly cookie that binds a Microsoft sign-in to the "
+            "browser that started it (holds the OAuth `state` and PKCE verifier)."
+        ),
+    )
+    SSO_TXN_TTL_SECONDS: int = Field(
+        default=600,
+        ge=60,
+        le=3600,
+        description="How long a started Microsoft sign-in may take to come back.",
     )
 
     model_config = {

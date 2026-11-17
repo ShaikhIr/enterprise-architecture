@@ -118,3 +118,38 @@ class TestJWTProvider:
         assert isinstance(payload, dict)
         assert payload["sub"] == self.username
         assert payload["token_type"] == "access"
+
+
+class TestRefreshTokenId:
+    """A refresh token's `jti` is what lets the server spend it once and revoke it."""
+
+    def setup_method(self) -> None:
+        self.jwt = JWTProvider()
+
+    def test_every_refresh_token_gets_its_own_jti(self) -> None:
+        first = self.jwt.verify_token(
+            self.jwt.create_refresh_token("alice", 1), expected_type="refresh"
+        )
+        second = self.jwt.verify_token(
+            self.jwt.create_refresh_token("alice", 1), expected_type="refresh"
+        )
+
+        assert first.jti
+        assert second.jti
+        assert first.jti != second.jti
+
+    def test_a_caller_supplied_jti_is_the_one_in_the_token(self) -> None:
+        token = self.jwt.create_refresh_token("alice", 1, jti="abc123")
+
+        assert self.jwt.verify_token(token, expected_type="refresh").jti == "abc123"
+
+    def test_two_tokens_made_in_the_same_second_still_differ(self) -> None:
+        """Without a jti they would be byte-identical, and rotation could not tell them apart."""
+        assert self.jwt.create_refresh_token("alice", 1) != self.jwt.create_refresh_token(
+            "alice", 1
+        )
+
+    def test_access_tokens_carry_no_jti(self) -> None:
+        token = self.jwt.create_access_token("alice", 1)
+
+        assert self.jwt.verify_token(token, expected_type="access").jti is None

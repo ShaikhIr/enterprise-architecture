@@ -18,7 +18,10 @@ from typing import Any, cast
 import pytest
 from redis.asyncio import Redis
 
-from src.infrastructure.cache.redis_login_attempt_store import RedisLoginAttemptStore
+from src.infrastructure.cache.redis_login_attempt_store import (
+    _DECREMENT_IF_POSITIVE,
+    RedisLoginAttemptStore,
+)
 
 
 class FakeRedis:
@@ -32,6 +35,8 @@ class FakeRedis:
         self.ttl_override: dict[str, int] = {}
         # Every direct SET the store sent (not those inside a pipeline), to pin its arguments.
         self.sets: list[dict[str, object]] = []
+        # Every EVAL the store sent: (script, numkeys, keys).
+        self.scripts: list[tuple[str, int, tuple[str, ...]]] = []
 
     def advance(self, seconds: float) -> None:
         self.now += seconds
@@ -98,6 +103,16 @@ class FakeRedis:
 
     async def delete(self, key: str) -> int:
         return self.do_delete(key)
+
+    async def eval(self, script: str, numkeys: int, *keys: str) -> int:
+        """Runs the one script the store sends, with the semantics of the Lua it contains."""
+        self.scripts.append((script, numkeys, keys))
+        assert script == _DECREMENT_IF_POSITIVE, "the store sent a script this fake does not know"
+        entry = self._alive(keys[0])
+        if entry is None or int(entry[0]) <= 0:
+            return 0
+        self.data[keys[0]] = (str(int(entry[0]) - 1), entry[1])  # DECR keeps the expiry
+        return int(entry[0]) - 1
 
 
 class FakePipeline:
@@ -363,3 +378,58 @@ class TestDelete:
         self, store: RedisLoginAttemptStore
     ) -> None:
         await store.delete("never-existed")
+
+
+class TestDecrement:
+    async def test_takes_one_back_and_keeps_the_lifetime(
+        self, store: RedisLoginAttemptStore, redis: FakeRedis
+    ) -> None:
+        await store.increment("k", 300)
+        await store.increment("k", 300)
+        redis.advance(100)
+
+        await store.decrement("k")
+
+        state = await store.peek("k")
+        assert state is not None
+        assert state.count == 1
+        assert state.ttl_seconds == 200
+
+    async def test_never_goes_below_zero(
+        self, store: RedisLoginAttemptStore, redis: FakeRedis
+    ) -> None:
+        await store.increment("k", 300)
+
+        await store.decrement("k")
+        await store.decrement("k")
+
+        state = await store.peek("k")
+        assert state is not None
+        assert state.count == 0
+
+    async def test_a_missing_counter_is_not_created(
+        self, store: RedisLoginAttemptStore, redis: FakeRedis
+    ) -> None:
+        """A bare DECR would create it as -1 with no expiry, a counter that never resets."""
+        await store.decrement("never-existed")
+
+        assert "never-existed" not in redis.data
+
+    async def test_an_expired_counter_is_not_resurrected(
+        self, store: RedisLoginAttemptStore, redis: FakeRedis
+    ) -> None:
+        await store.increment("k", 300)
+        redis.advance(301)
+
+        await store.decrement("k")
+
+        assert "k" not in redis.data
+
+    async def test_it_is_one_atomic_script_call_not_a_read_then_a_write(
+        self, store: RedisLoginAttemptStore, redis: FakeRedis
+    ) -> None:
+        await store.increment("k", 300)
+
+        await store.decrement("k")
+
+        assert redis.scripts == [(_DECREMENT_IF_POSITIVE, 1, ("k",))]

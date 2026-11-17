@@ -3,6 +3,7 @@ FastAPI dependency injection for API v1.
 Provides current user resolution from JWT tokens and service factories.
 """
 
+import logging
 from functools import lru_cache
 from typing import TYPE_CHECKING
 
@@ -13,6 +14,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.api.client_ip import check_proxy_configuration, resolve_client_ip
 from src.application.ports.employee_import_writer import IEmployeeImportWriter
 from src.application.ports.login_attempt_store import ILoginAttemptStore
+from src.application.ports.session_authenticator import ILoginAuditor, ISessionAuthenticator
+from src.application.ports.sso_client import ISsoClient
+from src.application.services.directory_credential_check_service import (
+    DirectoryCredentialCheckService,
+)
+from src.application.services.login_service import LoginService
 from src.application.services.login_throttle_service import (
     LoginThrottlePolicy,
     LoginThrottleService,
@@ -24,6 +31,7 @@ from src.domain.repositories.category_of_law_repository import ICategoryOfLawRep
 from src.domain.repositories.country_repository import ICountryRepository
 from src.domain.repositories.legislation_repository import ILegislationRepository
 from src.domain.repositories.permission_repository import IPermissionRepository
+from src.domain.repositories.refresh_token_repository import IRefreshTokenRepository
 from src.domain.repositories.role_assignment_repository import IRoleAssignmentRepository
 from src.domain.repositories.role_repository import IRoleRepository
 from src.domain.repositories.rule_repository import IRuleRepository
@@ -58,6 +66,9 @@ from src.infrastructure.database.repositories.legislation_repository_impl import
 from src.infrastructure.database.repositories.permission_repository_impl import (
     PermissionRepositoryImpl,
 )
+from src.infrastructure.database.repositories.refresh_token_repository_impl import (
+    RefreshTokenRepositoryImpl,
+)
 from src.infrastructure.database.repositories.role_assignment_repository_impl import (
     RoleAssignmentRepositoryImpl,
 )
@@ -86,6 +97,8 @@ from src.infrastructure.database.repositories.workflow_instance_repository_impl 
     WorkflowInstanceRepositoryImpl,
 )
 from src.infrastructure.database.session import get_db_session
+from src.infrastructure.external.azure_sso import AzureSsoClient
+from src.infrastructure.external.employee_ad.employee_ad_client import EmployeeADClient
 from src.infrastructure.security.auth_manager import AuthManager
 from src.infrastructure.security.jwt_provider import JWTProvider
 from src.infrastructure.security.password_hasher_impl import BcryptPasswordHasher
@@ -95,6 +108,8 @@ if TYPE_CHECKING:
     # lazily inside the function body — matching get_permission_resolver's existing pattern
     # for PermissionManager below, rather than adding it to this file's module-level imports.
     from src.infrastructure.security.audit_service import AuditService
+
+logger = logging.getLogger(__name__)
 
 # Bearer token extraction scheme (enables Swagger "Authorize" button)
 #
@@ -264,16 +279,44 @@ def get_password_hasher() -> IPasswordHasher:
     return BcryptPasswordHasher()
 
 
+def get_refresh_token_repository(
+    session: AsyncSession = Depends(get_db_session),
+) -> IRefreshTokenRepository:
+    """Provide refresh token repository with injected session."""
+    return RefreshTokenRepositoryImpl(session)
+
+
+@lru_cache(maxsize=1)
+def get_employee_ad_client() -> EmployeeADClient:
+    """
+    Provide the Darwin AD client.
+
+    One per process: it holds only the configured base URL, and opens its HTTP connection per
+    call. Controllers depend on this factory instead of building the client themselves, which
+    is also what lets a test override it with `app.dependency_overrides`.
+    """
+    return EmployeeADClient()
+
+
+def get_azure_sso_client() -> ISsoClient:
+    """Provide the Microsoft SSO client, built per request so it reads current settings."""
+    return AzureSsoClient()
+
+
 def get_auth_manager(
     user_repo: IUserRepository = Depends(get_user_repository),
     jwt_provider: JWTProvider = Depends(get_jwt_provider),
     user_details_repo: IUserDetailsRepository = Depends(get_user_details_repository),
+    refresh_token_repo: IRefreshTokenRepository = Depends(get_refresh_token_repository),
+    directory: EmployeeADClient = Depends(get_employee_ad_client),
 ) -> AuthManager:
     """Provide authentication manager with dependencies."""
     return AuthManager(
         user_repository=user_repo,
         jwt_provider=jwt_provider,
         user_details_repository=user_details_repo,
+        refresh_token_repository=refresh_token_repo,
+        directory=directory,
     )
 
 
@@ -342,6 +385,30 @@ def get_login_throttle_service() -> LoginThrottleService:
     return LoginThrottleService(_login_attempt_store(), policy)
 
 
+def get_directory_credential_check_service(
+    directory: EmployeeADClient = Depends(get_employee_ad_client),
+    throttle: LoginThrottleService = Depends(get_login_throttle_service),
+) -> DirectoryCredentialCheckService:
+    """Provide the throttled credential check used by the Employee AD service screen."""
+    return DirectoryCredentialCheckService(directory=directory, throttle=throttle)
+
+
+def get_session_authenticator(
+    auth_manager: AuthManager = Depends(get_auth_manager),
+) -> ISessionAuthenticator:
+    """Provide the token-issuing authenticator behind its port (the controllers' view of it)."""
+    return auth_manager
+
+
+def get_login_service(
+    authenticator: ISessionAuthenticator = Depends(get_session_authenticator),
+    throttle: LoginThrottleService = Depends(get_login_throttle_service),
+    audit: ILoginAuditor = Depends(get_audit_service),
+) -> LoginService:
+    """Provide the login use case, wired to the throttle, the authenticator and the audit log."""
+    return LoginService(authenticator=authenticator, throttle=throttle, auditor=audit)
+
+
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     jwt_provider: JWTProvider = Depends(get_jwt_provider),
@@ -364,9 +431,11 @@ async def get_current_user(
     try:
         payload = jwt_provider.verify_token(credentials.credentials, expected_type="access")
     except Exception as e:
+        # Why it failed (expired, bad signature, wrong type) helps a forger, not the client.
+        logger.info("Access token rejected: %s", e)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid or expired token: {e}",
+            detail="Invalid or expired token",
             headers={"WWW-Authenticate": "Bearer"},
         ) from e
 

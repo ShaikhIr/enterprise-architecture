@@ -25,6 +25,9 @@ from src.infrastructure.database.models.category_of_law_model import (
 )
 from src.infrastructure.database.models.country_model import CountryModel  # noqa: F401
 from src.infrastructure.database.models.legislation_model import LegislationModel  # noqa: F401
+from src.infrastructure.database.models.refresh_token_model import (  # noqa: F401
+    RefreshTokenModel,
+)
 from src.infrastructure.database.models.role_model import (  # noqa: F401
     PermissionModel,
     RoleAssignmentModel,

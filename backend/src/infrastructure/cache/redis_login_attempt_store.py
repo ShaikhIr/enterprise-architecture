@@ -4,7 +4,8 @@ Redis-backed login-attempt store.
 Shared by every API replica, which is what makes the limits real once there is more than
 one process: a per-process counter lets an attacker spread guesses across replicas.
 
-Only plain commands, no Lua. The multi-step operation is one MULTI/EXEC transaction:
+Plain commands, except for the one guarded decrement (see `_DECREMENT_IF_POSITIVE`). The
+multi-step increment is one MULTI/EXEC transaction:
 
     SET key 0 NX EX <window>   create with its expiry, or leave an existing counter alone
     INCR key                   the atomic increment
@@ -23,6 +24,17 @@ __all__ = ["RedisLoginAttemptStore"]
 
 _NO_SUCH_KEY = -2
 _NO_EXPIRY = -1
+
+# The one script in this store, and the one place plain commands are not enough: a bare DECR on
+# a counter that expired a moment ago would create it as -1 *with no TTL*, a counter that never
+# resets. The guard and the DECR must therefore run as one step.
+_DECREMENT_IF_POSITIVE = """
+local value = tonumber(redis.call('GET', KEYS[1]))
+if value and value > 0 then
+    return redis.call('DECR', KEYS[1])
+end
+return 0
+"""
 
 
 class RedisLoginAttemptStore(ILoginAttemptStore):
@@ -47,6 +59,11 @@ class RedisLoginAttemptStore(ILoginAttemptStore):
             pipe.ttl(key)
             _, count, ttl = await pipe.execute()
         return CounterState(int(count), self._to_seconds(ttl, default=window_seconds))
+
+    async def decrement(self, key: str) -> None:
+        # redis-py types `eval` as returning `Awaitable[str] | str` because one signature
+        # serves the sync and async clients; this is the async one, so it is awaitable.
+        await self._redis.eval(_DECREMENT_IF_POSITIVE, 1, key)  # type: ignore[misc]
 
     async def set_lock(self, key: str, seconds: int) -> bool:
         return bool(await self._redis.set(key, "1", ex=seconds, nx=True))

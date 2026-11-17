@@ -11,8 +11,13 @@ Uses httpx for async HTTP calls. No business logic — only Microsoft API intera
 
 from __future__ import annotations
 
+import base64
+import hashlib
+import hmac
 import logging
+import secrets
 import urllib.parse
+from dataclasses import dataclass
 from typing import Any
 
 from src.config.settings import settings
@@ -40,6 +45,49 @@ class AzureUnavailableError(AzureSsoError):
     """Microsoft identity service could not be reached."""
 
 
+@dataclass(frozen=True)
+class SsoTransaction:
+    """
+    The per-sign-in secrets: kept by the server side of the browser session, never trusted
+    from the callback request.
+    """
+
+    state: str
+    code_verifier: str
+
+    @property
+    def code_challenge(self) -> str:
+        """PKCE S256 challenge derived from the verifier (RFC 7636)."""
+        digest = hashlib.sha256(self.code_verifier.encode("ascii")).digest()
+        return base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
+
+    def to_cookie_value(self) -> str:
+        """Serialise for the HttpOnly cookie. Both parts are URL-safe base64, so `.` is free."""
+        return f"{self.state}.{self.code_verifier}"
+
+    @classmethod
+    def from_cookie_value(cls, value: str | None) -> SsoTransaction | None:
+        """Parse a cookie written by `to_cookie_value`; None when absent or malformed."""
+        if not value:
+            return None
+        state, sep, verifier = value.partition(".")
+        if not sep or not state or not verifier:
+            return None
+        return cls(state=state, code_verifier=verifier)
+
+    @classmethod
+    def start(cls) -> SsoTransaction:
+        """New random state and PKCE verifier (256 bits each)."""
+        return cls(
+            state=secrets.token_urlsafe(32),
+            code_verifier=secrets.token_urlsafe(48),
+        )
+
+    def matches_state(self, presented: str) -> bool:
+        """Constant-time comparison of the state the callback presented."""
+        return hmac.compare_digest(self.state.encode("utf-8"), presented.encode("utf-8"))
+
+
 class AzureSsoClient:
     """Client for Azure AD / Microsoft OAuth2 SSO."""
 
@@ -58,9 +106,15 @@ class AzureSsoClient:
     def redirect_uri(self) -> str:
         return self._redirect_uri
 
-    def build_authorization_url(self) -> tuple[str, str]:
+    def build_authorization_url(self, *, state: str, code_challenge: str) -> tuple[str, str]:
         """
         Build the Azure AD OAuth2 authorization URL.
+
+        Args:
+            state: Unguessable value the browser must bring back unchanged. The caller keeps
+                its own copy and rejects the callback if they differ (login CSRF defence).
+            code_challenge: PKCE S256 challenge for the verifier the caller keeps, so an
+                authorization code stolen in transit cannot be redeemed without it.
 
         Returns:
             Tuple of (auth_url, redirect_uri)
@@ -72,12 +126,15 @@ class AzureSsoClient:
             "response_mode": "query",
             "scope": "openid profile email User.Read",
             "prompt": "select_account",
+            "state": state,
+            "code_challenge": code_challenge,
+            "code_challenge_method": "S256",
         }
         base_url = f"https://login.microsoftonline.com/{self._tenant_id}/oauth2/v2.0/authorize"
         auth_url = base_url + "?" + urllib.parse.urlencode(params)
         return auth_url, self._redirect_uri
 
-    async def exchange_code_for_profile(self, code: str) -> dict[str, Any]:
+    async def exchange_code_for_profile(self, code: str, code_verifier: str) -> dict[str, Any]:
         """
         Exchange an authorization code for tokens and return the Microsoft Graph profile.
 
@@ -99,6 +156,7 @@ class AzureSsoClient:
             "client_id": self._client_id,
             "client_secret": self._client_secret,
             "code": code,
+            "code_verifier": code_verifier,
             "redirect_uri": self._redirect_uri,
             "grant_type": "authorization_code",
             "scope": "openid profile email User.Read",
@@ -127,9 +185,15 @@ class AzureSsoClient:
         except AzureTokenMissingError:
             raise
         except httpx.HTTPStatusError as exc:
-            detail = f"Microsoft authentication failed: {exc.response.text}"
-            logger.error(detail)
-            raise AzureAuthError(detail) from exc
+            # Microsoft's error body can carry tenant and application ids, trace ids and
+            # error codes. It goes to the log; the caller (and so the browser) gets a fixed
+            # message.
+            logger.error(
+                "Microsoft authentication failed: status=%s body=%s",
+                exc.response.status_code,
+                exc.response.text,
+            )
+            raise AzureAuthError("Microsoft authentication failed") from exc
         except httpx.RequestError as exc:
             logger.error(f"Microsoft unreachable: {exc}")
             raise AzureUnavailableError() from exc

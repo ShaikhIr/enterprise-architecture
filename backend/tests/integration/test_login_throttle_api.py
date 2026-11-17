@@ -19,6 +19,7 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from user_fakes import FakeDirectory, FakeRefreshTokenRepository, FakeUserDetailsRepository
 
 from src.api.v1.dependencies import (
     get_audit_service,
@@ -85,7 +86,13 @@ class CountingAuthManager(AuthManager):
     """The real AuthManager, counting how often credentials were actually checked."""
 
     def __init__(self, user_repository: FakeUserRepo, jwt_provider: JWTProvider) -> None:
-        super().__init__(user_repository, jwt_provider)  # type: ignore[arg-type]
+        super().__init__(
+            user_repository=user_repository,  # type: ignore[arg-type]
+            jwt_provider=jwt_provider,
+            user_details_repository=FakeUserDetailsRepository(),
+            refresh_token_repository=FakeRefreshTokenRepository(),
+            directory=FakeDirectory(),
+        )
         self.checked = 0
 
     async def login(self, username: str, password: str) -> AuthTokenResponse:

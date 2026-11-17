@@ -316,3 +316,46 @@ class TestBound:
 
         assert await store.set_lock("lock", 900) is True
         assert await store.lock_ttl("lock") == 900
+
+
+class TestDecrement:
+    async def test_takes_one_back_and_keeps_the_lifetime(
+        self, store: InMemoryLoginAttemptStore, clock: Clock
+    ) -> None:
+        await store.increment("k", 300)
+        await store.increment("k", 300)
+        clock.now += 100
+
+        await store.decrement("k")
+
+        state = await store.peek("k")
+        assert state is not None
+        assert state.count == 1
+        assert state.ttl_seconds == 200
+
+    async def test_never_goes_below_zero(self, store: InMemoryLoginAttemptStore) -> None:
+        await store.increment("k", 300)
+
+        await store.decrement("k")
+        await store.decrement("k")
+
+        state = await store.peek("k")
+        assert state is not None
+        assert state.count == 0
+
+    async def test_a_missing_counter_is_not_created(
+        self, store: InMemoryLoginAttemptStore
+    ) -> None:
+        await store.decrement("never-existed")
+
+        assert await store.peek("never-existed") is None
+
+    async def test_an_expired_counter_is_not_resurrected(
+        self, store: InMemoryLoginAttemptStore, clock: Clock
+    ) -> None:
+        await store.increment("k", 300)
+        clock.now += 301
+
+        await store.decrement("k")
+
+        assert await store.peek("k") is None

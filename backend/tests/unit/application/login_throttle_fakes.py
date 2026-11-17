@@ -52,6 +52,12 @@ class FakeLoginAttemptStore(ILoginAttemptStore):
         self._entries[key] = (entry[0] + 1, entry[1])
         return CounterState(entry[0] + 1, self._seconds_left(entry[1]))
 
+    async def decrement(self, key: str) -> None:
+        await asyncio.sleep(0)
+        entry = self._live(key)
+        if entry is not None and entry[0] > 0:
+            self._entries[key] = (entry[0] - 1, entry[1])
+
     async def set_lock(self, key: str, seconds: int) -> bool:
         await asyncio.sleep(0)
         if self._live(key) is not None:

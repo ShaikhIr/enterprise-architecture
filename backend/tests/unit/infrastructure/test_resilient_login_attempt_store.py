@@ -51,6 +51,10 @@ class SwitchableStore(ILoginAttemptStore):
         self._check()
         return await self.inner.increment(key, window_seconds)
 
+    async def decrement(self, key: str) -> None:
+        self._check()
+        await self.inner.decrement(key)
+
     async def set_lock(self, key: str, seconds: int) -> bool:
         self._check()
         return await self.inner.set_lock(key, seconds)
@@ -135,13 +139,23 @@ class TestPrimaryFailure:
         [
             lambda s: s.peek("k"),
             lambda s: s.increment("k", 300),
+            lambda s: s.decrement("k"),
             lambda s: s.set_lock("lock", 900),
             lambda s: s.lock_ttl("lock"),
             lambda s: s.remember("m", 3_600),
             lambda s: s.is_remembered("m"),
             lambda s: s.delete("k"),
         ],
-        ids=["peek", "increment", "set_lock", "lock_ttl", "remember", "is_remembered", "delete"],
+        ids=[
+            "peek",
+            "increment",
+            "decrement",
+            "set_lock",
+            "lock_ttl",
+            "remember",
+            "is_remembered",
+            "delete",
+        ],
     )
     async def test_every_operation_has_a_fallback(
         self,

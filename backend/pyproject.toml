@@ -62,6 +62,9 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Same extra import root as mypy_path below, so tests outside tests/unit/application can import
+# the shared hand-written fakes (user_fakes, master_fakes, ...).
+pythonpath = [".", "tests/unit/application"]
 # -ra always prints a short summary of skips/failures, so a mass skip (e.g. the
 # database being unreachable) is visible in the log instead of hiding behind a
 # green run.

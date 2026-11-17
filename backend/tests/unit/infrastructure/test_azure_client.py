@@ -19,6 +19,7 @@ from src.infrastructure.external.azure_sso.azure_client import (
     AzureSsoClient,
     AzureTokenMissingError,
     AzureUnavailableError,
+    SsoTransaction,
 )
 
 StubHttp = Callable[[Callable[[httpx.Request], httpx.Response]], list[httpx.Request]]
@@ -26,6 +27,9 @@ StubHttp = Callable[[Callable[[httpx.Request], httpx.Response]], list[httpx.Requ
 TENANT_ID = "tenant-abc"
 CLIENT_ID = "client-xyz"
 REDIRECT_URI = "http://localhost:6769/auth/microsoft/callback"
+STATE = "state-123"
+VERIFIER = "verifier-abc"
+CHALLENGE = "challenge-def"
 
 GRAPH_PROFILE = {
     "id": "ms-oid-1",
@@ -106,7 +110,9 @@ def test_redirect_uri_uses_configured_value(
 def test_build_authorization_url_targets_the_tenant(
     azure_client: AzureSsoClient,
 ) -> None:
-    auth_url, redirect_uri = azure_client.build_authorization_url()
+    auth_url, redirect_uri = azure_client.build_authorization_url(
+        state=STATE, code_challenge=CHALLENGE
+    )
 
     assert auth_url.startswith(
         f"https://login.microsoftonline.com/{TENANT_ID}/oauth2/v2.0/authorize?"
@@ -117,7 +123,7 @@ def test_build_authorization_url_targets_the_tenant(
 def test_build_authorization_url_carries_the_oauth_parameters(
     azure_client: AzureSsoClient,
 ) -> None:
-    auth_url, _ = azure_client.build_authorization_url()
+    auth_url, _ = azure_client.build_authorization_url(state=STATE, code_challenge=CHALLENGE)
     query = urllib.parse.parse_qs(urllib.parse.urlparse(auth_url).query)
 
     assert query["client_id"] == [CLIENT_ID]
@@ -126,13 +132,16 @@ def test_build_authorization_url_carries_the_oauth_parameters(
     assert query["response_mode"] == ["query"]
     assert query["prompt"] == ["select_account"]
     assert query["scope"] == ["openid profile email User.Read"]
+    assert query["state"] == [STATE]
+    assert query["code_challenge"] == [CHALLENGE]
+    assert query["code_challenge_method"] == ["S256"]
 
 
 def test_build_authorization_url_never_leaks_the_client_secret(
     azure_client: AzureSsoClient,
 ) -> None:
     """The authorize URL goes to the browser; the secret must stay server-side."""
-    auth_url, _ = azure_client.build_authorization_url()
+    auth_url, _ = azure_client.build_authorization_url(state=STATE, code_challenge=CHALLENGE)
     assert "client-secret" not in auth_url
 
 
@@ -150,7 +159,7 @@ async def test_exchange_code_returns_graph_profile(
         )
     )
 
-    profile = await azure_client.exchange_code_for_profile("auth-code")
+    profile = await azure_client.exchange_code_for_profile("auth-code", VERIFIER)
 
     assert profile == GRAPH_PROFILE
     assert len(requests) == 2
@@ -167,7 +176,7 @@ async def test_exchange_code_posts_the_authorization_code_grant(
         )
     )
 
-    await azure_client.exchange_code_for_profile("auth-code")
+    await azure_client.exchange_code_for_profile("auth-code", VERIFIER)
 
     token_request = requests[0]
     assert token_request.method == "POST"
@@ -181,6 +190,7 @@ async def test_exchange_code_posts_the_authorization_code_grant(
     assert form["client_id"] == [CLIENT_ID]
     assert form["client_secret"] == ["client-secret"]
     assert form["redirect_uri"] == [REDIRECT_URI]
+    assert form["code_verifier"] == [VERIFIER]
 
 
 @pytest.mark.asyncio
@@ -195,7 +205,7 @@ async def test_exchange_code_forwards_the_token_to_graph(
         )
     )
 
-    await azure_client.exchange_code_for_profile("auth-code")
+    await azure_client.exchange_code_for_profile("auth-code", VERIFIER)
 
     graph_request = requests[1]
     assert graph_request.method == "GET"
@@ -211,7 +221,7 @@ async def test_exchange_code_raises_when_token_absent(
     requests = stub_http(_two_hop(httpx.Response(200, json={"token_type": "Bearer"})))
 
     with pytest.raises(AzureTokenMissingError):
-        await azure_client.exchange_code_for_profile("auth-code")
+        await azure_client.exchange_code_for_profile("auth-code", VERIFIER)
 
     assert len(requests) == 1
 
@@ -225,9 +235,11 @@ async def test_exchange_code_maps_token_endpoint_error(
     )
 
     with pytest.raises(AzureAuthError) as exc_info:
-        await azure_client.exchange_code_for_profile("stale-code")
+        await azure_client.exchange_code_for_profile("stale-code", VERIFIER)
 
-    assert "invalid_grant" in exc_info.value.detail
+    # Microsoft's own error body is logged, never handed to the caller (and so the browser).
+    assert exc_info.value.detail == "Microsoft authentication failed"
+    assert "invalid_grant" not in exc_info.value.detail
 
 
 @pytest.mark.asyncio
@@ -242,9 +254,10 @@ async def test_exchange_code_maps_graph_error(
     )
 
     with pytest.raises(AzureAuthError) as exc_info:
-        await azure_client.exchange_code_for_profile("auth-code")
+        await azure_client.exchange_code_for_profile("auth-code", VERIFIER)
 
-    assert "unauthorized" in exc_info.value.detail
+    assert exc_info.value.detail == "Microsoft authentication failed"
+    assert "unauthorized" not in exc_info.value.detail
 
 
 @pytest.mark.asyncio
@@ -254,4 +267,47 @@ async def test_exchange_code_maps_transport_failure_to_unavailable(
     stub_http(_raiser(httpx.ConnectError("microsoft down")))
 
     with pytest.raises(AzureUnavailableError):
-        await azure_client.exchange_code_for_profile("auth-code")
+        await azure_client.exchange_code_for_profile("auth-code", VERIFIER)
+
+
+# ─────────────────────────── SsoTransaction (state + PKCE) ───────────────────────────
+
+
+def test_challenge_is_the_s256_of_the_verifier() -> None:
+    """RFC 7636 appendix B's worked example."""
+    transaction = SsoTransaction(
+        state="s", code_verifier="dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
+    )
+
+    assert transaction.code_challenge == "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"
+
+
+def test_each_transaction_is_random_and_url_safe() -> None:
+    first, second = SsoTransaction.start(), SsoTransaction.start()
+
+    assert first.state != second.state
+    assert first.code_verifier != second.code_verifier
+    for value in (first.state, first.code_verifier):
+        assert "." not in value
+        assert len(value) >= 43  # PKCE verifier minimum
+
+
+def test_cookie_value_round_trips() -> None:
+    original = SsoTransaction.start()
+
+    restored = SsoTransaction.from_cookie_value(original.to_cookie_value())
+
+    assert restored == original
+
+
+@pytest.mark.parametrize("value", [None, "", "no-separator", ".verifier-only", "state-only."])
+def test_a_missing_or_malformed_cookie_is_no_transaction(value: str | None) -> None:
+    assert SsoTransaction.from_cookie_value(value) is None
+
+
+def test_state_comparison_accepts_only_the_issued_state() -> None:
+    transaction = SsoTransaction(state="issued", code_verifier="v")
+
+    assert transaction.matches_state("issued") is True
+    assert transaction.matches_state("forged") is False
+    assert transaction.matches_state("") is False

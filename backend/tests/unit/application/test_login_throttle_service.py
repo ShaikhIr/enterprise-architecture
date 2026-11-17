@@ -577,3 +577,89 @@ class TestMonitoring:
 
         assert "\n" not in refused.account
         assert len(refused.account) <= 64
+
+
+class TestReleaseAttempt:
+    """Giving back an attempt that was reserved but never evaluated (the directory was down)."""
+
+    @pytest.fixture
+    def tight(self, store: FakeLoginAttemptStore) -> LoginThrottleService:
+        return LoginThrottleService(
+            store,
+            LoginThrottlePolicy(
+                window_seconds=300,
+                max_attempts_per_account_ip=2,
+                max_attempts_per_account=4,
+                max_failures_per_ip=50,
+                lockout_seconds=60,
+            ),
+        )
+
+    async def test_released_attempts_do_not_use_up_the_budget(
+        self, tight: LoginThrottleService
+    ) -> None:
+        for _ in range(10):
+            ticket = await tight.begin_attempt("alice", "10.0.0.1")
+            await tight.release_attempt(ticket)
+
+        # Ten retries through an outage later, the user still has their full budget.
+        await tight.begin_attempt("alice", "10.0.0.1")
+        await tight.begin_attempt("alice", "10.0.0.1")
+
+    async def test_unreleased_attempts_do_use_it_up(self, tight: LoginThrottleService) -> None:
+        await tight.begin_attempt("alice", "10.0.0.1")
+        await tight.begin_attempt("alice", "10.0.0.1")
+
+        with pytest.raises(LoginThrottledError):
+            await tight.begin_attempt("alice", "10.0.0.1")
+
+    async def test_only_what_the_ticket_reserved_is_returned(
+        self, tight: LoginThrottleService, store: FakeLoginAttemptStore
+    ) -> None:
+        ticket = await tight.begin_attempt("alice", "10.0.0.1")
+        assert ticket.reserved_unfamiliar is True
+        assert store.count(ticket.account_ip_key) == 1
+        assert store.count(ticket.unfamiliar_key) == 1
+
+        await tight.release_attempt(ticket)
+
+        assert store.count(ticket.account_ip_key) == 0
+        assert store.count(ticket.unfamiliar_key) == 0
+
+    async def test_a_familiar_address_never_touched_the_account_wide_count(
+        self, tight: LoginThrottleService, store: FakeLoginAttemptStore
+    ) -> None:
+        first = await tight.begin_attempt("alice", "10.0.0.1")
+        await tight.record_success(first)
+        other = await tight.begin_attempt("alice", "10.0.0.2")
+        before = store.count(other.unfamiliar_key)
+
+        familiar = await tight.begin_attempt("alice", "10.0.0.1")
+        assert familiar.reserved_unfamiliar is False
+        await tight.release_attempt(familiar)
+
+        assert store.count(other.unfamiliar_key) == before
+
+    async def test_it_does_not_lift_a_lockout_already_in_force(
+        self, tight: LoginThrottleService
+    ) -> None:
+        for _ in range(2):
+            await tight.begin_attempt("alice", "10.0.0.1")
+        with pytest.raises(LoginThrottledError):
+            await tight.begin_attempt("alice", "10.0.0.1")
+        ticket = tight._ticket("alice", "10.0.0.1")
+
+        await tight.release_attempt(ticket)
+
+        with pytest.raises(LoginThrottledError):
+            await tight.begin_attempt("alice", "10.0.0.1")
+
+    async def test_it_does_nothing_when_throttling_is_off(
+        self, store: FakeLoginAttemptStore
+    ) -> None:
+        off = LoginThrottleService(store, LoginThrottlePolicy(enabled=False))
+        ticket = await off.begin_attempt("alice", "10.0.0.1")
+
+        await off.release_attempt(ticket)
+
+        assert store.live_keys() == []

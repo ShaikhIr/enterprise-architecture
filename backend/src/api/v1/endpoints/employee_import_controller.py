@@ -9,10 +9,11 @@ this controller only calls Darwin, translates its error, and delegates.
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from src.api.v1.dependencies import (
     get_current_active_user,
+    get_employee_ad_client,
     get_employee_import_writer,
     get_password_hasher,
 )
@@ -29,7 +30,9 @@ from src.infrastructure.security.permission_manager import require_permission
 router = APIRouter(prefix="/users", tags=["Users"])
 logger = logging.getLogger(__name__)
 
-_ad_client = EmployeeADClient()
+MIN_DEFAULT_PASSWORD_LENGTH = 8
+# bcrypt ignores everything past 72 bytes (newer releases reject it), so longer is not stronger.
+MAX_DEFAULT_PASSWORD_BYTES = 72
 
 
 class ImportEmployeesRequest(BaseModel):
@@ -39,10 +42,27 @@ class ImportEmployeesRequest(BaseModel):
     default_password: str | None = Field(
         default=None,
         description=(
-            "Initial password for newly created users. When omitted or blank, each new "
-            "user's employee id is used as the default password."
+            "Initial password for newly created users, 8 to 72 characters. When omitted or "
+            "blank, each new user gets a random password nobody knows: imported users sign "
+            "in through the corporate directory, and an administrator sets a local one if "
+            "that is ever turned off."
         ),
     )
+
+    @field_validator("default_password")
+    @classmethod
+    def _validate_default_password(cls, value: str | None) -> str | None:
+        """Blank means "not provided"; anything else must be a usable password."""
+        if value is None or not value.strip():
+            return None
+        if not MIN_DEFAULT_PASSWORD_LENGTH <= len(value) <= MAX_DEFAULT_PASSWORD_BYTES:
+            raise ValueError(
+                f"default_password must be {MIN_DEFAULT_PASSWORD_LENGTH} to "
+                f"{MAX_DEFAULT_PASSWORD_BYTES} characters"
+            )
+        if len(value.encode("utf-8")) > MAX_DEFAULT_PASSWORD_BYTES:
+            raise ValueError("default_password is too long (bcrypt reads at most 72 bytes)")
+        return value
 
 
 class ImportResult(BaseModel):
@@ -81,22 +101,24 @@ async def import_employees(
     request: ImportEmployeesRequest,
     current_user: User = Depends(get_current_active_user),
     service: EmployeeImportService = Depends(_get_employee_import_service),
+    ad_client: EmployeeADClient = Depends(get_employee_ad_client),
 ) -> ImportEmployeesResponse:
     """
     POST /api/v1/users/import-employees
 
     Fetch employees from Darwin AD and upsert into users + user_details.
 
-    - New users: created with username=employee_id, password=hash(default_password or
-      employee_id). Imported users default to AD validation (is_validate_ad=True), so this
-      local password is the fallback used only if that flag is later turned off.
+    - New users: created with username=employee_id and the hash of `default_password`, or of
+      a random password when none is given. Imported users default to AD validation
+      (is_validate_ad=True), so the local password is a fallback used only if that flag is
+      later turned off.
     - Existing users: password unchanged, user_details updated with latest Darwin data
 
     One employee failing does not fail the batch — see
     `EmployeeImportWriterImpl.upsert_employee` for the per-record isolation.
     """
     try:
-        darwin_response = await _ad_client.get_selected_employees(request.employee_ids)
+        darwin_response = await ad_client.get_selected_employees(request.employee_ids)
     except EmployeeADError as exc:
         raise HTTPException(status_code=502, detail=f"Darwin API error: {exc.detail}") from exc
 

@@ -46,6 +46,17 @@ class ILoginAttemptStore(ABC):
         ...
 
     @abstractmethod
+    async def decrement(self, key: str) -> None:
+        """
+        Atomically take one back from a counter that exists, never below zero.
+
+        Gives back an attempt that was reserved but turned out to say nothing about the
+        guesser (the directory was down). A counter that does not exist, or has already
+        run out, is left alone, and the counter's lifetime is never changed.
+        """
+        ...
+
+    @abstractmethod
     async def set_lock(self, key: str, seconds: int) -> bool:
         """
         Set an expiring flag unless it is already set.

@@ -11,6 +11,7 @@ request — that per-record isolation is the writer's job (see
 `EmployeeImportWriterImpl.upsert_employee`); this service only decides what to write.
 """
 
+import secrets
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -57,8 +58,11 @@ class EmployeeImportService:
         observed to return.
 
         `default_password`, when provided (non-blank), is the initial password set on
-        every newly created user; when omitted the employee id is used as the default,
-        preserving the original import contract. Either way the hash is only applied to
+        every newly created user. When omitted, each new user gets its own random password
+        that nobody is told: imported users sign in through the corporate directory
+        (`is_validate_ad`), so a local password is only a fallback, and one derived from the
+        employee id would be guessable by every colleague the moment that flag is turned
+        off. An administrator sets a real one then. Either way the hash is only applied to
         brand-new users — an existing user's password is never changed on re-import.
         """
         employee_data_list = self._extract_employee_list(darwin_response)
@@ -84,7 +88,9 @@ class EmployeeImportService:
             outcome = await self._writer.upsert_employee(
                 employee_id=emp_id,
                 details_fields=self._extract_details_fields(emp_data),
-                new_user_password_hash=self._hasher.hash(chosen_password or emp_id),
+                new_user_password_hash=self._hasher.hash(
+                    chosen_password or secrets.token_urlsafe(24)
+                ),
                 actor=actor,
             )
             result.total += 1

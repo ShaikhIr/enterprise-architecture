@@ -41,7 +41,7 @@ No HTTP concepts here: callers get `LoginThrottledError` and decide how to prese
 
 import hashlib
 import unicodedata
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import StrEnum
 
 import structlog
@@ -126,6 +126,9 @@ class LoginAttemptTicket:
     # Normalised and escaped, safe to log. The client chooses this string.
     account_label: str
     client_ip: str
+    # Whether this attempt was also counted against the unfamiliar-address cap, so that
+    # `release_attempt` returns exactly what was taken.
+    reserved_unfamiliar: bool = False
 
 
 class LoginThrottleService:
@@ -171,7 +174,23 @@ class LoginThrottleService:
                     ThrottleReason.ACCOUNT_UNFAMILIAR_LOCKOUT,
                     ticket,
                 )
+            ticket = replace(ticket, reserved_unfamiliar=True)
         return ticket
+
+    async def release_attempt(self, ticket: LoginAttemptTicket) -> None:
+        """
+        Give back the attempt reserved by `begin_attempt`, because it was never evaluated.
+
+        For a request that failed for a reason that says nothing about the guess, such as the
+        corporate directory being down. Without this, a user retrying through an outage would
+        use up their own budget and be locked out for it. Only the reservations this ticket
+        actually made are returned, and no lockout already in force is lifted.
+        """
+        if not self._policy.enabled:
+            return
+        await self._store.decrement(ticket.account_ip_key)
+        if ticket.reserved_unfamiliar:
+            await self._store.decrement(ticket.unfamiliar_key)
 
     async def record_failure(self, ticket: LoginAttemptTicket) -> None:
         """Count a failed attempt against the client IP. The account side was reserved already."""

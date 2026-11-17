@@ -66,6 +66,11 @@ class InMemoryLoginAttemptStore(ILoginAttemptStore):
         entry.count += 1
         return CounterState(entry.count, self._seconds_left(entry))
 
+    async def decrement(self, key: str) -> None:
+        entry = self._live(key)
+        if entry is not None and entry.count > 0:
+            entry.count -= 1
+
     async def set_lock(self, key: str, seconds: int) -> bool:
         if self._live(key) is not None:
             return False

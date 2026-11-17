@@ -11,32 +11,35 @@ from fastapi.responses import JSONResponse
 
 from src.api.v1.dependencies import (
     get_audit_service,
-    get_auth_manager,
+    get_azure_sso_client,
     get_client_ip,
     get_current_active_user,
-    get_login_throttle_service,
-    get_user_repository,
+    get_login_service,
+    get_session_authenticator,
 )
 from src.api.v1.schemas.auth_schema import (
     LoginRequest,
+    MicrosoftCallbackRequest,
     TokenResponse,
 )
-from src.application.services.login_throttle_service import (
-    LoginThrottledError,
-    LoginThrottleService,
+from src.application.exceptions.auth_exceptions import AuthenticationError
+from src.application.ports.session_authenticator import AuthTokenResponse, ISessionAuthenticator
+from src.application.ports.sso_client import ISsoClient
+from src.application.services.login_service import (
+    LoginRejected,
+    LoginService,
+    LoginThrottled,
 )
 from src.common.decorators.log_execution import log_execution
 from src.config.settings import settings
 from src.domain.entities.user import User
-from src.domain.repositories.user_repository import IUserRepository
-from src.infrastructure.security.audit_service import AuditService
-from src.infrastructure.security.auth_manager import (
-    AuthenticationError,
-    AuthManager,
-    InvalidCredentialsError,
-    UserBlockedError,
-    UserInactiveError,
+from src.infrastructure.external.azure_sso import (
+    AzureAuthError,
+    AzureTokenMissingError,
+    AzureUnavailableError,
+    SsoTransaction,
 )
+from src.infrastructure.security.audit_service import AuditService
 from src.observability.structured_logger import get_logger
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -46,32 +49,22 @@ logger = get_logger(__name__)
 # account exists, so the response reveals nothing about either.
 THROTTLED_DETAIL = "Too many login attempts. Please try again later."
 
-# Why a rejected login was rejected, for the audit trail. Never sent to the client.
-_REJECTION_REASONS: dict[type[AuthenticationError], str] = {
-    InvalidCredentialsError: "Invalid credentials",
-    UserInactiveError: "User inactive",
-    UserBlockedError: "User blocked",
-}
+SSO_NOT_CONFIGURED_DETAIL = "Microsoft SSO is not configured on this server"
+SSO_SESSION_INVALID_DETAIL = (
+    "Microsoft sign-in session is invalid or has expired. Please try again."
+)
 
 
-def _get_client_ip(request: Request) -> str:
-    """The address recorded in audit rows. Not a security decision: see `get_client_ip`."""
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.client.host if request.client else ""
-
-
-def _login_refused(
+def _refused(
     status_code: int, detail: str, *, retry_after: int | None = None
 ) -> JSONResponse:
     """
-    The error response for a login attempt, returned rather than raised.
+    An error response for the auth endpoints, returned rather than raised.
 
     Raising HTTPException makes `get_db_session` roll the request back, which would discard
-    the audit row written a moment earlier: a failed login would be logged and then
-    un-logged. Returning the response lets the session commit. The body and status are what
-    HTTPException produced, so clients see no difference.
+    whatever was written a moment earlier: the audit row of a failed login, or the revocation
+    of a session whose refresh token was replayed. Returning the response lets the session
+    commit. The body and status are what HTTPException produced, so clients see no difference.
     """
     headers = {"Retry-After": str(retry_after)} if retry_after is not None else None
     return JSONResponse(status_code=status_code, content={"detail": detail}, headers=headers)
@@ -97,34 +90,50 @@ def _set_refresh_cookie(response: Response, refresh_token: str) -> None:
     )
 
 
-def _clear_refresh_cookie(response: Response) -> None:
-    """Remove the refresh token cookie (used on logout)."""
+def _clear_cookie(response: Response, name: str) -> None:
+    """Remove a cookie set by the auth endpoints."""
     response.delete_cookie(
-        key=settings.REFRESH_COOKIE_NAME,
+        key=name,
         path=settings.REFRESH_COOKIE_PATH,
         domain=settings.COOKIE_DOMAIN or None,
     )
 
 
-def _refresh_cookie_clear_headers() -> dict[str, str]:
+def _clear_cookie_headers(name: str) -> dict[str, str]:
     """
-    Build the ``Set-Cookie`` header that clears the refresh cookie.
+    Build the ``Set-Cookie`` header that clears a cookie, for attaching to an exception.
 
-    Raising an ``HTTPException`` discards any mutation already made to the
-    ``Response`` object injected via ``Depends()``: FastAPI's exception
-    handling builds a brand-new response from ``HTTPException.headers``
-    only, so a prior ``response.delete_cookie(...)`` call on the injected
-    ``Response`` never reaches the client once the handler raises instead
-    of returning. Attaching the header to the exception itself is the only
-    way to make the deletion take effect on an error response.
+    Raising an ``HTTPException`` discards any mutation already made to the ``Response``
+    object injected via ``Depends()``: FastAPI builds a brand-new response from
+    ``HTTPException.headers`` only, so a prior ``response.delete_cookie(...)`` never reaches
+    the client once the handler raises instead of returning.
     """
     scratch = Response()
-    scratch.delete_cookie(
-        key=settings.REFRESH_COOKIE_NAME,
-        path=settings.REFRESH_COOKIE_PATH,
-        domain=settings.COOKIE_DOMAIN or None,
-    )
+    _clear_cookie(scratch, name)
     return {"set-cookie": scratch.headers["set-cookie"]}
+
+
+def _session_response(response: Response, tokens: AuthTokenResponse) -> TokenResponse:
+    """
+    The success body, with the refresh token delivered as an HttpOnly cookie.
+
+    `tokens.refresh_token` is None when the caller's token was spent a moment ago by another
+    tab; that tab's response already carries the successor cookie, so none is set here.
+    """
+    if tokens.refresh_token is not None:
+        _set_refresh_cookie(response, tokens.refresh_token)
+    return TokenResponse(
+        access_token=tokens.access_token,
+        token_type=tokens.token_type,
+        expires_in=tokens.expires_in,
+    )
+
+
+def _session_ended(status_code: int, detail: str) -> JSONResponse:
+    """An error response that also tells the browser to drop its refresh cookie."""
+    refused = _refused(status_code, detail)
+    _clear_cookie(refused, settings.REFRESH_COOKIE_NAME)
+    return refused
 
 
 @router.post(
@@ -156,79 +165,47 @@ async def login(
     request: LoginRequest,
     http_request: Request,
     response: Response,
-    auth_manager: AuthManager = Depends(get_auth_manager),
-    user_repo: IUserRepository = Depends(get_user_repository),
-    audit: AuditService = Depends(get_audit_service),
-    throttle: LoginThrottleService = Depends(get_login_throttle_service),
-    throttle_ip: str = Depends(get_client_ip),
+    service: LoginService = Depends(get_login_service),
+    client_ip: str = Depends(get_client_ip),
 ) -> TokenResponse | JSONResponse:
     """POST /api/v1/auth/login — Throttles, authenticates and logs the event."""
-    ip = _get_client_ip(http_request)
-    user_agent = http_request.headers.get("user-agent", "")
-
-    # Before anything is looked up or verified: a throttled request must cost no bcrypt and
-    # must never reach the corporate AD service.
-    try:
-        ticket = await throttle.begin_attempt(request.username, throttle_ip)
-    except LoginThrottledError as e:
-        if e.lockout_started:
-            await audit.log_login_locked(
-                username=request.username, ip_address=ip, user_agent=user_agent,
-                reason=f"Locked for {e.retry_after_seconds}s after repeated failed "
-                f"logins ({e.reason.value})",
-            )
-        return _login_refused(
-            status.HTTP_429_TOO_MANY_REQUESTS, THROTTLED_DETAIL, retry_after=e.retry_after_seconds
-        )
-
-    try:
-        result = await auth_manager.login(
-            username=request.username,
-            password=request.password,
-        )
-    except (InvalidCredentialsError, UserInactiveError, UserBlockedError) as e:
-        await throttle.record_failure(ticket)
-        await audit.log_login(
-            user_id=None, username=request.username, success=False,
-            ip_address=ip, user_agent=user_agent, reason=_REJECTION_REASONS[type(e)],
-        )
-        return _login_refused(e.status_code, e.message)
-
-    await throttle.record_success(ticket)
-
-    # Log successful login
-    user = await user_repo.get_by_username(request.username)
-    if user:
-        await audit.log_login(
-            user_id=user.id, username=user.username, success=True,
-            ip_address=ip, user_agent=user_agent,
-        )
-
-    # Refresh token → HttpOnly cookie (never exposed to JS). Access token → body.
-    _set_refresh_cookie(response, result.refresh_token)
-
-    return TokenResponse(
-        access_token=result.access_token,
-        token_type=result.token_type,
-        expires_in=result.expires_in,
+    result = await service.login(
+        request.username,
+        request.password,
+        client_ip=client_ip,
+        user_agent=http_request.headers.get("user-agent", ""),
     )
+    if isinstance(result, LoginThrottled):
+        return _refused(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            THROTTLED_DETAIL,
+            retry_after=result.retry_after_seconds,
+        )
+    if isinstance(result, LoginRejected):
+        return _refused(result.status_code, result.message)
+    return _session_response(response, result.tokens)
 
 
 @router.post(
     "/logout",
     status_code=status.HTTP_200_OK,
     summary="Logout user",
-    description="Logs the logout event in audit trail.",
+    description=(
+        "Ends the session (revokes its refresh token) and logs the event in the audit trail."
+    ),
 )
 async def logout(
     http_request: Request,
     response: Response,
+    client_ip: str = Depends(get_client_ip),
+    refresh_token: str | None = Cookie(default=None, alias=settings.REFRESH_COOKIE_NAME),
     current_user: User = Depends(get_current_active_user),
+    authenticator: ISessionAuthenticator = Depends(get_session_authenticator),
     audit: AuditService = Depends(get_audit_service),
 ) -> dict[str, Any]:
-    """POST /api/v1/auth/logout — Records logout in audit trail and clears the refresh cookie."""
-    ip = _get_client_ip(http_request)
-    user_agent = http_request.headers.get("user-agent", "")
+    """POST /api/v1/auth/logout — Revokes the session, records it and clears the cookie."""
+    if refresh_token:
+        await authenticator.revoke_session(refresh_token)
 
     await audit.log(
         actor_id=current_user.id,
@@ -236,11 +213,11 @@ async def logout(
         action="LOGOUT",
         resource_type="Authentication",
         resource_id=current_user.username,
-        ip_address=ip,
-        user_agent=user_agent,
+        ip_address=client_ip,
+        user_agent=http_request.headers.get("user-agent", ""),
     )
 
-    _clear_refresh_cookie(response)
+    _clear_cookie(response, settings.REFRESH_COOKIE_NAME)
 
     return {"detail": "Logged out successfully"}
 
@@ -251,48 +228,40 @@ async def logout(
     response_model_exclude_none=True,
     status_code=status.HTTP_200_OK,
     summary="Refresh access token",
-    description="Exchange the refresh cookie for a new access token.",
+    description=(
+        "Exchange the refresh cookie for a new access token. The refresh token is single-use: "
+        "the response sets a new cookie, and presenting a spent one ends the session."
+    ),
 )
 @log_execution
 async def refresh_token(
+    response: Response,
     refresh_token: str | None = Cookie(default=None, alias=settings.REFRESH_COOKIE_NAME),
-    auth_manager: AuthManager = Depends(get_auth_manager),
-) -> TokenResponse:
+    authenticator: ISessionAuthenticator = Depends(get_session_authenticator),
+) -> TokenResponse | JSONResponse:
     """
     POST /api/v1/auth/refresh
 
-    Reads the refresh token from the HttpOnly cookie and issues a new access
-    token. Used both for silent re-auth on access-token expiry and for the
+    Reads the refresh token from the HttpOnly cookie, spends it, and issues a new access token
+    and a new refresh cookie. Used both for silent re-auth on access-token expiry and for the
     SPA's session bootstrap on page load / new tab.
 
-    Errors:
-        401: Missing, invalid, or expired refresh token
+    Errors (the unusable cookie is cleared so the client stops retrying with it):
+        401: Missing, invalid, expired, revoked or already-spent refresh token
         403: User blocked or inactive
+
+    Failures are returned, not raised: revoking a session whose token was replayed must be
+    committed, and raising would roll it back.
     """
     if not refresh_token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing refresh token",
-        )
+        return _session_ended(status.HTTP_401_UNAUTHORIZED, "Missing refresh token")
 
     try:
-        result = await auth_manager.refresh(refresh_token=refresh_token)
+        tokens = await authenticator.refresh(refresh_token)
     except AuthenticationError as e:
-        # Token is unusable — clear the stale cookie so the client stops
-        # retrying with it. Attached to the exception itself (see
-        # `_refresh_cookie_clear_headers`) since this response never returns
-        # normally.
-        raise HTTPException(
-            status_code=e.status_code,
-            detail=e.message,
-            headers=_refresh_cookie_clear_headers(),
-        ) from e
+        return _session_ended(e.status_code, e.message)
 
-    return TokenResponse(
-        access_token=result.access_token,
-        token_type=result.token_type,
-        expires_in=result.expires_in,
-    )
+    return _session_response(response, tokens)
 
 
 @router.get(
@@ -315,9 +284,15 @@ async def get_me(current_user: User = Depends(get_current_active_user)) -> dict[
 @router.get(
     "/microsoft/login",
     summary="Get Microsoft SSO login URL",
-    description="Returns the Azure AD authorization URL for browser redirect.",
+    description=(
+        "Returns the Azure AD authorization URL for browser redirect, and binds the sign-in "
+        "to this browser with a short-lived HttpOnly cookie (OAuth `state` and PKCE verifier)."
+    ),
 )
-async def microsoft_login() -> dict[str, Any]:
+async def microsoft_login(
+    response: Response,
+    client: ISsoClient = Depends(get_azure_sso_client),
+) -> dict[str, Any]:
     """
     GET /api/v1/auth/microsoft/login
 
@@ -325,16 +300,26 @@ async def microsoft_login() -> dict[str, Any]:
     Frontend should redirect the browser to the returned auth_url.
     Returns 501 if Azure SSO is not configured.
     """
-    from src.infrastructure.external.azure_sso import AzureSsoClient
-
-    client = AzureSsoClient()
     if not client.is_configured:
         raise HTTPException(
             status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail="Microsoft SSO is not configured on this server",
+            detail=SSO_NOT_CONFIGURED_DETAIL,
         )
 
-    auth_url, redirect_uri = client.build_authorization_url()
+    transaction = SsoTransaction.start()
+    auth_url, redirect_uri = client.build_authorization_url(
+        state=transaction.state, code_challenge=transaction.code_challenge
+    )
+    response.set_cookie(
+        key=settings.SSO_TXN_COOKIE_NAME,
+        value=transaction.to_cookie_value(),
+        max_age=settings.SSO_TXN_TTL_SECONDS,
+        httponly=True,
+        secure=settings.COOKIE_SECURE,
+        samesite=settings.COOKIE_SAMESITE,
+        path=settings.REFRESH_COOKIE_PATH,
+        domain=settings.COOKIE_DOMAIN or None,
+    )
     return {"auth_url": auth_url, "redirect_uri": redirect_uri}
 
 
@@ -347,50 +332,49 @@ async def microsoft_login() -> dict[str, Any]:
 )
 @log_execution
 async def microsoft_callback(
-    body: dict[str, Any],
+    body: MicrosoftCallbackRequest,
     response: Response,
-    auth_manager: AuthManager = Depends(get_auth_manager),
+    sso_txn: str | None = Cookie(default=None, alias=settings.SSO_TXN_COOKIE_NAME),
+    authenticator: ISessionAuthenticator = Depends(get_session_authenticator),
+    client: ISsoClient = Depends(get_azure_sso_client),
 ) -> TokenResponse:
     """
     POST /api/v1/auth/microsoft/callback
 
     Flow:
-    1. Exchange code for Microsoft access_token via AzureSsoClient
-    2. Fetch Graph profile (UPN, email)
-    3. Delegate to AuthManager.microsoft_login — verifies the Microsoft email
+    1. Check `state` against the one issued when this browser started the sign-in
+    2. Exchange code (with the PKCE verifier) for a Microsoft access_token via AzureSsoClient
+    3. Fetch Graph profile (UPN, email)
+    4. Delegate to the authenticator's microsoft_login — verifies the Microsoft email
        against the employee profile imported from AD and issues the JWT pair
-    4. Set the refresh cookie and return the access token
+    5. Set the refresh cookie and return the access token
 
     Errors:
-        400: Missing code, exchange failure, or Microsoft account has no email
+        400: State missing or mismatched, exchange failure, or Microsoft account has no email
         403: User account is inactive/blocked, or not imported from AD
         501: Azure SSO not configured
         502: Microsoft authentication service unreachable
     """
-    from src.infrastructure.external.azure_sso import (
-        AzureAuthError,
-        AzureSsoClient,
-        AzureTokenMissingError,
-        AzureUnavailableError,
-    )
-
-    client = AzureSsoClient()
     if not client.is_configured:
         raise HTTPException(
             status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail="Microsoft SSO is not configured on this server",
+            detail=SSO_NOT_CONFIGURED_DETAIL,
         )
 
-    code = (body.get("code") or "").strip()
-    if not code:
+    # A callback that this browser did not start (no cookie, or a different state) is a forged
+    # or replayed redirect. Nothing is exchanged and no Microsoft call is made.
+    transaction = SsoTransaction.from_cookie_value(sso_txn)
+    if transaction is None or not transaction.matches_state(body.state):
+        logger.warning("microsoft_callback_state_mismatch", has_cookie=sso_txn is not None)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Authorization code is required",
+            detail=SSO_SESSION_INVALID_DETAIL,
+            headers=_clear_cookie_headers(settings.SSO_TXN_COOKIE_NAME),
         )
 
     # Exchange code for Microsoft tokens + Graph profile
     try:
-        ms_user = await client.exchange_code_for_profile(code)
+        ms_user = await client.exchange_code_for_profile(body.code, transaction.code_verifier)
     except AzureTokenMissingError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -406,14 +390,9 @@ async def microsoft_callback(
 
     # Verify the Microsoft email against an AD-imported profile and issue tokens
     try:
-        result = await auth_manager.microsoft_login(ms_user)
+        tokens = await authenticator.microsoft_login(ms_user)
     except AuthenticationError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
 
-    _set_refresh_cookie(response, result.refresh_token)
-
-    return TokenResponse(
-        access_token=result.access_token,
-        token_type=result.token_type,
-        expires_in=result.expires_in,
-    )
+    _clear_cookie(response, settings.SSO_TXN_COOKIE_NAME)
+    return _session_response(response, tokens)

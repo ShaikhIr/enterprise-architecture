@@ -12,10 +12,16 @@ class LoginRequest(BaseModel):
     password: str = Field(..., min_length=1, description="Password")
 
 
-class RefreshRequest(BaseModel):
-    """Token refresh request payload."""
+class MicrosoftCallbackRequest(BaseModel):
+    """What the SPA forwards from Microsoft's redirect back to the app."""
 
-    refresh_token: str = Field(..., description="Valid refresh token")
+    code: str = Field(..., min_length=1, max_length=4096, description="Authorization code")
+    state: str = Field(
+        ...,
+        min_length=1,
+        max_length=512,
+        description="The `state` Microsoft returned; must equal the one issued at sign-in start",
+    )
 
 
 class TokenResponse(BaseModel):
@@ -37,8 +43,9 @@ class TokenResponse(BaseModel):
 
 
 class ErrorResponse(BaseModel):
-    """Standard error response."""
+    """Standard error response (`detail` is the canonical field; `message` mirrors it)."""
 
+    detail: str = Field(..., description="Error message")
     success: bool = Field(default=False)
-    message: str = Field(..., description="Error message")
+    message: str = Field(..., description="Same text as `detail`, kept for older clients")
     correlation_id: str = Field(default="", description="Request correlation ID")
