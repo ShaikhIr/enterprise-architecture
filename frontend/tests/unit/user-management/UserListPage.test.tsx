@@ -376,7 +376,7 @@ describe('UserListPage — import employees', () => {
   // SUSPECTED SRC BUG: ImportEmployeeDialog swallows a failed import with the comment
   // "Error handled via toast in parent", but UserListPage only passes `onSuccess` and shows
   // no error toast, so an admin gets no feedback at all when the import request fails.
-  it.fails('shows an error toast when the import request fails', async () => {
+  it('shows the error when the import request fails', async () => {
     const user = userEvent.setup();
     server.use(
       http.post('/api/v1/users/import-employees', () =>

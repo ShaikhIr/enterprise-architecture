@@ -55,3 +55,30 @@ describe('ContentViewerDialog — JSON highlighting', () => {
     expect(pre).toHaveTextContent('<img src=x onerror=alert(1)>');
   });
 });
+
+describe('ContentViewerDialog — text', () => {
+  it('shows markup as text and never renders it', () => {
+    renderWithProviders(
+      <ContentViewerDialog
+        visible
+        onHide={() => undefined}
+        title="Details"
+        content={'<img src=x onerror=alert(1)><b>bold</b>'}
+        contentType="text"
+      />,
+    );
+
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.querySelector('img')).toBeNull();
+    expect(dialog.querySelector('b')).toBeNull();
+    expect(dialog).toHaveTextContent('<img src=x onerror=alert(1)><b>bold</b>');
+  });
+
+  it('uses theme classes for the JSON panel, not a hard-coded colour', () => {
+    renderJson(JSON.stringify({ a: 1 }));
+
+    const panel = highlighted().parentElement as HTMLElement;
+    expect(panel).toHaveClass('surface-ground');
+    expect(panel.getAttribute('style') ?? '').not.toMatch(/#[0-9a-f]{3,8}/i);
+  });
+});

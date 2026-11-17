@@ -223,7 +223,8 @@ constraint today.
 2. Backend branches on the user's `is_validate_ad` flag: `true` calls the Darwin AD service
    (`POST /validatecredentials`) to authenticate; `false` verifies the local bcrypt hash.
 3. On success: `is_active`/`is_blocked` are checked, then a JWT access token is returned in
-   the response body and a refresh token is set as an HttpOnly, path-scoped cookie.
+   the response body and a refresh token is set as an HttpOnly, path-scoped cookie. A
+   directory (Darwin AD) outage answers 503 and is not counted as a failed guess.
 4. Frontend stores the access token in memory only (`shared/services/storageService.ts`,
    never localStorage/sessionStorage) and attaches it as `Authorization: Bearer <token>`.
 5. On a 401, `apiClient.ts`'s `refreshAccessTokenOnce()` de-duplicates concurrent refresh
@@ -231,10 +232,53 @@ constraint today.
 6. On reload, `authSlice`'s `bootstrapSession` thunk silently restores the session from the
    refresh cookie before the app renders past the splash.
 
-Alternative: Microsoft OAuth2 SSO via Azure AD (Authorization Code flow, confidential
-client) — see [MICROSOFT_OAUTH_ANALYSIS.md](./MICROSOFT_OAUTH_ANALYSIS.md). A first-time SSO
-login auto-provisions a local user by email, with a random password the user never uses and
-no role assigned.
+The orchestration (throttle, authenticate, audit) is `LoginService` in the application layer;
+`auth_controller.py` only maps its three outcomes (`LoginSucceeded`, `LoginRejected`,
+`LoginThrottled`) to HTTP.
+
+### Refresh tokens: single-use, rotated, revocable
+
+Every login starts a *session* (a `family_id`); each refresh token is a signed JWT with a `jti`
+and a row in `refresh_tokens`.
+
+- `POST /auth/refresh` **spends** the presented token and sets a new cookie holding its
+  successor, in the same session. The spend is one conditional `UPDATE`, so of two concurrent
+  requests exactly one wins.
+- A token presented again **after** `REFRESH_REUSE_GRACE_SECONDS` (10 s) was copied, so the
+  whole session is revoked: the thief's successor dies with the original.
+- Within that window it is taken to be a second browser tab refreshing at the same moment and
+  gets a new access token only. No new cookie is set (the first response already did), and the
+  session carries on.
+- `POST /auth/logout` revokes the session server-side. A refresh cookie copied before logout
+  no longer works. A user who is blocked or deactivated has their session revoked on the next
+  refresh.
+- Failures on these routes are *returned*, not raised, so the revocation commits (see the
+  login-throttle note below).
+- Tokens issued before rotation existed carry no `jti` and are refused once: users sign in again.
+- `refresh_tokens` is excluded from the automatic audit trail (a row per login and refresh would
+  bury it); logins, logouts and lockouts are audited explicitly. Expired rows are purged on login.
+
+### Microsoft SSO
+
+Microsoft OAuth2 SSO via Azure AD (Authorization Code flow with PKCE, confidential client) —
+see [MICROSOFT_OAUTH_ANALYSIS.md](./MICROSOFT_OAUTH_ANALYSIS.md).
+
+- `GET /auth/microsoft/login` makes a random `state` and PKCE verifier, sends the `state` and
+  the S256 challenge to Microsoft, and keeps both in a short-lived HttpOnly cookie
+  (`SSO_TXN_COOKIE_NAME`, `SSO_TXN_TTL_SECONDS`).
+- `POST /auth/microsoft/callback` takes `{code, state}` and refuses with 400, before calling
+  Microsoft, unless `state` matches the cookie. This is what stops a forged redirect from
+  signing a victim into an attacker's account (login CSRF). The cookie is spent on success.
+- Microsoft's own error text is logged, never returned to the browser.
+- The callback does **not** auto-provision. A verified Microsoft email must match an employee
+  profile already imported from AD (or an existing username); otherwise it answers 403.
+
+### Startup checks
+
+`validate_security_configuration` (called from the app lifespan) refuses to start when
+`JWT_SECRET_KEY` is a placeholder from this repository or shorter than 32 bytes, unless
+`DEBUG=true`. It warns when `COOKIE_SECURE` is false. `/docs` and `/redoc` are served only when
+`DEBUG` is true.
 
 ### Login throttling
 
@@ -305,8 +349,16 @@ Behaviour worth knowing:
 - **Client IP.** Taken from the socket peer, or from `X-Forwarded-For` counted from the
   **right** by `TRUSTED_PROXY_HOPS` (see `api/client_ip.py`). The client controls the left
   of that header, so a forged value cannot buy a fresh budget. IPv6 clients are bucketed by
-  /64. The address written to audit rows is a separate, older helper that still reads the
-  left-most hop.
+  /64. The login audit rows record this same resolved address, so a forged header cannot steer
+  the audit trail either.
+- **Reserved attempts are given back when they were never evaluated.** If the directory is down
+  the attempt says nothing about the password, so `LoginThrottleService.release_attempt` returns
+  the reservation (`ILoginAttemptStore.decrement`, one guarded Lua step on Redis). Retrying
+  through an outage cannot lock the user out.
+- **Other credential checks share the limiter.** `POST /services/employee-ad/validate-credentials`
+  runs through `DirectoryCredentialCheckService`, under its own key scope, so it is not a
+  password-guessing oracle for anyone holding `services.employee_ad`; refused calls answer 429
+  with `Retry-After`.
 - **Kill switches.** `LOGIN_THROTTLE_ENABLED=false` turns the whole throttle off without a
   deploy; startup logs a warning when it is off. `LOGIN_FAMILIAR_IP_TTL_SECONDS=0` turns off
   only the familiar-address exemption, so every address is a stranger again.
@@ -427,6 +479,8 @@ that the deployed nginx should match (WAPT findings EMC-WA-2, EMC-WA-3 and EMC-W
 | Async SQLAlchemy | Non-blocking DB calls for high concurrency |
 | JWT access token in memory (not localStorage) | XSS protection |
 | Refresh token as HttpOnly cookie, single de-duplicated refresh in-flight | Session survives reload without racing concurrent 401s into multiple refreshes |
+| Single-use refresh tokens with a server-side record and a short reuse grace window | A copied cookie is detectable and revocable; two tabs refreshing at once do not sign the user out |
+| Errors always carry `detail` (plus `message`, `success`, `correlation_id`) | One shape for the client to read; the extra fields keep older clients working |
 | Audit in same transaction as the write | Atomically consistent with data changes |
 | Workflow engine keyed by `entity_type`/`entity_id`, not a foreign key | Reusable by any future entity that wants an approval flow, without schema changes to the engine |
 | Tree-based permission UI | Visual, feature-grouped, checkbox selection |

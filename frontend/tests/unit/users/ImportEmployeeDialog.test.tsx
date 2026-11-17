@@ -51,7 +51,10 @@ describe('ImportEmployeeDialog — default password', () => {
     renderWithProviders(<ImportEmployeeDialog visible onHide={vi.fn()} />);
 
     await user.type(screen.getByLabelText('Employee IDs to import'), '93300040');
-    await user.type(screen.getByPlaceholderText('Defaults to Employee ID'), '  Welcome@123  ');
+    await user.type(
+      screen.getByPlaceholderText('Blank: a random password is set'),
+      '  Welcome@123  ',
+    );
     await user.click(screen.getByRole('button', { name: 'Import' }));
 
     await waitFor(() => expect(captured).not.toBeNull());
@@ -86,5 +89,104 @@ describe('ImportEmployeeDialog — default password', () => {
     // keeps the parsed id list empty so no request is issued.
     expect(screen.getByRole('button', { name: 'Import' })).toHaveClass('p-disabled');
     expect(handler).not.toHaveBeenCalled();
+  });
+});
+
+describe('ImportEmployeeDialog — password rules and failures', () => {
+  const PASSWORD_PLACEHOLDER = 'Blank: a random password is set';
+
+  it('no longer promises the Employee ID as the initial password', () => {
+    renderWithProviders(<ImportEmployeeDialog visible onHide={vi.fn()} />);
+
+    expect(screen.queryByText(/use the Employee ID as the initial password/i)).toBeNull();
+    expect(screen.getByText(/random password nobody knows/i)).toBeInTheDocument();
+  });
+
+  it('blocks a password shorter than 8 characters and says why', async () => {
+    const user = userEvent.setup();
+    const handler = vi.fn(() => HttpResponse.json(IMPORT_RESPONSE));
+    server.use(http.post(IMPORT_URL, handler));
+    renderWithProviders(<ImportEmployeeDialog visible onHide={vi.fn()} />);
+
+    await user.type(screen.getByLabelText('Employee IDs to import'), '93300040');
+    await user.type(screen.getByPlaceholderText(PASSWORD_PLACEHOLDER), 'short');
+
+    expect(screen.getByText('Use 8 to 72 characters, or leave it blank.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Import' })).toHaveClass('p-disabled');
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it('blocks a password longer than 72 characters', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<ImportEmployeeDialog visible onHide={vi.fn()} />);
+
+    await user.type(screen.getByLabelText('Employee IDs to import'), '93300040');
+    await user.type(screen.getByPlaceholderText(PASSWORD_PLACEHOLDER), 'x'.repeat(73));
+
+    expect(screen.getByText('Use 8 to 72 characters, or leave it blank.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Import' })).toHaveClass('p-disabled');
+  });
+
+  it('accepts a password at the lower and upper bounds', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<ImportEmployeeDialog visible onHide={vi.fn()} />);
+    await user.type(screen.getByLabelText('Employee IDs to import'), '93300040');
+    const field = screen.getByPlaceholderText(PASSWORD_PLACEHOLDER);
+
+    await user.type(field, '12345678');
+    expect(screen.queryByText('Use 8 to 72 characters, or leave it blank.')).toBeNull();
+
+    await user.clear(field);
+    await user.type(field, 'x'.repeat(72));
+    expect(screen.queryByText('Use 8 to 72 characters, or leave it blank.')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Import' })).not.toHaveClass('p-disabled');
+  });
+
+  it('treats spaces alone as blank, not as a too-short password', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<ImportEmployeeDialog visible onHide={vi.fn()} />);
+
+    await user.type(screen.getByLabelText('Employee IDs to import'), '93300040');
+    await user.type(screen.getByPlaceholderText(PASSWORD_PLACEHOLDER), '   ');
+
+    expect(screen.queryByText('Use 8 to 72 characters, or leave it blank.')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Import' })).not.toHaveClass('p-disabled');
+  });
+
+  it('shows the server message inside the dialog when the import fails', async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.post(IMPORT_URL, () =>
+        HttpResponse.json({ detail: 'Darwin API error: unavailable' }, { status: 502 }),
+      ),
+    );
+    renderWithProviders(<ImportEmployeeDialog visible onHide={vi.fn()} />);
+
+    await user.type(screen.getByLabelText('Employee IDs to import'), '93300040');
+    await user.click(screen.getByRole('button', { name: 'Import' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Darwin API error: unavailable');
+  });
+
+  it('clears an earlier failure when the import is retried', async () => {
+    const user = userEvent.setup();
+    let calls = 0;
+    server.use(
+      http.post(IMPORT_URL, () => {
+        calls += 1;
+        return calls === 1
+          ? HttpResponse.json({ detail: 'try later' }, { status: 502 })
+          : HttpResponse.json(IMPORT_RESPONSE);
+      }),
+    );
+    renderWithProviders(<ImportEmployeeDialog visible onHide={vi.fn()} />);
+
+    await user.type(screen.getByLabelText('Employee IDs to import'), '93300040');
+    await user.click(screen.getByRole('button', { name: 'Import' }));
+    await screen.findByRole('alert');
+    await user.click(screen.getByRole('button', { name: 'Import' }));
+
+    await screen.findByLabelText('Import results');
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 });

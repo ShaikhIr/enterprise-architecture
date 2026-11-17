@@ -18,7 +18,12 @@ import React, { useMemo } from 'react';
 import { Button } from 'primereact/button';
 import { Dialog } from 'primereact/dialog';
 
-export type ContentType = 'json' | 'text' | 'pdf' | 'html';
+/**
+ * There is deliberately no `html` type. Rendering a string as markup is an injection sink for
+ * whatever ends up in it (audit values, user-entered text); the viewer shows text, never markup.
+ * The one place markup is built (the JSON highlighter) escapes its input first.
+ */
+export type ContentType = 'json' | 'text' | 'pdf';
 
 interface ContentViewerDialogProps {
   /** Controls dialog visibility */
@@ -58,7 +63,6 @@ export const ContentViewerDialog: React.FC<ContentViewerDialogProps> = ({
           return content;
         }
       case 'text':
-      case 'html':
       default:
         return content;
     }
@@ -113,14 +117,6 @@ export const ContentViewerDialog: React.FC<ContentViewerDialogProps> = ({
         return <JsonViewer content={formattedContent || ''} />;
       case 'pdf':
         return <PdfViewer url={contentUrl || ''} />;
-      case 'html':
-        return (
-          <div
-            className="p-3 border-round surface-ground overflow-auto"
-            style={{ maxHeight: '500px' }}
-            dangerouslySetInnerHTML={{ __html: content || '' }}
-          />
-        );
       case 'text':
       default:
         return (
@@ -179,12 +175,8 @@ const JsonViewer: React.FC<JsonViewerProps> = ({ content }) => {
 
   return (
     <div
-      className="border-round overflow-auto"
-      style={{
-        maxHeight: '500px',
-        background: '#FAFAFA',
-        border: '1px solid var(--surface-border)',
-      }}
+      className="border-round border-1 surface-border surface-ground overflow-auto"
+      style={{ maxHeight: '500px' }}
     >
       <pre
         className="m-0 p-3 text-sm"

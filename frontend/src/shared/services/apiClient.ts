@@ -97,7 +97,15 @@ export const refreshAccessTokenOnce = (): Promise<string> => {
  * Logging in with no token is the normal case, and a refresh cannot wait for itself.
  */
 const isSessionEndpoint = (url?: string): boolean =>
-  Boolean(url && (url.includes('/auth/login') || url.includes('/auth/refresh')));
+  Boolean(
+    url &&
+      (url.includes('/auth/login') ||
+        url.includes('/auth/refresh') ||
+        // The Microsoft sign-in start and callback: they run before there is a session, and
+        // the callback carries a single-use code, so a silent refresh in front of it (or a
+        // refresh-and-replay after a 401) would only spend the old refresh cookie for nothing.
+        url.includes('/auth/microsoft')),
+  );
 
 /**
  * The access token, restoring it first when this tab does not have one.

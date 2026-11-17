@@ -50,7 +50,6 @@ const renderLayout = (preloadedState: TestPreloadedState, path = '/dashboard') =
         <Route path="/dashboard" element={<div>Dashboard page</div>} />
         <Route path="/users" element={<div>Users page</div>} />
         <Route path="/roles" element={<div>Roles page</div>} />
-        <Route path="/profile" element={<div>Profile page</div>} />
         <Route path="/somewhere-else" element={<div>Unlisted page</div>} />
       </Route>
       <Route path="/login" element={<div>Login page</div>} />
@@ -374,7 +373,7 @@ describe('MainLayout — top bar and user menu', () => {
     expect(screen.getByRole('button', { name: 'Notifications' })).toBeInTheDocument();
   });
 
-  it('opens a menu with the username, Profile and Logout', async () => {
+  it('opens a menu with the username and Logout', async () => {
     const user = userEvent.setup();
     renderLayout(stateWith(['dashboard']));
 
@@ -382,18 +381,17 @@ describe('MainLayout — top bar and user menu', () => {
 
     const menu = await screen.findByRole('menu');
     expect(within(menu).getByText('jdoe')).toBeInTheDocument();
-    expect(within(menu).getByRole('menuitem', { name: 'Profile' })).toBeInTheDocument();
     expect(within(menu).getByRole('menuitem', { name: 'Logout' })).toBeInTheDocument();
   });
 
-  it('goes to /profile from the Profile item', async () => {
+  it('offers no Profile item, because there is no /profile page to go to', async () => {
     const user = userEvent.setup();
     renderLayout(stateWith(['dashboard']));
 
     await user.click(screen.getByRole('button', { name: 'User menu' }));
-    await user.click(await screen.findByText('Profile'));
 
-    expect(await screen.findByText('Profile page')).toBeInTheDocument();
+    const menu = await screen.findByRole('menu');
+    expect(within(menu).queryByRole('menuitem', { name: 'Profile' })).not.toBeInTheDocument();
   });
 
   it('logs out end to end: calls the server, clears auth and RBAC state, lands on /login', async () => {

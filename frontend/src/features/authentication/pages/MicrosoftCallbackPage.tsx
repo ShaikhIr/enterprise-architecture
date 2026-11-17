@@ -38,9 +38,17 @@ export const MicrosoftCallbackPage = () => {
       return;
     }
 
+    // The server issued this value when the sign-in started and keeps its own copy in a
+    // cookie. A redirect that arrives without it was not started from this browser.
+    const state = searchParams.get('state');
+    if (!state) {
+      setError('The sign-in response from Microsoft was incomplete. Please try again.');
+      return;
+    }
+
     // Exchange code for app tokens
     microsoftApi
-      .exchangeCode(code)
+      .exchangeCode(code, state)
       .then(async (tokenRes) => {
         // Access token → memory. Refresh token was set as an HttpOnly cookie by the server.
         storageService.setAccessToken(tokenRes.access_token);

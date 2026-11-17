@@ -178,9 +178,12 @@ class TestLogin:
         from src.infrastructure.security import auth_manager as module
 
         checked: list[str] = []
-        monkeypatch.setattr(
-            module, "verify_password", lambda plain, hashed: checked.append(plain) or False
-        )
+
+        def record(plain: str, hashed: str) -> bool:
+            checked.append(plain)
+            return False
+
+        monkeypatch.setattr(module, "verify_password", record)
 
         with pytest.raises(InvalidCredentialsError):
             await auth_manager.login("ghost", "guess")

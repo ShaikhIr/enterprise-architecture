@@ -34,6 +34,11 @@ pip install -e ".[dev]"
 copy .env.example .env         # then edit DATABASE_URL and JWT_SECRET_KEY
 ```
 
+The example `.env` sets `DEBUG=true` so it starts as-is for local work. **Anything else must set
+`DEBUG=false` and a real `JWT_SECRET_KEY`** (`python -c "import secrets; print(secrets.token_urlsafe(48))"`):
+with `DEBUG` off the API refuses to start while the key is a placeholder or shorter than 32
+bytes, and it does not serve `/docs`. Set `COOKIE_SECURE=true` wherever the API is behind HTTPS.
+
 Optional dependency groups, installed only when the features that need them are
 built: `pip install -e ".[background]"` (Celery/Redis) and
 `.[observability]` (OpenTelemetry).
@@ -48,6 +53,11 @@ make seed
 `make seed` creates the `admin` user and every default permission and role
 mapping. It is idempotent, so re-running it is safe.
 
+**Permissions come from `make seed`, not from the migrations.** `alembic upgrade head` creates
+the schema and the three roles only, so after it alone no menu item is visible to anyone. Run
+`make seed` on every environment after migrating, and again after adding a permission to
+`scripts/seed_rbac.py`.
+
 ## Running
 
 ```bash
@@ -56,6 +66,8 @@ make run        # uvicorn with reload on http://localhost:6769
 
 - Swagger UI: `/docs` (use **Authorize** with a bearer token from `POST /api/v1/auth/login`)
 - ReDoc: `/redoc`
+
+Both are served only when `DEBUG=true`.
 
 ## Testing
 

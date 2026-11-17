@@ -248,6 +248,25 @@ Service    → raises ValueError("User not found")
 Controller → catches ValueError → raises HTTPException(404, detail=str(e))
 ```
 
+Master-data and workflow services use the domain errors in
+`src/domain/exceptions/domain_exceptions.py` (`EntityNotFoundError`, `DuplicateEntityError`,
+`BusinessRuleViolationError`) and authentication uses `AuthenticationError` and its subclasses
+(`src/application/exceptions/auth_exceptions.py`). The controller does not catch these:
+`ExceptionHandlerMiddleware` maps them to 404 / 409 / the error's own status. Either style is
+correct; do not mix them within one service.
+
+Every error body carries `detail`. The middleware also adds `message`, `success` and
+`correlation_id`, which older clients read; they repeat the same text.
+
+A route that writes something it must keep when it fails (the audit row of a failed login, the
+revocation of a replayed refresh token) **returns** its error response instead of raising.
+`get_db_session` rolls the request back when a route raises, which would discard that write.
+
+Controllers never build an adapter (`XRepositoryImpl(...)`, `XClient()`, `AuditService(...)`),
+neither in a route nor at import time. They take it from a `Depends()` factory in
+`dependencies.py`, which is also what lets tests replace it with `app.dependency_overrides`.
+`test_architecture.py` enforces this.
+
 ---
 
 ## Checklist for New Endpoints

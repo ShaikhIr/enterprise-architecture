@@ -152,11 +152,8 @@ export const MainLayout = () => {
       disabled: true,
     },
     { separator: true },
-    {
-      label: 'Profile',
-      icon: 'pi pi-id-card',
-      command: () => navigate('/profile'),
-    },
+    // No Profile item: there is no /profile page yet, and a menu entry that lands on the
+    // not-found page is worse than none. Add the item back together with its route.
     {
       label: 'Logout',
       icon: 'pi pi-sign-out',

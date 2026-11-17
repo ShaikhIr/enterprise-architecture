@@ -116,6 +116,51 @@ describe('apiClient', () => {
 
       expect(refreshCalls).toBe(0);
     });
+
+    it('does not spend the refresh cookie ahead of the Microsoft sign-in calls', async () => {
+      let refreshCalls = 0;
+      server.use(
+        http.post(REFRESH_URL, () => {
+          refreshCalls += 1;
+          return HttpResponse.json({ access_token: 'x', token_type: 'Bearer', expires_in: 1800 });
+        }),
+        http.get('/api/v1/auth/microsoft/login', () =>
+          HttpResponse.json({ auth_url: 'https://login.example', redirect_uri: 'http://app/cb' }),
+        ),
+        http.post('/api/v1/auth/microsoft/callback', () =>
+          HttpResponse.json({ access_token: 'ms', token_type: 'Bearer', expires_in: 1800 }),
+        ),
+      );
+
+      await apiClient.get('/auth/microsoft/login');
+      await apiClient.post('/auth/microsoft/callback', { code: 'c', state: 's' });
+
+      // Refresh tokens are single-use now: a refresh in front of these would burn the old
+      // one for nothing, and a callback code can be redeemed only once, so it is never replayed.
+      expect(refreshCalls).toBe(0);
+    });
+
+    it('does not refresh and replay a rejected Microsoft callback', async () => {
+      let refreshCalls = 0;
+      let callbackCalls = 0;
+      server.use(
+        http.post(REFRESH_URL, () => {
+          refreshCalls += 1;
+          return HttpResponse.json({ access_token: 'x', token_type: 'Bearer', expires_in: 1800 });
+        }),
+        http.post('/api/v1/auth/microsoft/callback', () => {
+          callbackCalls += 1;
+          return HttpResponse.json({ detail: 'nope' }, { status: 401 });
+        }),
+      );
+
+      await expect(
+        apiClient.post('/auth/microsoft/callback', { code: 'c', state: 's' }),
+      ).rejects.toMatchObject({ response: { status: 401 } });
+
+      expect(callbackCalls).toBe(1);
+      expect(refreshCalls).toBe(0);
+    });
   });
 
   describe('response interceptor (401 handling)', () => {
