@@ -14,7 +14,7 @@ dependencies = [
     "PyJWT==2.9.0",
     # bcrypt is used directly by password_encoder; passlib was pinned but never
     # imported, so it was removed rather than left as unused attack surface.
-    "bcrypt==4.2.0",
+    "bcrypt==4.3.0",
     "structlog==24.4.0",
     "httpx==0.27.2",
     # S3 object storage adapter (infrastructure/external/storage). Only imported
