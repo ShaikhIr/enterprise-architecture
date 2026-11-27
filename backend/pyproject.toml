@@ -21,7 +21,7 @@ dependencies = [
     # when STORAGE_BACKEND=s3; the default 'local' backend writes under UPLOAD_DIR
     # and needs nothing extra. Pinned so an upload path behaves identically on a
     # rerun months from now.
-    "boto3==1.35.36",
+    "boto3==1.43.127",
     # Login throttling (infrastructure/cache). The failed-login counters must be shared by
     # every API replica, or an attacker simply spreads guesses across them, so this is a
     # dependency of /auth/login and not an optional extra. If the server is unreachable at
@@ -57,7 +57,7 @@ dev = [
     # mypy every boto3 symbol would be Any and the adapter would go unchecked;
     # real stubs are the fix, not an ignore_missing_imports override (which this
     # project's mypy config deliberately forbids). Kept in lockstep with boto3.
-    "boto3-stubs[s3]==1.35.36",
+    "boto3-stubs[s3]==1.43.127",
 ]
 
 [tool.pytest.ini_options]
